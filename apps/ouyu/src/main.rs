@@ -5,6 +5,7 @@ pub use makepad_widgets;
 use makepad_app_module::makepad_ai_services::port::{AiServicePort, PortEvent};
 use makepad_app_module::makepad_ai_services::wire::{HostedDown, ServiceDown, ToolResult};
 use makepad_widgets::*;
+use octosense_ouyu::theme::ThemeMode;
 use octosense_ouyu::OuyuView;
 
 app_main!(
@@ -21,9 +22,9 @@ script_mod! {
             main_window := Window {
                 window.title: "偶遇 OuYu"
                 window.inner_size: vec2(1280, 800)
-                // 独立窗口时 pass 的底色也用偶遇的夜色，免得露出默认灰。
-                pass +: { clear_color: #x0b1220 }
-                caption_bar.draw_bg.color: #x0b1220
+                // 独立窗口时 pass 与标题栏也用偶遇的底色，免得露出默认灰。
+                pass +: { clear_color: mod.ouyu.bg }
+                caption_bar.draw_bg.color: mod.ouyu.bg
                 body := OuyuView {}
             }
         }
@@ -40,6 +41,10 @@ pub struct App {
     /// 注册应答（Registered）可能因子进程启动竞态被宿主丢掉: 2s 后没学到 endpoint 就重报一次。
     #[rust]
     register_retry: Timer,
+    /// 上一拍看到的深浅。窗口底色和标题栏写在这个 script_mod 里，不在
+    /// OuyuView 里，所以设置页换主题之后得让整个 App 重新 bake 一次。
+    #[rust]
+    seen_theme: Option<ThemeMode>,
 }
 
 impl App {
@@ -114,6 +119,7 @@ impl App {
 impl AppMain for App {
     fn script_mod(vm: &mut ScriptVm) -> ScriptValue {
         makepad_widgets::script_mod(vm);
+        octosense_ouyu::theme::install(vm);
         octosense_ouyu::canvas::script_mod(vm);
         octosense_ouyu::script_mod(vm);
         self::script_mod(vm)
@@ -123,5 +129,16 @@ impl AppMain for App {
         self.ensure_ai_port(cx);
         self.drain_ai_port(cx, event);
         self.ui.handle_event(cx, event, &mut Scope::empty());
+        let mode = octosense_ouyu::theme::mode();
+        match self.seen_theme {
+            None => self.seen_theme = Some(mode),
+            Some(seen) if seen != mode => {
+                self.seen_theme = Some(mode);
+                // Rebake 会重跑 script_mod，mod.ouyu 已经指向新的一套色，
+                // 窗口那两处跟着换；OuyuView 收到 LiveEdit 再把数据铺回去。
+                cx.request_live_edit();
+            }
+            Some(_) => {}
+        }
     }
 }

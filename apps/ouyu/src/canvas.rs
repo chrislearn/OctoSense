@@ -7,7 +7,7 @@ use crate::share::{ShareCardScene, ShareStyle};
 use makepad_widgets::*;
 
 script_mod! {
-    use mod.prelude.widgets_internal.*
+    use mod.prelude.ouyu.*
     use mod.widgets.*
 
     // 圆角矩形 + 可选描边: 卡片骨架、地图光圈都靠它。
@@ -33,29 +33,29 @@ script_mod! {
         width: Fill
         height: 300
 
-        draw_bg +: { color: #x0a1120 draw_depth: 0.0 }
-        draw_road +: { color: #x16223c draw_depth: 0.5 }
-        draw_block +: { color: #x101a2e radius: 4.0 draw_depth: 1.0 }
-        draw_glow +: { color: #ffca91 radius: 500.0 alpha_scale: 0.05 draw_depth: 1.5 }
-        draw_ring +: { color: #ffca91 radius: 500.0 alpha_scale: 0.55 draw_depth: 2.0 }
-        draw_dot +: { color: #ffca91 radius: 500.0 draw_depth: 2.5 }
+        draw_bg +: { color: ouyu.map_bg draw_depth: 0.0 }
+        draw_road +: { color: ouyu.map_road draw_depth: 0.5 }
+        draw_block +: { color: ouyu.map_block radius: 4.0 draw_depth: 1.0 }
+        draw_glow +: { color: ouyu.map_glow radius: 500.0 alpha_scale: 0.05 draw_depth: 1.5 }
+        draw_ring +: { color: ouyu.warm radius: 500.0 alpha_scale: 0.55 draw_depth: 2.0 }
+        draw_dot +: { color: ouyu.warm radius: 500.0 draw_depth: 2.5 }
         draw_label +: {
-            color: #6b7a99
+            color: ouyu.ink_4
             draw_depth: 3.0
             text_style: theme.font_regular{ font_size: 10.0 }
         }
         draw_title +: {
-            color: #ffca91
+            color: ouyu.warm
             draw_depth: 3.0
             text_style: theme.font_regular{ font_size: 13.0 }
         }
         draw_sub +: {
-            color: #a4b2c9
+            color: ouyu.ink_2
             draw_depth: 3.0
             text_style: theme.font_regular{ font_size: 11.0 }
         }
         draw_hint +: {
-            color: #6b7a99
+            color: ouyu.ink_4
             draw_depth: 3.0
             text_style: theme.font_regular{ font_size: 10.0 }
         }
@@ -69,8 +69,8 @@ script_mod! {
         padding: 18.0
         spacing: 12.0
         draw_bg +: {
-            color: #152235
-            border_color: #x26364c
+            color: ouyu.card
+            border_color: ouyu.line_soft
             border_size: 1.0
             border_radius: 20.0
         }
@@ -83,7 +83,7 @@ script_mod! {
         padding: 14.0
         spacing: 10.0
         draw_bg +: {
-            color: #111c2c
+            color: ouyu.card_2
             border_color: #0000
             border_size: 0.0
             border_radius: 16.0
@@ -111,44 +111,44 @@ script_mod! {
     // ---------------------------------------------------------------
     mod.widgets.OuyuH1 = mod.widgets.Label{
         width: Fill
-        draw_text +: { wrap: Words color: #e7edf8 text_style +: { font_size: 24.0 line_spacing: 1.25 } }
+        draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 24.0 line_spacing: 1.25 } }
     }
     mod.widgets.OuyuH2 = mod.widgets.Label{
         width: Fill
-        draw_text +: { wrap: Words color: #e7edf8 text_style +: { font_size: 18.0 line_spacing: 1.3 } }
+        draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 18.0 line_spacing: 1.3 } }
     }
     mod.widgets.OuyuH3 = mod.widgets.Label{
         width: Fill
-        draw_text +: { wrap: Words color: #e7edf8 text_style +: { font_size: 15.0 line_spacing: 1.3 } }
+        draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 15.0 line_spacing: 1.3 } }
     }
     mod.widgets.OuyuBody = mod.widgets.Label{
         width: Fill
-        draw_text +: { wrap: Words color: #e7edf8 text_style +: { font_size: 14.5 line_spacing: 1.35 } }
+        draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 14.5 line_spacing: 1.35 } }
     }
     // 次文下限 13：05 明确「放弃旧版 11px 正文」。
     mod.widgets.OuyuMuted = mod.widgets.Label{
         width: Fill
-        draw_text +: { wrap: Words color: #a4b2c9 text_style +: { font_size: 13.0 line_spacing: 1.35 } }
+        draw_text +: { wrap: Words color: ouyu.ink_2 text_style +: { font_size: 13.0 line_spacing: 1.35 } }
     }
     // 11px 只留给徽章，绝不用于正文。
     mod.widgets.OuyuBadge = mod.widgets.Label{
         width: Fit
-        draw_text +: { color: #a4b2c9 text_style +: { font_size: 11.0 } }
+        draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 11.0 } }
     }
     mod.widgets.OuyuBadgeWarm = mod.widgets.OuyuBadge{
-        draw_text +: { color: #ffca91 }
+        draw_text +: { color: ouyu.warm }
     }
     mod.widgets.OuyuBadgeBlue = mod.widgets.OuyuBadge{
-        draw_text +: { color: #82b5ff }
+        draw_text +: { color: ouyu.blue }
     }
     mod.widgets.OuyuGood = mod.widgets.OuyuMuted{
-        draw_text +: { color: #9be2bf }
+        draw_text +: { color: ouyu.good }
     }
     mod.widgets.OuyuBad = mod.widgets.OuyuMuted{
-        draw_text +: { color: #ff9eab }
+        draw_text +: { color: ouyu.bad }
     }
     mod.widgets.OuyuWarmText = mod.widgets.OuyuMuted{
-        draw_text +: { color: #ffca91 }
+        draw_text +: { color: ouyu.warm }
     }
 
     // ---------------------------------------------------------------
@@ -157,16 +157,16 @@ script_mod! {
     // ---------------------------------------------------------------
     mod.widgets.OuyuIcon = mod.widgets.Icon{
         icon_walk: Walk{ width: 16.0 height: Fit }
-        draw_icon +: { preserve_viewbox: true color: #a4b2c9 }
+        draw_icon +: { preserve_viewbox: true color: ouyu.ink_2 }
     }
     mod.widgets.OuyuIconWarm = mod.widgets.OuyuIcon{
-        draw_icon +: { preserve_viewbox: true color: #ffca91 }
+        draw_icon +: { preserve_viewbox: true color: ouyu.warm }
     }
     mod.widgets.OuyuIconBlue = mod.widgets.OuyuIcon{
-        draw_icon +: { preserve_viewbox: true color: #82b5ff }
+        draw_icon +: { preserve_viewbox: true color: ouyu.blue }
     }
     mod.widgets.OuyuIconText = mod.widgets.OuyuIcon{
-        draw_icon +: { preserve_viewbox: true color: #e7edf8 }
+        draw_icon +: { preserve_viewbox: true color: ouyu.ink }
     }
 
     // 折线段：SDF 胶囊，转角圆润（参考 makepad finance 图表，去掉 glow）。
@@ -210,12 +210,12 @@ script_mod! {
     mod.widgets.OuyuChart = set_type_default() do mod.widgets.OuyuChartBase{
         width: Fill
         height: 220
-        draw_area +: { color_top: #xffca9166 }
-        draw_line +: { color_line: #ffca91 thickness: 2.5 }
-        draw_dot +: { color: #ffca91 radius: 500.0 }
-        draw_rule +: { color: #x1d2b42 }
+        draw_area +: { color_top: ouyu.warm_wash }
+        draw_line +: { color_line: ouyu.warm thickness: 2.5 }
+        draw_dot +: { color: ouyu.warm radius: 500.0 }
+        draw_rule +: { color: ouyu.line }
         draw_text +: {
-            color: #6b7a99
+            color: ouyu.ink_4
             text_style: theme.font_regular{ font_size: 10.0 }
         }
     }
@@ -254,19 +254,22 @@ script_mod! {
         icon_walk: Walk{ width: 16.0 height: Fit }
         draw_bg +: {
             border_radius: 12.0
-            color: #82b5ff
-            color_hover: #x9cc4ff
-            color_down: #x6ba3f0
-            color_focus: #82b5ff
-            color_disabled: #x2a3550
+            // ButtonFlat 默认带一圈 theme.beveling 的斜边，描边色取自 makepad
+            // 的默认主题。实心按钮不要这圈边，否则偶遇的蓝上会压一道灰。
+            border_size: 0.0
+            color: ouyu.blue
+            color_hover: ouyu.blue_hi
+            color_down: ouyu.blue_lo
+            color_focus: ouyu.blue
+            color_disabled: ouyu.off_bg
         }
-        draw_icon +: { preserve_viewbox: true color: #x05070e }
+        draw_icon +: { preserve_viewbox: true color: ouyu.on_blue }
         draw_text +: {
-            color: #x05070e
-            color_hover: #x05070e
-            color_down: #x05070e
-            color_focus: #x05070e
-            color_disabled: #x63708a
+            color: ouyu.on_blue
+            color_hover: ouyu.on_blue
+            color_down: ouyu.on_blue
+            color_focus: ouyu.on_blue
+            color_disabled: ouyu.off_ink
         }
     }
 
@@ -284,42 +287,62 @@ script_mod! {
         align: Align{x: 0.5, y: 0.5}
         icon_walk: Walk{ width: 15.0 height: Fit }
         padding: Inset{left: 14.0, right: 14.0, top: 8.0, bottom: 8.0}
-        draw_icon +: { preserve_viewbox: true color: #e7edf8 }
+        draw_icon +: { preserve_viewbox: true color: ouyu.ink }
         draw_bg +: {
             border_radius: 12.0
             border_size: 1.0
             color: #0000
-            color_hover: #x1d2b4a
-            color_down: #x1d2b4a
+            color_hover: ouyu.hl
+            color_down: ouyu.hl
             color_focus: #0000
-            border_color: #x1d2b42
-            border_color_hover: #82b5ff
-            border_color_down: #82b5ff
-            border_color_focus: #82b5ff
+            border_color: ouyu.line
+            border_color_hover: ouyu.blue
+            border_color_down: ouyu.blue
+            border_color_focus: ouyu.blue
         }
         draw_text +: {
-            color: #e7edf8
-            color_hover: #e7edf8
-            color_down: #e7edf8
-            color_focus: #e7edf8
+            color: ouyu.ink
+            color_hover: ouyu.ink
+            color_down: ouyu.ink
+            color_focus: ouyu.ink
         }
+    }
+
+    // sm 档：一行里并排好几个动作时用（熟人行的「回忆 / 合并 / 清空回忆 /
+    // 删除」）。手机上四个 md 按钮排不进一行，只好把行拆成三行 —— 一个熟人
+    // 占三行，一屏看不到几个人。
+    mod.widgets.OuyuBtnSm = mod.widgets.OuyuBtn{
+        height: 28
+        padding: Inset{left: 10.0, right: 10.0, top: 4.0, bottom: 4.0}
+        icon_walk: Walk{ width: 13.0 height: Fit }
+        draw_bg +: { border_radius: 9.0 }
+        draw_text +: { text_style +: { font_size: 12.5 } }
     }
 
     // 危险按钮: 描边 + 错误色文字（删除联系人等）。
     mod.widgets.OuyuBtnDanger = mod.widgets.OuyuBtn{
-        draw_icon +: { preserve_viewbox: true color: #ff9eab }
+        draw_icon +: { preserve_viewbox: true color: ouyu.bad }
         draw_bg +: {
-            border_color: #x4a2530
-            border_color_hover: #ff9eab
-            border_color_down: #ff9eab
-            border_color_focus: #ff9eab
+            border_color: ouyu.bad_line
+            border_color_hover: ouyu.bad
+            border_color_down: ouyu.bad
+            border_color_focus: ouyu.bad
         }
         draw_text +: {
-            color: #ff9eab
-            color_hover: #ff9eab
-            color_down: #ff9eab
-            color_focus: #ff9eab
+            color: ouyu.bad
+            color_hover: ouyu.bad
+            color_down: ouyu.bad
+            color_focus: ouyu.bad
         }
+    }
+
+    // sm 档的危险按钮，配 OuyuBtnSm 用。
+    mod.widgets.OuyuBtnDangerSm = mod.widgets.OuyuBtnDanger{
+        height: 28
+        padding: Inset{left: 10.0, right: 10.0, top: 4.0, bottom: 4.0}
+        icon_walk: Walk{ width: 13.0 height: Fit }
+        draw_bg +: { border_radius: 9.0 }
+        draw_text +: { text_style +: { font_size: 12.5 } }
     }
 
     // 券卡（暖杏底）上的深色按钮。
@@ -328,20 +351,21 @@ script_mod! {
         spacing: 6.0
         align: Align{x: 0.5, y: 0.5}
         icon_walk: Walk{ width: 16.0 height: Fit }
-        draw_icon +: { preserve_viewbox: true color: #ffca91 }
+        draw_icon +: { preserve_viewbox: true color: ouyu.on_warm_btn }
         padding: Inset{left: 18.0, right: 18.0, top: 10.0, bottom: 10.0}
         draw_bg +: {
             border_radius: 12.0
-            color: #x2b1c0d
-            color_hover: #x3a2812
-            color_down: #x3a2812
-            color_focus: #x2b1c0d
+            border_size: 0.0
+            color: ouyu.warm_btn
+            color_hover: ouyu.warm_btn_hi
+            color_down: ouyu.warm_btn_hi
+            color_focus: ouyu.warm_btn
         }
         draw_text +: {
-            color: #ffca91
-            color_hover: #ffd9a8
-            color_down: #ffd9a8
-            color_focus: #ffca91
+            color: ouyu.on_warm_btn
+            color_hover: ouyu.on_warm_btn_hi
+            color_down: ouyu.on_warm_btn_hi
+            color_focus: ouyu.on_warm_btn
         }
     }
 
@@ -356,10 +380,10 @@ script_mod! {
         draw_bg +: {
             border_radius: 12.0
             color: #0000
-            color_hover: #x1d2b4a55
-            color_down: #x1d2b4a
+            color_hover: ouyu.hl_soft
+            color_down: ouyu.hl
             color_focus: #0000
-            color_active: #x1d2b4a
+            color_active: ouyu.hl
             border_size: 0.0
             border_color: #0000
             pixel: fn(){
@@ -375,11 +399,11 @@ script_mod! {
             }
         }
         draw_text +: {
-            color: #a4b2c9
-            color_hover: #e7edf8
-            color_down: #e7edf8
-            color_focus: #a4b2c9
-            color_active: #e7edf8
+            color: ouyu.ink_2
+            color_hover: ouyu.ink
+            color_down: ouyu.ink
+            color_focus: ouyu.ink_2
+            color_active: ouyu.ink
             text_style +: { font_size: 14.0 }
         }
     }
@@ -394,15 +418,15 @@ script_mod! {
         draw_bg +: {
             border_size: 1.0
             color: #0000
-            color_hover: #x1d2b4a55
-            color_down: #x1d2b4a
+            color_hover: ouyu.hl_soft
+            color_down: ouyu.hl
             color_focus: #0000
-            color_active: #x1d2b4a
-            border_color: #x1d2b42
-            border_color_hover: #82b5ff
-            border_color_down: #82b5ff
-            border_color_focus: #82b5ff
-            border_color_active: #82b5ff
+            color_active: ouyu.hl
+            border_color: ouyu.line
+            border_color_hover: ouyu.blue
+            border_color_down: ouyu.blue
+            border_color_focus: ouyu.blue
+            border_color_active: ouyu.blue
             pixel: fn(){
                 let sdf = Sdf2d.viewport(self.pos * self.rect_size)
                 let bs = self.border_size
@@ -423,11 +447,11 @@ script_mod! {
             }
         }
         draw_text +: {
-            color: #e7edf8
-            color_hover: #e7edf8
-            color_down: #e7edf8
-            color_focus: #e7edf8
-            color_active: #e7edf8
+            color: ouyu.ink
+            color_hover: ouyu.ink
+            color_down: ouyu.ink
+            color_focus: ouyu.ink
+            color_active: ouyu.ink
             text_style +: { font_size: 13.0 }
         }
     }
@@ -443,13 +467,13 @@ script_mod! {
         padding: Inset{left: 2.0, right: 2.0, top: 6.0, bottom: 5.0}
         align: Align{x: 0.5, y: 0.5}
         icon_walk: Walk{ width: 21.0 height: Fit }
-        draw_icon +: { preserve_viewbox: true color: #a4b2c9 }
+        draw_icon +: { preserve_viewbox: true color: ouyu.ink_2 }
         label_walk +: { margin: Inset{left: 0.0} }
         draw_bg +: {
             border_radius: 14.0
             color: #0000
-            color_hover: #x1d2b4a55
-            color_down: #x1d2b4a
+            color_hover: ouyu.hl_soft
+            color_down: ouyu.hl
             color_focus: #0000
             color_active: #0000
             border_size: 0.0
@@ -467,11 +491,11 @@ script_mod! {
             }
         }
         draw_text +: {
-            color: #a4b2c9
-            color_hover: #e7edf8
-            color_down: #e7edf8
-            color_focus: #a4b2c9
-            color_active: #ffca91
+            color: ouyu.ink_2
+            color_hover: ouyu.ink
+            color_down: ouyu.ink
+            color_focus: ouyu.ink_2
+            color_active: ouyu.warm
             text_style +: { font_size: 11.5 }
         }
     }
@@ -480,25 +504,7 @@ script_mod! {
     mod.widgets.OuyuTabIcon = mod.widgets.OuyuTab{
         spacing: 10.0
         icon_walk: Walk{ width: 17.0 height: Fit }
-        draw_icon +: { preserve_viewbox: true color: #a4b2c9 }
-    }
-
-    // 悬浮主动作按钮（手机发布入口）：正圆 + 操作蓝。
-    mod.widgets.OuyuFab = mod.widgets.ButtonFlat{
-        width: 52 height: 52
-        spacing: 0.0
-        text: ""
-        align: Align{x: 0.5, y: 0.5}
-        padding: 0.0
-        icon_walk: Walk{ width: 21.0 height: Fit }
-        draw_icon +: { preserve_viewbox: true color: #x05070e }
-        draw_bg +: {
-            border_radius: 26.0
-            color: #82b5ff
-            color_hover: #x9cc4ff
-            color_down: #x6ba3f0
-            color_focus: #82b5ff
-        }
+        draw_icon +: { preserve_viewbox: true color: ouyu.ink_2 }
     }
 
     // 纯图标工具按钮（关闭、返回、更多）。
@@ -509,13 +515,13 @@ script_mod! {
         padding: 0.0
         align: Align{x: 0.5, y: 0.5}
         icon_walk: Walk{ width: 16.0 height: Fit }
-        draw_icon +: { preserve_viewbox: true color: #a4b2c9 }
+        draw_icon +: { preserve_viewbox: true color: ouyu.ink_2 }
         draw_bg +: {
             border_radius: 10.0
             border_size: 0.0
             color: #0000
-            color_hover: #x1d2b4a
-            color_down: #x1d2b4a
+            color_hover: ouyu.hl
+            color_down: ouyu.hl
             color_focus: #0000
         }
     }
@@ -526,7 +532,7 @@ script_mod! {
         spacing: 4.0
         padding: Inset{left: 2.0, right: 2.0, top: 6.0, bottom: 6.0}
         icon_walk: Walk{ width: 13.0 height: Fit }
-        draw_icon +: { preserve_viewbox: true color: #82b5ff }
+        draw_icon +: { preserve_viewbox: true color: ouyu.blue }
         draw_bg +: {
             border_size: 0.0
             border_radius: 6.0
@@ -536,10 +542,10 @@ script_mod! {
             color_focus: #0000
         }
         draw_text +: {
-            color: #82b5ff
-            color_hover: #xa8ccff
-            color_down: #xa8ccff
-            color_focus: #82b5ff
+            color: ouyu.blue
+            color_hover: ouyu.blue_soft
+            color_down: ouyu.blue_soft
+            color_focus: ouyu.blue
             text_style +: { font_size: 13.0 }
         }
     }
@@ -554,10 +560,10 @@ script_mod! {
         draw_bg +: {
             border_radius: 9.0
             color: #0000
-            color_hover: #x1d2b4a55
-            color_down: #x1d2b4a
+            color_hover: ouyu.hl_soft
+            color_down: ouyu.hl
             color_focus: #0000
-            color_active: #x24375c
+            color_active: ouyu.hl_active
             border_size: 0.0
             border_color: #0000
             pixel: fn(){
@@ -573,11 +579,11 @@ script_mod! {
             }
         }
         draw_text +: {
-            color: #a4b2c9
-            color_hover: #e7edf8
-            color_down: #e7edf8
-            color_focus: #a4b2c9
-            color_active: #e7edf8
+            color: ouyu.ink_2
+            color_hover: ouyu.ink
+            color_down: ouyu.ink
+            color_focus: ouyu.ink_2
+            color_active: ouyu.ink
             text_style +: { font_size: 14.0 }
         }
     }
@@ -589,8 +595,8 @@ script_mod! {
         spacing: 4.0
         padding: 4.0
         draw_bg +: {
-            color: #x101a2c
-            border_color: #x1d2b42
+            color: ouyu.well
+            border_color: ouyu.line
             border_size: 1.0
             border_radius: 13.0
         }
@@ -603,17 +609,17 @@ script_mod! {
         flow: Down
         spacing: 3.0
         icon_walk: Walk{ width: 9.0 height: Fit }
-        draw_icon +: { preserve_viewbox: true color: #a4b2c9 }
+        draw_icon +: { preserve_viewbox: true color: ouyu.ink_2 }
         padding: Inset{left: 2.0, right: 2.0, top: 7.0, bottom: 6.0}
         align: Align{x: 0.5, y: 0.5}
         label_walk +: { margin: Inset{left: 0.0} }
         draw_bg +: {
             border_radius: 12.0
             color: #0000
-            color_hover: #x1d2b4a55
-            color_down: #x1d2b4a
+            color_hover: ouyu.hl_soft
+            color_down: ouyu.hl
             color_focus: #0000
-            color_active: #x24375c
+            color_active: ouyu.hl_active
             border_size: 0.0
             border_color: #0000
             pixel: fn(){
@@ -629,11 +635,11 @@ script_mod! {
             }
         }
         draw_text +: {
-            color: #a4b2c9
-            color_hover: #e7edf8
-            color_down: #e7edf8
-            color_focus: #a4b2c9
-            color_active: #e7edf8
+            color: ouyu.ink_2
+            color_hover: ouyu.ink
+            color_down: ouyu.ink
+            color_focus: ouyu.ink_2
+            color_active: ouyu.ink
             text_style +: { font_size: 12.0 }
         }
     }
@@ -651,18 +657,18 @@ script_mod! {
         padding: Inset{left: 12.0, right: 12.0, top: 24.0, bottom: 24.0}
         em_icon := mod.widgets.OuyuIcon {
             icon_walk: Walk{ width: 28.0 height: Fit }
-            draw_icon +: { color: #x3c4c6b }
+            draw_icon +: { color: ouyu.ink_ghost }
         }
         em_text := Label {
             width: Fit
-            draw_text +: { color: #a4b2c9 text_style +: { font_size: 13.0 } }
+            draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
         }
-        // 第二行说「为什么」和「怎么办」，空态一般用不上，出错/离线才露出来。
+        // 第二行说「为什么」和「怎么办」，普通空态用不上，默认收着。
         em_sub := Label {
             visible: false
             width: Fill
             margin: Inset{left: 16.0, right: 16.0}
-            draw_text +: { wrap: Words color: #x7b8aa3 text_style +: { font_size: 12.0 } }
+            draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.0 } }
         }
         em_action := mod.widgets.OuyuBtn { visible: false width: Fit text: "" }
     }
@@ -683,7 +689,7 @@ script_mod! {
             spacing: 10.0
             ar_dot := mod.widgets.OuyuIcon {
                 icon_walk: Walk{ width: 15.0 height: Fit }
-                draw_icon +: { svg: crate_resource("self:resources/icons/location.svg") color: #a4b2c9 }
+                draw_icon +: { svg: crate_resource("self:resources/icons/location.svg") color: ouyu.ink_2 }
             }
             ar_col := mod.widgets.View {
                 width: Fill height: Fit
@@ -692,18 +698,18 @@ script_mod! {
                 ar_name := Label {
                     width: Fill
                     text: "片区"
-                    draw_text +: { wrap: Ellipsis color: #e7edf8 text_style +: { font_size: 15.0 } }
+                    draw_text +: { wrap: Ellipsis color: ouyu.ink text_style +: { font_size: 15.0 } }
                 }
                 ar_sub := Label {
                     width: Fill
                     text: ""
-                    draw_text +: { wrap: Ellipsis color: #a4b2c9 text_style +: { font_size: 12.0 } }
+                    draw_text +: { wrap: Ellipsis color: ouyu.ink_2 text_style +: { font_size: 12.0 } }
                 }
             }
             ar_level := Label {
                 width: Fit
                 text: ""
-                draw_text +: { color: #ffca91 text_style +: { font_size: 12.5 } }
+                draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
             }
         }
         ar_hit := mod.widgets.ButtonFlat {
@@ -715,9 +721,9 @@ script_mod! {
                 border_size: 0.0
                 border_radius: 12.0
                 color: #0000
-                color_hover: #xffffff0a
-                color_down: #xffffff14
-                color_focus: #xffffff08
+                color_hover: ouyu.wash_2
+                color_down: ouyu.wash_3
+                color_focus: ouyu.wash_1
             }
         }
     }
@@ -726,10 +732,14 @@ script_mod! {
     mod.widgets.OuyuGroupHead = mod.widgets.Label{
         width: Fill
         margin: Inset{top: 6.0, bottom: 2.0}
-        draw_text +: { wrap: Words color: #x7b8aa3 text_style +: { font_size: 12.0 } }
+        draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.0 } }
     }
 
     // 搜索框：深色内凹，占位文字说明能输入什么。
+    // 输入框。TextInputFlat 的每层都有 hover / focus / down / empty /
+    // disabled 五档，漏掉哪一档就从 makepad 默认主题继承哪一档 —— 之前
+    // 聚焦时占位文字用的正是那套默认色，落在偶遇的深井上几乎看不见。
+    // 所以下面把每一档都写死，一档不留。
     mod.widgets.OuyuInput = mod.widgets.TextInputFlat{
         width: Fill height: Fit
         margin: 0.0
@@ -738,18 +748,40 @@ script_mod! {
         draw_bg +: {
             border_radius: 12.0
             border_size: 1.0
-            color: #x101a2c
-            color_hover: #x101a2c
-            color_focus: #x142238
-            border_color: #x1d2b42
-            border_color_hover: #x30456b
-            border_color_focus: #82b5ff
+            color: ouyu.well
+            color_hover: ouyu.well
+            color_focus: ouyu.well_focus
+            color_down: ouyu.well_focus
+            color_empty: ouyu.well
+            color_disabled: ouyu.off_bg
+            border_color: ouyu.line
+            border_color_hover: ouyu.line_strong
+            border_color_focus: ouyu.blue
+            border_color_down: ouyu.blue
+            border_color_empty: ouyu.line
+            border_color_disabled: ouyu.line
         }
         draw_text +: {
-            color: #e7edf8
-            color_empty: #x6d7d97
-            text_style +: { font_size: 14.0 }
+            // 正文一律 ink；占位一律 ink_hint，聚焦也不变浅。
+            color: ouyu.ink
+            color_hover: ouyu.ink
+            color_focus: ouyu.ink
+            color_down: ouyu.ink
+            color_disabled: ouyu.off_ink
+            color_empty: ouyu.ink_hint
+            color_empty_hover: ouyu.ink_hint
+            color_empty_focus: ouyu.ink_hint
+            text_style +: { font_size: 14.0 line_spacing: 1.3 }
         }
+        draw_selection +: {
+            color: ouyu.sel
+            color_hover: ouyu.sel
+            color_focus: ouyu.sel
+            color_down: ouyu.sel
+            color_empty: #0000
+            color_disabled: #0000
+        }
+        draw_cursor +: { color: ouyu.blue }
     }
 
     // 人物行（现场互认第 ① 屏）：首字色块 + 姓名 + 相遇次数，整行可点。
@@ -769,10 +801,10 @@ script_mod! {
                 width: 40 height: 40
                 flow: Down
                 align: Align{x: 0.5, y: 0.5}
-                draw_bg +: { color: #x203049 border_radius: 20.0 }
+                draw_bg +: { color: ouyu.face border_radius: 20.0 }
                 ps_initial := Label {
                     text: ""
-                    draw_text +: { color: #82b5ff text_style +: { font_size: 17.0 } }
+                    draw_text +: { color: ouyu.blue text_style +: { font_size: 17.0 } }
                 }
             }
             ps_col := mod.widgets.View {
@@ -782,12 +814,12 @@ script_mod! {
                 ps_name := Label {
                     width: Fill
                     text: ""
-                    draw_text +: { wrap: Ellipsis color: #e7edf8 text_style +: { font_size: 15.0 } }
+                    draw_text +: { wrap: Ellipsis color: ouyu.ink text_style +: { font_size: 15.0 } }
                 }
                 ps_sub := Label {
                     width: Fill
                     text: ""
-                    draw_text +: { wrap: Ellipsis color: #a4b2c9 text_style +: { font_size: 12.0 } }
+                    draw_text +: { wrap: Ellipsis color: ouyu.ink_2 text_style +: { font_size: 12.0 } }
                 }
             }
             // Icon 自己没有 visible，套一层 View 才能整体藏起来。
@@ -809,9 +841,9 @@ script_mod! {
                 border_size: 0.0
                 border_radius: 12.0
                 color: #0000
-                color_hover: #xffffff0a
-                color_down: #xffffff14
-                color_focus: #xffffff08
+                color_hover: ouyu.wash_2
+                color_down: ouyu.wash_3
+                color_focus: ouyu.wash_1
             }
         }
     }
@@ -825,8 +857,8 @@ script_mod! {
         show_bg: true
         draw_bg +: {
             progress: instance(0.0)
-            track_color: uniform(#x22334d)
-            arc_color: uniform(#ffca91)
+            track_color: uniform(ouyu.ring_track)
+            arc_color: uniform(ouyu.warm)
             stroke: uniform(5.0)
             pixel: fn() {
                 let sdf = Sdf2d.viewport(self.pos * self.rect_size)
@@ -859,23 +891,23 @@ script_mod! {
             sp_name := Label {
                 width: Fill
                 text: ""
-                draw_text +: { wrap: Ellipsis color: #e7edf8 text_style +: { font_size: 15.0 } }
+                draw_text +: { wrap: Ellipsis color: ouyu.ink text_style +: { font_size: 15.0 } }
             }
             sp_walk := Label {
                 width: Fit
                 text: ""
-                draw_text +: { color: #9be2bf text_style +: { font_size: 12.0 } }
+                draw_text +: { color: ouyu.good text_style +: { font_size: 12.0 } }
             }
         }
         sp_addr := Label {
             width: Fill
             text: ""
-            draw_text +: { wrap: Words color: #a4b2c9 text_style +: { font_size: 12.0 } }
+            draw_text +: { wrap: Words color: ouyu.ink_2 text_style +: { font_size: 12.0 } }
         }
         sp_hours := Label {
             width: Fill
             text: ""
-            draw_text +: { wrap: Words color: #x7b8aa3 text_style +: { font_size: 12.0 } }
+            draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.0 } }
         }
     }
 
@@ -902,23 +934,23 @@ script_mod! {
                 st_name := Label {
                     width: Fill
                     text: ""
-                    draw_text +: { wrap: Ellipsis color: #e7edf8 text_style +: { font_size: 15.0 } }
+                    draw_text +: { wrap: Ellipsis color: ouyu.ink text_style +: { font_size: 15.0 } }
                 }
                 st_sub := Label {
                     visible: false
                     width: Fill
                     text: ""
-                    draw_text +: { wrap: Words color: #x7b8aa3 text_style +: { font_size: 12.0 } }
+                    draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.0 } }
                 }
             }
             st_val := Label {
                 width: Fit
                 text: ""
-                draw_text +: { color: #a4b2c9 text_style +: { font_size: 13.0 } }
+                draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
             }
             st_arrow := mod.widgets.OuyuIcon {
                 icon_walk: Walk{ width: 13.0 height: Fit }
-                draw_icon +: { svg: crate_resource("self:resources/icons/chevron-right.svg") color: #x5d6f8d }
+                draw_icon +: { svg: crate_resource("self:resources/icons/chevron-right.svg") color: ouyu.ink_arrow }
             }
         }
         st_hit := mod.widgets.ButtonFlat {
@@ -930,11 +962,40 @@ script_mod! {
                 border_size: 0.0
                 border_radius: 12.0
                 color: #0000
-                color_hover: #xffffff0a
-                color_down: #xffffff14
-                color_focus: #xffffff08
+                color_hover: ouyu.wash_2
+                color_down: ouyu.wash_3
+                color_focus: ouyu.wash_1
             }
         }
+    }
+
+    // 「我的行踪」里的一行：一行文案 + 状态 + 修改 / 删除。
+    //
+    // 到期的那几条只留文案和「已过期」，两个按钮由 Rust 收起 —— 改一条已经
+    // 结束的行踪没有意义，删掉它也只是在删自己的回看记录。
+    mod.widgets.OuyuTrackRow = mod.widgets.View{
+        width: Fill height: Fit
+        flow: Right
+        align: Align{x: 0.0, y: 0.5}
+        padding: Inset{left: 12.0, right: 12.0, top: 10.0, bottom: 10.0}
+        spacing: 8.0
+        tr_col := mod.widgets.View {
+            width: Fill height: Fit
+            flow: Down
+            spacing: 2.0
+            tr_text := Label {
+                width: Fill
+                text: ""
+                draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 15.0 line_spacing: 1.35 } }
+            }
+            tr_state := Label {
+                width: Fill
+                text: ""
+                draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.0 } }
+            }
+        }
+        tr_edit := mod.widgets.OuyuBtn { width: Fit text: "修改" }
+        tr_del := mod.widgets.OuyuBtnDanger { width: Fit text: "删除" }
     }
 
     // 开关行：右边是一枚药丸开关而不是箭头。
@@ -961,12 +1022,12 @@ script_mod! {
                 sw_name := Label {
                     width: Fill
                     text: ""
-                    draw_text +: { wrap: Words color: #e7edf8 text_style +: { font_size: 15.0 } }
+                    draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 15.0 } }
                 }
                 sw_sub := Label {
                     width: Fill
                     text: ""
-                    draw_text +: { wrap: Words color: #x7b8aa3 text_style +: { font_size: 12.0 } }
+                    draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.0 } }
                 }
             }
             sw_track := mod.widgets.RoundedView {
@@ -974,16 +1035,16 @@ script_mod! {
                 flow: Right
                 align: Align{x: 0.0, y: 0.5}
                 padding: Inset{left: 3.0, right: 3.0}
-                draw_bg +: { color: #x24354f border_radius: 13.0 }
+                draw_bg +: { color: ouyu.track_off border_radius: 13.0 }
                 sw_off := mod.widgets.RoundedView {
                     width: 20 height: 20
-                    draw_bg +: { color: #x8fa2bf border_radius: 10.0 }
+                    draw_bg +: { color: ouyu.knob border_radius: 10.0 }
                 }
                 sw_gap := mod.widgets.View { width: Fill height: Fit }
                 sw_on := mod.widgets.RoundedView {
                     visible: false
                     width: 20 height: 20
-                    draw_bg +: { color: #x0b1220 border_radius: 10.0 }
+                    draw_bg +: { color: ouyu.knob_on border_radius: 10.0 }
                 }
             }
         }
@@ -996,9 +1057,9 @@ script_mod! {
                 border_size: 0.0
                 border_radius: 12.0
                 color: #0000
-                color_hover: #xffffff0a
-                color_down: #xffffff14
-                color_focus: #xffffff08
+                color_hover: ouyu.wash_2
+                color_down: ouyu.wash_3
+                color_focus: ouyu.wash_1
             }
         }
     }
@@ -1012,7 +1073,7 @@ script_mod! {
         flow: Down
         padding: 16.0
         spacing: 8.0
-        draw_bg +: { color: #ffca91 border_radius: 18.0 }
+        draw_bg +: { color: ouyu.coupon border_radius: 18.0 }
         cw_head := mod.widgets.View {
             width: Fill height: Fit
             flow: Right
@@ -1021,18 +1082,18 @@ script_mod! {
             cw_venue := Label {
                 width: Fill
                 text: ""
-                draw_text +: { wrap: Ellipsis color: #x5a3d1e text_style +: { font_size: 13.0 } }
+                draw_text +: { wrap: Ellipsis color: ouyu.on_warm text_style +: { font_size: 13.0 } }
             }
             cw_state := Label {
                 width: Fit
                 text: ""
-                draw_text +: { color: #x5a3d1e text_style +: { font_size: 11.5 } }
+                draw_text +: { color: ouyu.on_warm text_style +: { font_size: 11.5 } }
             }
         }
         cw_offer := Label {
             width: Fill
             text: ""
-            draw_text +: { wrap: Words color: #x2b1c0d text_style +: { font_size: 24.0 } }
+            draw_text +: { wrap: Words color: ouyu.warm_btn text_style +: { font_size: 24.0 } }
         }
         cw_meta := mod.widgets.View {
             width: Fill height: Fit
@@ -1041,17 +1102,17 @@ script_mod! {
             spacing: 12.0
             cw_token := Label {
                 text: ""
-                draw_text +: { color: #x2b1c0d text_style +: { font_size: 13.0 } }
+                draw_text +: { color: ouyu.warm_btn text_style +: { font_size: 13.0 } }
             }
             cw_expiry := Label {
                 text: ""
-                draw_text +: { color: #x5a3d1e text_style +: { font_size: 13.0 } }
+                draw_text +: { color: ouyu.on_warm text_style +: { font_size: 13.0 } }
             }
         }
         cw_terms := Label {
             width: Fill
             text: ""
-            draw_text +: { wrap: Words color: #x5a3d1e text_style +: { font_size: 11.5 } }
+            draw_text +: { wrap: Words color: ouyu.on_warm text_style +: { font_size: 11.5 } }
         }
         cw_row := mod.widgets.View {
             width: Fill height: Fit
@@ -1071,23 +1132,23 @@ script_mod! {
         spacing: 8.0
         padding: Inset{left: 14.0, right: 10.0, top: 10.0, bottom: 10.0}
         draw_bg +: {
-            color: #x1b2a44
-            border_color: #x30456b
+            color: ouyu.raise
+            border_color: ouyu.line_strong
             border_size: 1.0
             border_radius: 14.0
         }
         to_text := Label {
             width: Fill
             text: ""
-            draw_text +: { wrap: Ellipsis color: #e7edf8 text_style +: { font_size: 13.0 } }
+            draw_text +: { wrap: Ellipsis color: ouyu.ink text_style +: { font_size: 13.0 } }
         }
         to_undo := mod.widgets.OuyuBtn {
             width: Fit height: 30
             text: "撤销"
             padding: Inset{left: 12.0, right: 12.0, top: 5.0, bottom: 5.0}
             icon_walk: Walk{ width: 13.0 height: Fit }
-            draw_icon +: { preserve_viewbox: true svg: crate_resource("self:resources/icons/undo.svg") color: #82b5ff }
-            draw_text +: { color: #82b5ff color_hover: #82b5ff color_down: #82b5ff color_focus: #82b5ff }
+            draw_icon +: { preserve_viewbox: true svg: crate_resource("self:resources/icons/undo.svg") color: ouyu.blue }
+            draw_text +: { color: ouyu.blue color_hover: ouyu.blue color_down: ouyu.blue color_focus: ouyu.blue }
         }
     }
 }

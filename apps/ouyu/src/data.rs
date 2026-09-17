@@ -5,10 +5,11 @@
 //! 保存 / 隐藏 / 不保存。
 //!
 //! 持久化边界（ouyu/design/02-features.md G/H 节）：
-//! - 长期 state.json 只存 contacts、encounters、directory、reward claim。
-//! - 发布（Publish）与回声属于短时匹配数据，按 G 节「短期存储不入持久备份」
-//!   的精神**不落盘**：只活在进程内存里，撤回 / 退出编辑 / 进程结束即清除，
-//!   演示里用「到期清除」文案表达生产的到期语义。
+//! - 长期 state.json 存 contacts、encounters、directory、reward claim，以及
+//!   本人发布过的行踪（Publish）——「我的行踪」要能回看，所以留着；一条里只有
+//!   粗片区 + 时段 + 意愿，没有坐标。到期的行踪自动退出匹配，只留在列表里。
+//! - 回声属于短时匹配数据，按 G 节「短期存储不入持久备份」的精神**不落盘**：
+//!   只活在进程内存里，最后一条有效行踪没了就一起清除。
 //! - 旧版 state.json 的 my_windows / cards / stealth / my_pos / 亲密度等字段
 //!   在加载时被忽略；首次保存后旧数据自然消失。
 use makepad_widgets::makepad_micro_serde::*;
@@ -541,39 +542,52 @@ pub enum MemoryChoice {
     Skip,
 }
 
-/// 发布状态：草稿 → 已发布 → 撤回 / 到期。
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PublishStatus {
-    Draft,
-    Published,
-    Withdrawn,
-    Expired,
-}
+/// 「我的行踪」里最多留多少条已到期的记录；再多就从最早的开始丢。
+pub const PUBLISH_HISTORY_MAX: usize = 20;
 
-/// 模糊去向发布。每人只有一个有效发布，修改覆盖旧值。
-/// 短时数据：不落盘（见模块头注释）。
-#[derive(Clone, Debug, PartialEq)]
+/// 一条模糊行踪。可以同时有多条（不同日子、不同时段），各自在所在时段
+/// 结束时到期退出匹配。没有「状态」字段：是否到期由日期 + 时刻现算。
+#[derive(Clone, Debug, PartialEq, SerJson, DeJson)]
 pub struct Publish {
-    /// 相对今天的偏移 0..=6（一周内任一天）。
-    pub day: usize,
+    pub id: usize,
+    /// 绝对日期（1970-01-01 起天数）。存偏移会在第二天全部错位。
+    pub date: i64,
     pub slot: usize,
     /// 区域库里的片区 id —— 不是下标，换库不会错位。
     pub area: u16,
     pub intent: usize,
-    pub status: PublishStatus,
 }
 
 impl Publish {
+    /// 相对今天的偏移（0..DAY_SPAN）；已过去或超出一周为 None。
+    pub fn day_at(&self, today: i64) -> Option<usize> {
+        let d = self.date - today;
+        (0..DAY_SPAN as i64).contains(&d).then_some(d as usize)
+    }
+
+    /// 到期 = 所在那天的时段结束；更早的日子整条都过了。
+    pub fn expired_at(&self, today: i64, now_min: u32) -> bool {
+        self.date < today || (self.date == today && now_min >= SLOT_END_MIN[self.slot.min(2)])
+    }
+
     /// 预览 / 已发布的展示文案：无昵称、头像、时间戳。
     pub fn text(&self) -> String {
         self.text_at(today_days())
     }
 
-    /// 固定「今天」的版本，测试用。
+    /// 固定「今天」的版本，测试用。一周内用「今天 / 明天 / 周四」，
+    /// 更早的（历史）用「9月15日」。
     pub fn text_at(&self, today: i64) -> String {
+        let when = match self.day_at(today) {
+            Some(d) => day_label_at(today, d).to_string(),
+            None => {
+                let (_, m, d) = days_to_civil(self.date);
+                format!("{}月{}日", m, d)
+            }
+        };
         format!(
             "{}{} · {} · {}",
-            day_label_at(today, self.day.min(DAY_SPAN - 1)),
+            when,
             SLOTS[self.slot.min(SLOTS.len() - 1)],
             crate::areas::area_name(self.area),
             INTENTS[self.intent.min(INTENTS.len() - 1)],
@@ -895,6 +909,11 @@ pub struct Settings {
     pub location_granted: bool,
     /// 开场三屏看完（或跳过）了没有。跳过也算看完 —— 入口在「我」页留着。
     pub onboarded: bool,
+    /// 界面深浅（`theme::ThemeMode::id`）。`None` = 还没选过，按夜色。
+    ///
+    /// 存名字而不是序号：以后加第三套主题时，旧存档里的 "dark" 还是夜色，
+    /// 不会因为枚举里插了一项就整体错位。认不出来的名字也退回夜色。
+    pub theme: Option<String>,
 }
 
 impl Default for Settings {
@@ -904,7 +923,21 @@ impl Default for Settings {
             notify_reward: false,
             location_granted: false,
             onboarded: false,
+            theme: None,
         }
+    }
+}
+
+impl Settings {
+    pub fn theme_mode(&self) -> crate::theme::ThemeMode {
+        self.theme
+            .as_deref()
+            .map(crate::theme::ThemeMode::parse)
+            .unwrap_or_default()
+    }
+
+    pub fn set_theme_mode(&mut self, mode: crate::theme::ThemeMode) {
+        self.theme = Some(mode.id().to_string());
     }
 }
 
@@ -914,7 +947,7 @@ impl Default for Settings {
 /// 匿名机会直接变成实时位置广播，违反 02 B。以后要加通知，先回来读这一行。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NoticeKind {
-    /// 你发布的那段去向快结束了。
+    /// 你发布的某条行踪快结束了。
     PublishExpiring,
     /// 手里有张券快过期了。
     RewardExpiring,
@@ -923,7 +956,7 @@ pub enum NoticeKind {
 impl NoticeKind {
     pub fn title(self) -> &'static str {
         match self {
-            NoticeKind::PublishExpiring => "去向快到期了",
+            NoticeKind::PublishExpiring => "行踪快到期了",
             NoticeKind::RewardExpiring => "券快过期了",
         }
     }
@@ -950,23 +983,25 @@ pub const REWARD_NOTICE_LEAD_DAYS: i64 = 2;
 pub fn due_notices(s: &OuyuState, today: i64, now_min: u32) -> Vec<Notice> {
     let mut out = Vec::new();
     if s.settings.notify_publish {
-        if let Some(p) = &s.publish {
-            // 只提醒今天的那一条：明天下午的去向今天不到期。
-            if p.status == PublishStatus::Published && p.day == 0 {
-                let end = SLOT_END_MIN[p.slot.min(2)];
-                let lead = end.saturating_sub(PUBLISH_NOTICE_LEAD_MIN);
-                if now_min >= lead && now_min < end {
-                    out.push(Notice {
-                        kind: NoticeKind::PublishExpiring,
-                        // 标题已经说了是「去向」，正文就别再重复一遍 ——
-                        // 句子越短，窄屏上标点落在行首的机会越小。
-                        text: format!(
-                            "今天{}那条还有 {} 分钟结束，到期自动退出",
-                            SLOTS[p.slot.min(2)],
-                            end - now_min
-                        ),
-                    });
-                }
+        // 只提醒今天的那些：明天下午的行踪今天不到期。几条同时快到期也只
+        // 提醒最先结束的那一条 —— 同时弹两条就成了信息流。
+        let mut todays: Vec<&Publish> = s.publishes.iter().filter(|p| p.date == today).collect();
+        todays.sort_by_key(|p| p.slot);
+        for p in todays {
+            let end = SLOT_END_MIN[p.slot.min(2)];
+            let lead = end.saturating_sub(PUBLISH_NOTICE_LEAD_MIN);
+            if now_min >= lead && now_min < end {
+                out.push(Notice {
+                    kind: NoticeKind::PublishExpiring,
+                    // 标题已经说了是「行踪」，正文就别再重复一遍 ——
+                    // 句子越短，窄屏上标点落在行首的机会越小。
+                    text: format!(
+                        "今天{}那条还有 {} 分钟结束，到期自动退出",
+                        SLOTS[p.slot.min(2)],
+                        end - now_min
+                    ),
+                });
+                break;
             }
         }
     }
@@ -993,7 +1028,7 @@ pub fn due_notices(s: &OuyuState, today: i64, now_min: u32) -> Vec<Notice> {
     out
 }
 
-/// 应用状态。长期部分见 PersistedState；publish / echo 为运行时短时数据。
+/// 应用状态。长期部分见 PersistedState；echo 为运行时短时数据。
 pub struct OuyuState {
     pub contacts: Vec<ContactLocal>,
     pub encounters: Vec<EncounterLocal>,
@@ -1005,9 +1040,11 @@ pub struct OuyuState {
 
     /// 当前 Tab（运行时）。
     pub tab: usize,
-    /// 有效发布（最多一个）；None = 未发布。
-    pub publish: Option<Publish>,
-    /// 匿名回声（ECHOES 下标）；与行程一同到期清除（撤回时清空）。
+    /// 发布过的行踪，按发布先后排；到期的留在里面给「我的行踪」回看，
+    /// 删除的直接拿掉。有效 / 到期用 `active_publishes` 现算。
+    pub publishes: Vec<Publish>,
+    next_publish_id: usize,
+    /// 匿名回声（ECHOES 下标）；最后一条有效行踪没了就一起清除。
     pub echo: Option<usize>,
     /// 最近发布过的片区 id，最新在前，最多 5 条。**只在本机**，不上传、
     /// 不进 AI 快照、不进券——纯粹是让下次填地址少翻一次列表。
@@ -1053,10 +1090,29 @@ impl OuyuState {
             settings: Settings::default(),
             next_encounter_id: 2,
             tab: 0,
-            publish: None,
+            // 演示行踪：三条到期的、三条进行中的，「我的行踪」和「更多」开箱就有东西看。
+            // 今天那条放晚间，白天任何时候打开都还没到期。
+            publishes: vec![
+                Publish { id: 0, date: today - 9, slot: 1, area: 1, intent: 0 },
+                Publish { id: 1, date: today - 4, slot: 2, area: 4, intent: 1 },
+                Publish { id: 2, date: today - 1, slot: 0, area: 3, intent: 2 },
+                Publish { id: 3, date: today, slot: 2, area: 1, intent: 0 },
+                Publish { id: 4, date: today + 1, slot: 1, area: 2, intent: 1 },
+                Publish { id: 5, date: today + 3, slot: 0, area: 8, intent: 2 },
+            ],
+            next_publish_id: 6,
             echo: None,
             recent_areas: Vec::new(),
         }
+    }
+
+    /// 测试用底座：演示数据但没有行踪，免得每条行踪相关的断言都先得清一遍。
+    #[cfg(test)]
+    pub(crate) fn for_tests() -> Self {
+        let mut s = Self::demo();
+        s.publishes.clear();
+        s.next_publish_id = 0;
+        s
     }
 
     pub fn contact(&self, id: usize) -> Option<&ContactLocal> {
@@ -1150,7 +1206,8 @@ impl OuyuState {
         self.wallet.clear();
         self.recent_areas.clear();
         self.next_encounter_id = 0;
-        self.publish = None;
+        self.publishes.clear();
+        self.next_publish_id = 0;
         self.echo = None;
         self.save();
     }
@@ -1198,17 +1255,93 @@ impl OuyuState {
         true
     }
 
-    /// 发布 / 修改去向：每人只有一个有效发布，修改覆盖旧值。
-    /// 不落盘（短时数据，见模块头注释）。
-    pub fn publish(&mut self, day: usize, slot: usize, area: u16, intent: usize) {
-        self.publish = Some(Publish {
-            day,
+    /// 发布一条行踪。`day` 是相对今天的偏移。返回这条的 id。
+    pub fn publish(&mut self, day: usize, slot: usize, area: u16, intent: usize) -> usize {
+        self.publish_at(today_days(), day, slot, area, intent)
+    }
+
+    /// 固定「今天」的版本，测试用。
+    pub fn publish_at(&mut self, today: i64, day: usize, slot: usize, area: u16, intent: usize) -> usize {
+        let id = self.next_publish_id;
+        self.next_publish_id += 1;
+        self.publishes.push(Publish {
+            id,
+            date: today + day.min(DAY_SPAN - 1) as i64,
             slot,
             area,
             intent,
-            status: PublishStatus::Published,
         });
+        self.trim_publishes(today);
         self.remember_area(area);
+        id
+    }
+
+    /// 修改一条行踪（只有没到期的才给改，界面负责不露出按钮）。
+    pub fn update_publish(&mut self, id: usize, day: usize, slot: usize, area: u16, intent: usize) -> bool {
+        self.update_publish_at(today_days(), id, day, slot, area, intent)
+    }
+
+    pub fn update_publish_at(
+        &mut self,
+        today: i64,
+        id: usize,
+        day: usize,
+        slot: usize,
+        area: u16,
+        intent: usize,
+    ) -> bool {
+        let Some(p) = self.publishes.iter_mut().find(|p| p.id == id) else {
+            return false;
+        };
+        p.date = today + day.min(DAY_SPAN - 1) as i64;
+        p.slot = slot;
+        p.area = area;
+        p.intent = intent;
+        self.remember_area(area);
+        true
+    }
+
+    /// 还没到期的行踪，最先结束的在前。
+    pub fn active_publishes(&self, today: i64, now_min: u32) -> Vec<&Publish> {
+        let mut v: Vec<&Publish> = self
+            .publishes
+            .iter()
+            .filter(|p| !p.expired_at(today, now_min))
+            .collect();
+        v.sort_by_key(|p| (p.date, p.slot));
+        v
+    }
+
+    /// 「我的行踪」的顺序：有效的在前（最先结束的最上），到期的在后（最近的最上）。
+    pub fn publish_history(&self, today: i64, now_min: u32) -> Vec<&Publish> {
+        let mut v = self.active_publishes(today, now_min);
+        let mut gone: Vec<&Publish> = self
+            .publishes
+            .iter()
+            .filter(|p| p.expired_at(today, now_min))
+            .collect();
+        gone.sort_by_key(|p| std::cmp::Reverse((p.date, p.slot)));
+        v.extend(gone);
+        v
+    }
+
+    /// 已经过去的日子只留最近 PUBLISH_HISTORY_MAX 条。
+    fn trim_publishes(&mut self, today: i64) {
+        let mut gone: Vec<(i64, usize, usize)> = self
+            .publishes
+            .iter()
+            .filter(|p| p.date < today)
+            .map(|p| (p.date, p.slot, p.id))
+            .collect();
+        if gone.len() <= PUBLISH_HISTORY_MAX {
+            return;
+        }
+        gone.sort_unstable();
+        let drop: Vec<usize> = gone[..gone.len() - PUBLISH_HISTORY_MAX]
+            .iter()
+            .map(|&(_, _, id)| id)
+            .collect();
+        self.publishes.retain(|p| !drop.contains(&p.id));
     }
 
     /// 记一笔「最近去过」（本机，去重，最多 5 条）。
@@ -1219,10 +1352,20 @@ impl OuyuState {
         self.save();
     }
 
-    /// 撤回即退出：停止参与机会，回声与行程一同清除。
-    pub fn withdraw(&mut self) {
-        self.publish = None;
-        self.echo = None;
+    /// 删除 / 撤回一条行踪即退出那一条的匹配。最后一条有效行踪没了，
+    /// 回声也一起清除。返回是否真的删掉了什么。
+    pub fn withdraw(&mut self, id: usize) -> bool {
+        self.withdraw_at(today_days(), minutes_of_day(), id)
+    }
+
+    pub fn withdraw_at(&mut self, today: i64, now_min: u32, id: usize) -> bool {
+        let before = self.publishes.len();
+        self.publishes.retain(|p| p.id != id);
+        if self.active_publishes(today, now_min).is_empty() {
+            self.echo = None;
+        }
+        self.save();
+        before != self.publishes.len()
     }
 
     /// 留一个轻轻的回声（固定三选，无发送者 / 数量 / 已读）。
@@ -1397,8 +1540,8 @@ pub struct UndoSnapshot {
     encounters: Vec<EncounterLocal>,
 }
 
-/// 落盘的部分：contacts、encounters、directory、reward claim（02 G 节边界）。
-/// 发布 / 回声 / 会话等短时数据不在这里。
+/// 落盘的部分：contacts、encounters、directory、reward claim（02 G 节边界），
+/// 以及本人的行踪列表。回声 / 会话等短时数据不在这里。
 #[derive(Clone, Debug, Default, PartialEq, SerJson, DeJson)]
 pub struct PersistedState {
     pub contacts: Vec<ContactLocal>,
@@ -1410,6 +1553,8 @@ pub struct PersistedState {
     pub settings: Option<Settings>,
     pub next_encounter_id: Option<usize>,
     pub recent_areas: Option<Vec<u16>>,
+    pub publishes: Option<Vec<Publish>>,
+    pub next_publish_id: Option<usize>,
 }
 
 /// 旧版（Phase 0）state.json 里仍能认出的联系人字段：name → label。
@@ -1463,6 +1608,8 @@ impl OuyuState {
             settings: Some(self.settings.clone()),
             next_encounter_id: Some(self.next_encounter_id),
             recent_areas: Some(self.recent_areas.clone()),
+            publishes: Some(self.publishes.clone()),
+            next_publish_id: Some(self.next_publish_id),
         }
     }
 
@@ -1483,6 +1630,22 @@ impl OuyuState {
         if let Some(r) = p.recent_areas {
             self.recent_areas = r.into_iter().filter(|&a| crate::areas::area(a).is_some()).collect();
         }
+        if let Some(list) = p.publishes {
+            // 从没发布过任何一条（空列表、id 也没走过）就留着演示行踪；
+            // 发过再删光的，列表是空的但 id 已经走过，照样清空。
+            let never_published = list.is_empty() && p.next_publish_id.unwrap_or(0) == 0;
+            if !never_published {
+                // 换过区域库的话，指向不存在片区的那几条直接丢掉。
+                self.publishes = list
+                    .into_iter()
+                    .filter(|q| crate::areas::area(q.area).is_some())
+                    .collect();
+            }
+        }
+        self.next_publish_id = p
+            .next_publish_id
+            .filter(|&n| n > 0)
+            .unwrap_or_else(|| self.publishes.iter().map(|q| q.id + 1).max().unwrap_or(0));
     }
 
     /// 从 state_file 加载并覆盖在 demo 底座上；文件不存在或损坏时用 demo 数据。
@@ -1494,6 +1657,13 @@ impl OuyuState {
             }
         }
         s
+    }
+
+    /// 只把落盘的深浅选择读出来。注册预设（`theme::install`）比建视图早，
+    /// 那时还没有 `OuyuState`，所以这里单独读一次状态文件。
+    pub fn persisted_theme() -> Option<String> {
+        let path = Self::state_file()?;
+        Self::load_from(&path)?.settings?.theme
     }
 
     pub fn save(&self) {
@@ -1710,17 +1880,21 @@ mod tests {
     #[test]
     fn a_publish_line_names_the_area_by_id_not_by_index() {
         let p = Publish {
-            day: 0,
+            id: 0,
+            date: SAT,
             slot: 1,
             area: crate::areas::AREAS[0].id,
             intent: 0,
-            status: PublishStatus::Published,
         };
         let line = p.text_at(SAT);
         assert!(line.starts_with("今天下午 · "));
         assert!(line.contains(crate::areas::AREAS[0].name));
         // 一行文案里不能出现昵称、日期或时间戳。
         assert!(!line.contains('-') && !line.contains(':'));
+        // 过了一周它成了历史：用「x月x日」而不是「周六」——那会被读成下周六。
+        let later = p.text_at(SAT + 9);
+        assert!(later.contains("月") && later.contains("日下午 · "));
+        assert!(!later.starts_with("周"));
     }
 
     #[test]
@@ -1745,7 +1919,32 @@ mod tests {
     }
 
     fn state() -> OuyuState {
-        OuyuState::demo()
+        OuyuState::for_tests()
+    }
+
+    #[test]
+    fn the_demo_ships_with_live_and_expired_trips() {
+        let s = OuyuState::demo();
+        let today = today_days();
+        assert!(s.active_publishes(today, 9 * 60).len() >= 3);
+        assert!(s.publish_history(today, 9 * 60).len() > s.active_publishes(today, 9 * 60).len());
+        // 全部落盘再读回来，演示行踪原样在；从没发布过的空列表盖不掉它们。
+        let mut back = OuyuState::demo();
+        back.apply_persisted(PersistedState {
+            publishes: Some(Vec::new()),
+            next_publish_id: Some(0),
+            ..s.persisted()
+        });
+        assert_eq!(back.publishes.len(), s.publishes.len());
+        // 发过再删光的：列表空、id 走过，就是真的空。
+        let mut gone = OuyuState::demo();
+        gone.apply_persisted(PersistedState {
+            publishes: Some(Vec::new()),
+            next_publish_id: Some(6),
+            ..s.persisted()
+        });
+        assert!(gone.publishes.is_empty());
+        assert_eq!(gone.next_publish_id, 6);
     }
 
     // ---- 相遇次数口径 ----
@@ -1971,26 +2170,56 @@ mod tests {
     // ---- 发布 ----
 
     #[test]
-    fn publish_is_unique_and_overwrites() {
+    fn several_trips_coexist_and_each_expires_on_its_own() {
         let mut s = state();
-        s.publish(0, 1, 0, 0);
-        assert_eq!(s.publish.as_ref().unwrap().text(), "今天下午 · 三里屯一带 · 随意走走");
-        // 修改覆盖旧值，仍只有一个有效发布。
-        s.publish(1, 2, 2, 1);
-        let p = s.publish.as_ref().unwrap();
-        assert_eq!(p.text(), "明天晚间 · 国贸公共街区 · 顺路办事");
-        assert_eq!(p.status, PublishStatus::Published);
+        let a = s.publish_at(SAT, 0, 1, 0, 0);
+        let b = s.publish_at(SAT, 1, 2, 2, 1);
+        assert_ne!(a, b);
+        assert_eq!(s.publishes.len(), 2);
+        let texts: Vec<String> = s.active_publishes(SAT, 9 * 60).iter().map(|p| p.text_at(SAT)).collect();
+        assert_eq!(texts, ["今天下午 · 三里屯一带 · 随意走走", "明天晚间 · 国贸公共街区 · 顺路办事"]);
+        // 今天下午那条 18:00 到期，明天晚间那条还在。
+        let left = s.active_publishes(SAT, 18 * 60);
+        assert_eq!(left.len(), 1);
+        assert_eq!(left[0].id, b);
+        // 历史顺序：有效的在前，到期的在后。
+        let hist = s.publish_history(SAT, 18 * 60);
+        assert_eq!(hist.iter().map(|p| p.id).collect::<Vec<_>>(), [b, a]);
+        // 修改只动那一条。
+        assert!(s.update_publish_at(SAT, b, 2, 0, 1, 2));
+        let pb = s.publishes.iter().find(|p| p.id == b).unwrap();
+        assert_eq!(pb.date, SAT + 2);
+        assert_eq!((pb.slot, pb.area, pb.intent), (0, 1, 2));
+        assert_eq!(s.publishes.iter().find(|p| p.id == a).unwrap().slot, 1);
+        assert!(!s.update_publish_at(SAT, 99, 0, 0, 0, 0));
     }
 
     #[test]
-    fn withdraw_clears_publish_and_echo() {
+    fn withdraw_removes_one_trip_and_the_echo_goes_with_the_last_one() {
         let mut s = state();
-        s.publish(0, 0, 1, 2);
+        let a = s.publish_at(SAT, 0, 0, 1, 2);
+        let b = s.publish_at(SAT, 1, 1, 1, 2);
         s.set_echo(0);
-        assert_eq!(s.echo, Some(0));
-        s.withdraw();
-        assert!(s.publish.is_none());
-        assert!(s.echo.is_none()); // 回声与行程一同清除
+        assert!(s.withdraw_at(SAT, 9 * 60, a));
+        assert_eq!(s.publishes.len(), 1);
+        assert_eq!(s.echo, Some(0), "还有一条有效行踪，回声留着");
+        assert!(!s.withdraw_at(SAT, 9 * 60, a), "删过的再删一次什么都不发生");
+        assert!(s.withdraw_at(SAT, 9 * 60, b));
+        assert!(s.publishes.is_empty());
+        assert!(s.echo.is_none()); // 回声与最后一条行踪一同清除
+    }
+
+    #[test]
+    fn expired_history_is_capped() {
+        let mut s = state();
+        for i in 0..(PUBLISH_HISTORY_MAX + 5) {
+            s.publish_at(SAT - 40 + i as i64, 0, 1, 0, 0);
+        }
+        s.publish_at(SAT, 0, 1, 0, 0);
+        let old = s.publishes.iter().filter(|p| p.date < SAT).count();
+        assert_eq!(old, PUBLISH_HISTORY_MAX);
+        // 丢的是最早的那几条。
+        assert!(s.publishes.iter().all(|p| p.date >= SAT - 40 + 5));
     }
 
     // ---- 现场互认状态机 ----
@@ -2220,7 +2449,7 @@ mod tests {
         assert!(s.encounters.is_empty());
         assert!(s.wallet.is_empty());
         assert!(s.recent_areas.is_empty());
-        assert!(s.publish.is_none());
+        assert!(s.publishes.is_empty());
         // 清完再写一条回忆，id 不会和旧的撞上。
         s.push_memory(0, "林舟", MemoryChoice::Save);
         assert_eq!(s.encounters.len(), 1);
@@ -2253,13 +2482,15 @@ mod tests {
         let mut s = state();
         s.push_memory(2, "许宁", MemoryChoice::Hidden);
         s.issue_reward(today_days(), 1);
+        let id = s.publish(1, 2, crate::areas::AREAS[0].id, 0);
+        s.set_echo(1);
         let p = s.persisted();
         let json = p.serialize_json();
         let back = PersistedState::deserialize_json(&json).expect("反序列化应成功");
         assert_eq!(p, back);
-        // 短时数据不在持久化里。按键名比对 —— 设置里的 notify_publish
-        // 也含 publish 三个字，用子串会误报。
-        assert!(!json.contains("\"publish\""));
+        // 行踪跟着落盘（「我的行踪」要回看），回声不落盘。
+        assert_eq!(back.publishes.as_ref().unwrap().len(), 1);
+        assert_eq!(back.publishes.as_ref().unwrap()[0].id, id);
         assert!(!json.contains("\"echo\""));
     }
 
@@ -2527,7 +2758,7 @@ mod tests {
     #[test]
     fn notifications_stay_silent_until_you_turn_them_on() {
         let mut s = state();
-        s.publish(0, 1, crate::areas::AREAS[0].id, 0);
+        s.publish_at(SAT, 0, 1, crate::areas::AREAS[0].id, 0);
         s.issue_reward(SAT, 1);
         // 两个开关都是关的 —— 默认关闭是 02 七.4 写死的。
         assert!(!s.settings.notify_publish);
@@ -2539,7 +2770,7 @@ mod tests {
     fn the_trip_notice_fires_only_in_the_last_half_hour() {
         let mut s = state();
         s.settings.notify_publish = true;
-        s.publish(0, 1, crate::areas::AREAS[0].id, 0); // 下午，18:00 结束
+        s.publish_at(SAT, 0, 1, crate::areas::AREAS[0].id, 0); // 下午，18:00 结束
         assert!(due_notices(&s, SAT, 15 * 60).is_empty(), "还早");
         assert!(due_notices(&s, SAT, 18 * 60).is_empty(), "已经过了");
         let n = due_notices(&s, SAT, 17 * 60 + 45);
@@ -2552,7 +2783,7 @@ mod tests {
     fn the_trip_notice_ignores_a_trip_that_is_not_today() {
         let mut s = state();
         s.settings.notify_publish = true;
-        s.publish(3, 1, crate::areas::AREAS[0].id, 0);
+        s.publish_at(SAT, 3, 1, crate::areas::AREAS[0].id, 0);
         assert!(due_notices(&s, SAT, 17 * 60 + 45).is_empty());
     }
 
@@ -2590,7 +2821,7 @@ mod tests {
         let mut s = state();
         s.settings.notify_publish = true;
         s.settings.notify_reward = true;
-        s.publish(0, 1, crate::areas::AREAS[0].id, 0);
+        s.publish_at(SAT, 0, 1, crate::areas::AREAS[0].id, 0);
         s.issue_reward(SAT, 1);
         let exp = s.wallet[0].expires_on.unwrap();
         let mut all: Vec<Notice> = due_notices(&s, SAT, 17 * 60 + 45);
