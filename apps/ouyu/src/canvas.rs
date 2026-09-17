@@ -747,17 +747,25 @@ script_mod! {
                 icon_walk: Walk{ width: 15.0 height: Fit }
                 draw_icon +: { svg: crate_resource("self:resources/icons/location.svg") color: ouyu.ink_2 }
             }
+            // 两行字叠在固定 56 的行里：Label 默认带 theme.mspace_1（四边各
+            // 3）的内边距，两行就白吃 12，加上 15pt/12pt 两行文字本身的
+            // 24 + 19.2（font_size 是磅，落到 4/3 像素），Fit 算出来是 67 —— 比行高
+            // 还多 11，于是第二行被 ar_col 自己的矩形裁掉半截。
+            // 竖直方向清零、横向保留 3（跟右侧 ar_level 的内边距对齐），
+            // 行内文字回到 43.2，56 的行里还剩下六个多像素的上下留白。
             ar_col := mod.widgets.View {
                 width: Fill height: Fit
                 flow: Down
-                spacing: 0.0
+                spacing: 2.0
                 ar_name := Label {
                     width: Fill
+                    padding: Inset{left: 3.0, right: 3.0, top: 0.0, bottom: 0.0}
                     text: "片区"
                     draw_text +: { wrap: Ellipsis color: ouyu.ink text_style +: { font_size: 15.0 } }
                 }
                 ar_sub := Label {
                     width: Fill
+                    padding: Inset{left: 3.0, right: 3.0, top: 0.0, bottom: 0.0}
                     text: ""
                     draw_text +: { wrap: Ellipsis color: ouyu.ink_2 text_style +: { font_size: 12.0 } }
                 }
@@ -863,17 +871,22 @@ script_mod! {
                     draw_text +: { color: ouyu.blue text_style +: { font_size: 17.0 } }
                 }
             }
+            // 跟 OuyuAreaRow 同一笔账：Label 默认四边各 3 的内边距，两行就白
+            // 吃 12，加上两行文字的 24 + 19.2 是 67，比 64 的行高还多，第二行
+            // 会被裁掉底下一截。竖直清零、横向留 3。
             ps_col := mod.widgets.View {
                 width: Fill height: Fit
                 flow: Down
-                spacing: 0.0
+                spacing: 2.0
                 ps_name := Label {
                     width: Fill
+                    padding: Inset{left: 3.0, right: 3.0, top: 0.0, bottom: 0.0}
                     text: ""
                     draw_text +: { wrap: Ellipsis color: ouyu.ink text_style +: { font_size: 15.0 } }
                 }
                 ps_sub := Label {
                     width: Fill
+                    padding: Inset{left: 3.0, right: 3.0, top: 0.0, bottom: 0.0}
                     text: ""
                     draw_text +: { wrap: Ellipsis color: ouyu.ink_2 text_style +: { font_size: 12.0 } }
                 }
