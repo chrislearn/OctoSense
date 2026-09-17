@@ -992,6 +992,19 @@ pub fn spawn_client(
 mod tests {
     use super::*;
 
+    /// A path joined the way THIS platform renders it: catalog and launch
+    /// paths join with the OS separator, so literal "/a/b" expectations
+    /// fail on Windows for the wrong reason.
+    fn joined(base: &str, rel: &str) -> String {
+        Path::new(base).join(rel).to_string_lossy().into_owned()
+    }
+
+    /// The resolved cargo program names the cargo binary (`cargo.exe` on
+    /// Windows, a rustup shim path elsewhere).
+    fn is_cargo(program: &Path) -> bool {
+        program.file_stem().and_then(|s| s.to_str()) == Some("cargo")
+    }
+
     /// Cargo's checkout is Cargo's to manage: a build there is invisible to
     /// `cargo clean`, survives no refetch, and quietly grows the shared
     /// cache. Apps from the pinned revision build into OctoSense's own tree.
@@ -1006,7 +1019,8 @@ mod tests {
         let (_, args) = launch_argv(&apps[0], Some(Path::new("/unrelated")), &[]).unwrap();
         assert!(args
             .windows(2)
-            .any(|p| p == ["--manifest-path", "/cargo/checkouts/makepad-d00a/ad8f372/Cargo.toml"]));
+            .any(|p| p[0] == "--manifest-path"
+                && p[1] == joined("/cargo/checkouts/makepad-d00a/ad8f372", "Cargo.toml")));
         let at = args
             .iter()
             .position(|arg| arg == "--target-dir")
@@ -1020,16 +1034,28 @@ mod tests {
 
     #[test]
     fn catalog_launches_select_the_binary_and_preserve_literal_arguments() {
-        let apps = crate::octosense::catalog::parse_catalog(br#"[
-            {"id":"ref","label":"Reference","manifest":"../apps/reference/Cargo.toml","package":"octosense-reference","bin":"octosense-reference","args":["two words"]},
-            {"id":"installed","label":"Installed","executable":"/usr/bin/true","args":["$(literal)"]}
-        ]"#, Path::new("/catalog"), None).unwrap();
+        // The executable fixture must EXIST (launch_argv resolves it):
+        // the test binary itself is the one path every platform has.
+        let exe = std::env::current_exe().unwrap();
+        let json = format!(
+            r#"[
+            {{"id":"ref","label":"Reference","manifest":"../apps/reference/Cargo.toml","package":"octosense-reference","bin":"octosense-reference","args":["two words"]}},
+            {{"id":"installed","label":"Installed","executable":"{}","args":["$(literal)"]}}
+        ]"#,
+            exe.to_string_lossy().replace('\\', "\\\\")
+        );
+        let apps = crate::octosense::catalog::parse_catalog(
+            json.as_bytes(),
+            Path::new("/catalog"),
+            None,
+        )
+        .unwrap();
         let (_, args) = launch_argv(&apps[0], Some(Path::new("/unrelated")), &[]).unwrap();
         assert!(args.windows(2).any(|p| p == ["--bin", "octosense-reference"]));
-        assert!(args.windows(2).any(|p| p == ["--manifest-path", "/catalog/../apps/reference/Cargo.toml"]));
+        assert!(args.windows(2).any(|p| p[0] == "--manifest-path" && p[1] == joined("/catalog", "../apps/reference/Cargo.toml")));
         assert_eq!(&args[args.len()-2..], ["--stdin-loop", "two words"]);
         let (program, args) = launch_argv(&apps[1], Some(Path::new("/unrelated")), &[]).unwrap();
-        assert_eq!(program, Path::new("/usr/bin/true"));
+        assert_eq!(program, exe);
         assert_eq!(args, ["--stdin-loop", "$(literal)"]);
     }
 
@@ -1037,7 +1063,7 @@ mod tests {
     fn the_default_catalog_keeps_the_local_reference_app() {
         let apps = crate::octosense::catalog::parse_catalog(include_bytes!("../config/apps.json"), Path::new("/catalog"), None).unwrap();
         let reference = apps.iter().find(|app| app.id == "reference").expect("Reference must remain in the default catalog");
-        assert_eq!(reference.manifest.as_deref(), Some("/catalog/../apps/reference/Cargo.toml"));
+        assert_eq!(reference.manifest.as_deref(), Some(joined("/catalog", "../apps/reference/Cargo.toml").as_str()));
         assert_eq!(reference.package, "octosense-reference");
         assert_eq!(reference.bin, "octosense-reference");
         assert_eq!(reference.policy, LaunchPolicy::AlwaysNew);
@@ -1061,7 +1087,7 @@ mod tests {
         let app = AppDef::app("terminal", "Terminal", "makepad-terminal", "apps/terminal", "terminal", LaunchPolicy::AlwaysNew);
         let root = std::path::PathBuf::from("/checkout");
         let (program, args) = launch_argv(&app, Some(&root), &[]).unwrap();
-        assert!(program.to_string_lossy().ends_with("cargo"), "{:?}", program);
+        assert!(is_cargo(&program), "{:?}", program);
         let sep = args.iter().position(|a| a == "--").expect("no -- separator");
         let release = args
             .iter()
@@ -1075,7 +1101,7 @@ mod tests {
             "the app's own args start after the separator: {:?}",
             args
         );
-        assert!(args.contains(&"/checkout/Cargo.toml".to_string()), "{:?}", args);
+        assert!(args.contains(&joined("/checkout", "Cargo.toml")), "{:?}", args);
         assert!(args.contains(&"makepad-terminal".to_string()), "{:?}", args);
         // A preview's file lands after --stdin-loop, still past the --.
         let (_, args) = launch_argv(
@@ -1380,7 +1406,7 @@ mod tests {
         files.args.push("--demo".into());
         let root = std::path::PathBuf::from("/checkout");
         let (program, args) = launch_argv(&files, Some(&root), &[]).unwrap();
-        assert!(program.to_string_lossy().ends_with("cargo"));
+        assert!(is_cargo(&program));
         assert!(args.contains(&"makepad-files".to_string()), "{:?}", args);
         assert_eq!(args.last().map(String::as_str), Some("--demo"), "{:?}", args);
     }

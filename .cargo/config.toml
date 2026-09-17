@@ -6,3 +6,11 @@ MAKEPAD_BUNDLE_IDENTIFIER = { value = "dev.makepad.octosense", force = true }
 
 # AppCards embeds assets from the pinned sibling framework, including Git builds.
 OCTOSENSE_WORKSPACE = { value = "..", relative = true }
+
+# Windows (MSVC): the main thread's default 1 MiB stack cannot hold the
+# startup script evaluation (shell DSL + theme.splash recursion), which
+# aborts the host with a stack overflow before handle_startup. Match the
+# 8 MiB macOS/Linux main-thread stack. Hosted apps have small UI trees and
+# do not need this, but a shared rustflags line covers them harmlessly.
+[target.'cfg(all(target_os = "windows", target_env = "msvc"))']
+rustflags = ["-C", "link-args=/STACK:8388608"]

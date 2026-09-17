@@ -190,11 +190,19 @@ mod tests {
         ]"#, Path::new("/project/config"), None).unwrap();
         assert_eq!(
             apps[0].manifest.as_deref(),
-            Some("/project/config/../apps/reference/Cargo.toml")
+            Some(
+                Path::new("/project/config")
+                    .join("../apps/reference/Cargo.toml")
+                    .to_string_lossy()
+                    .as_ref()
+            )
         );
         assert_eq!(apps[0].policy, LaunchPolicy::AlwaysNew);
         assert_eq!(apps[0].args, ["two words", "$(literal)"]);
-        assert_eq!(apps[1].bin, "/project/config/bin/my app");
+        assert_eq!(
+            apps[1].bin,
+            Path::new("/project/config").join("bin/my app").to_string_lossy()
+        );
         assert!(apps[1].manifest.is_none());
         assert!(apps[1].package.is_empty());
         assert_eq!(apps[1].policy, LaunchPolicy::OrFocus);
