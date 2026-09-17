@@ -496,6 +496,10 @@ script_mod! {
                         res: crate_resource("makepad_widgets:resources/jetbrains_mono_variable.ttf")
                         asc: 0.0 desc: 0.0 weight: 400.0
                     }
+                    chinese := FontMember{
+                        res: crate_resource("makepad_widgets:resources/LXGWWenKaiRegular.ttf")
+                        asc: 0.0 desc: 0.0
+                    }
                     emoji := FontMember{
                         res: crate_resource("makepad_widgets:resources/NotoColorEmoji.ttf")
                         asc: 0.0 desc: 0.0
@@ -512,6 +516,10 @@ script_mod! {
                     latin := FontMember{
                         res: crate_resource("makepad_widgets:resources/jetbrains_mono_variable.ttf")
                         asc: 0.0 desc: 0.0 weight: 700.0
+                    }
+                    chinese := FontMember{
+                        res: crate_resource("makepad_widgets:resources/LXGWWenKaiBold.ttf")
+                        asc: 0.0 desc: 0.0
                     }
                     emoji := FontMember{
                         res: crate_resource("makepad_widgets:resources/NotoColorEmoji.ttf")

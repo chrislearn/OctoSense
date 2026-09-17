@@ -48,9 +48,44 @@ impl DesktopStyle {
     pub fn next(self) -> Self { Self::ALL[(self as usize + 1) % Self::ALL.len()] }
 }
 
+/// Artwork for apps that live in this repository rather than upstream makepad.
+/// Omarchy draws a monochrome stroke in the bar's ink; every other family gets
+/// the 64×64 rounded tile that upstream's macOS-style catalog uses. Each app
+/// adds its `IconAsset` here, keyed by its catalog id.
+pub fn local_app_icons(_style: UpstreamStyle) -> Vec<app_icon::IconAsset> {
+    Vec::new()
+}
+
+/// Upstream's catalog for `style` plus our own apps, in the catalog's sorted order.
+pub fn sheet_icons(style: UpstreamStyle) -> Vec<app_icon::IconAsset> {
+    let mut icons = app_icon::load_assets(style);
+    for local in local_app_icons(style) {
+        match icons.iter_mut().find(|a| a.name == local.name) {
+            Some(slot) => *slot = local,
+            None => icons.push(local),
+        }
+    }
+    icons.sort_by(|a, b| a.name.cmp(&b.name));
+    icons
+}
+
+/// The sheet as sent over the wire to child processes: upstream's own icon
+/// list, without our local additions. A child compares the received sheet
+/// with the one it loaded itself from `MAKEPAD_WIDGET_STYLE`; any difference
+/// (even an extra icon it never draws) makes it re-install the sheet and
+/// re-apply its whole widget tree, which is slow and currently drops the
+/// wrap flow of every `Label` in the engine's reapply walk. The host keeps the
+/// full list for its own launcher, dock and in-process modules.
+pub fn wire_sheet(sheet: &StyleSheet) -> StyleSheet {
+    let style = UpstreamStyle::parse(&sheet.name).unwrap_or(UpstreamStyle::Macos);
+    StyleSheet { icons: app_icon::load_assets(style), ..sheet.clone() }
+}
+
 pub fn load_sheet(style: DesktopStyle, dark: bool) -> StyleSheet {
     if style != DesktopStyle::OctoSense {
-        return StyleSheet::load_with_appearance(style.framework(), dark);
+        let mut sheet = StyleSheet::load_with_appearance(style.framework(), dark);
+        sheet.icons = sheet_icons(style.framework());
+        return sheet;
     }
     let read = |name: &str, bundled: &str| {
         // Source checkouts reload on selection; installed/mobile builds use embedded data.
@@ -74,7 +109,7 @@ pub fn load_sheet(style: DesktopStyle, dark: bool) -> StyleSheet {
         name: if dark { "macos-dark" } else { "macos" }.into(),
         theme: read(theme_name, theme),
         widgets: read(widgets_name, widgets),
-        icons: app_icon::load_assets(UpstreamStyle::Macos),
+        icons: sheet_icons(UpstreamStyle::Macos),
     }
 }
 
@@ -91,6 +126,15 @@ mod tests {
     use super::*;
 
     #[test]
+    fn upstream_styles_go_over_the_wire_unmodified() {
+        // A child loads `load_with_appearance` itself; an equal sheet means no
+        // reapply walk at all when it connects.
+        for (style, dark) in [(DesktopStyle::Omarchy, false), (DesktopStyle::Macos, true), (DesktopStyle::Windows, false)] {
+            let sheet = load_sheet(style, dark);
+            assert_eq!(wire_sheet(&sheet), StyleSheet::load_with_appearance(style.framework(), dark));
+        }
+    }
+    #[test]
     fn octosense_sheet_survives_the_unmodified_upstream_wire_protocol() {
         let mut cx = Cx::new(Box::new(|_, _| {}));
         cx.with_vm(|vm| {
@@ -102,7 +146,9 @@ mod tests {
                 assert_eq!(sheet.name, if dark { "macos-dark" } else { "macos" });
                 assert_eq!(StyleSheet::parse(&sheet.to_json()), Some(sheet.clone()));
                 assert_eq!(UpstreamStyle::parse(&sheet.name), Some(UpstreamStyle::Macos));
-                assert_eq!(sheet.icons, app_icon::load_assets(UpstreamStyle::Macos));
+                assert_eq!(sheet.icons, sheet_icons(UpstreamStyle::Macos));
+                // Children only ever see upstream's own list (see `wire_sheet`).
+                assert_eq!(wire_sheet(&sheet).icons, app_icon::load_assets(UpstreamStyle::Macos));
                 desktop_style::install(vm, sheet);
                 vm.bx.captured_errors = Some(Vec::new());
                 vm.with_reload(makepad_widgets::script_mod);
