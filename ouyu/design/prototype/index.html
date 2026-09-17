@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>偶遇 OuYu · 给生活留一点偶然</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#discover"><span class="brandmark">✦</span><span>偶遇 <small>OuYu</small></span></a>
+    <div class="navcaption">给生活留一点偶然</div>
+    <nav class="navigation" aria-label="主导航">
+      <button data-page="discover"><span>◈</span>发现</button>
+      <button data-page="verify"><span>✦</span>相遇</button>
+      <button data-page="contacts"><span>♧</span>熟人</button>
+      <button data-page="memories"><span>▤</span>回忆</button>
+      <button data-page="achievements"><span>☆</span>成就</button>
+    </nav>
+    <div class="sidebarfoot"><div class="mini-art">✧ <span>☾</span> ✦</div><p>不用专程约。<br>也许，刚好遇见。</p><button class="quiet" data-page="privacy">⌑ 隐私与数据边界</button><small>设计草图 · 所有数据均为模拟</small></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar"><span class="topbrand">✦ 偶遇 <small>OuYu</small></span><span class="date">城市生活实验 / 今天下午</span></header>
+    <main id="content" tabindex="-1"></main>
+    <footer class="prototype-note">可点击 HTML 草图 · 虚构联系人 / 区域 / 优惠 · 不联网、不定位、不持久化 · 刷新重置</footer>
+  </div>
+  <dialog id="delete-dialog" aria-labelledby="delete-title"><form method="dialog"><button class="close" aria-label="关闭">×</button><span class="eyebrow">本机数据管理</span><h2 id="delete-title">删除这份回忆？</h2><p id="delete-description"></p><label id="delete-related-label" class="checkbox-label" hidden><input type="checkbox" id="delete-related">同时删除与此人的全部本机回忆</label><div class="notice">删除只影响本机，不会删除对方的日记。奖励防重关系键最长保留 7 天 + 24 小时，不因删除回忆提前解除。</div><div class="actions"><button value="cancel" class="secondary">取消</button><button id="delete-confirm" value="confirm" class="danger">确认删除</button></div></form></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

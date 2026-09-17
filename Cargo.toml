@@ -54,6 +54,7 @@ makepad-wm-theme = { git = "https://github.com/OctoSense-org/makepad.git", rev =
 makepad-sheets = { git = "https://github.com/OctoSense-org/makepad.git", rev = "d4502ef1e4d196d2829a07aa137740cb0581e9b4", default-features = false, optional = true }
 makepad-photos = { git = "https://github.com/OctoSense-org/makepad.git", rev = "d4502ef1e4d196d2829a07aa137740cb0581e9b4", default-features = false, optional = true }
 octosense-reference = { path = "apps/reference", optional = true }
+octosense-ouyu = { path = "apps/ouyu", optional = true }
 # The whole Octoscript-AppCard app hosted in a tile, in-process (Phase B of
 # the AppCard port): octos-app's AppShell — routing brain, cards, kernel agent.
 octosense-appcard = { path = "apps/appcard", optional = true }
@@ -75,6 +76,8 @@ default = []
 # Also usable on desktop for testing the same embedded apps with --module.
 mobile-apps = ["app-reference", "app-sheets", "app-photos", "app-appcard"]
 app-reference = ["dep:octosense-reference"]
+# 偶遇 OuYu 演示应用 linked in as a module, the same way as reference.
+app-ouyu = ["dep:octosense-ouyu"]
 # Sheets linked in as a module (hosting is still Process unless switched).
 app-sheets = ["dep:makepad-sheets"]
 # Photos (the picture wall) linked in as a module, the same way.
@@ -86,7 +89,7 @@ app-appcard = ["dep:octosense-appcard"]
 app-aichat = ["dep:makepad-aichat"]
 
 [workspace]
-members = [".", "apps/reference", "apps/appcard"]
+members = [".", "apps/reference", "apps/appcard", "apps/ouyu"]
 default-members = ["."]
 resolver = "2"
 
