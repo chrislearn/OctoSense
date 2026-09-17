@@ -4198,7 +4198,10 @@ impl MatchEvent for App {
 impl AppMain for App {
     fn script_mod(vm: &mut ScriptVm) -> ScriptValue {
         host::set_child_env("MAKEPAD_HOME", octosense::paths::home().as_os_str());
-        desktop_style::install(vm,desktop_style::StyleSheet::load(desktop_style::DesktopStyle::Omarchy));
+        // Our sheet, not upstream's: `install` prunes the icon catalog to the
+        // sheet's list, so the bare upstream sheet would drop our own app
+        // icons on every script reload.
+        desktop_style::install(vm,octosense::style::load_sheet(desktop::DesktopStyle::Omarchy, false));
         crate::makepad_widgets::script_mod(vm);
         #[cfg(target_os = "android")]
         octosense::android_rendering::script_mod(vm);

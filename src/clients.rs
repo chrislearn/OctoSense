@@ -953,7 +953,9 @@ pub fn spawn_client(
     Ok(ClientSlot {
         id,
         app: app.id.to_string(),
-        title: String::new(),
+        // Until the child reports its own title the bar shows the registry
+        // label, never the bare id.
+        title: app.label.clone(),
         child: Some(child),
         task_pool: Some(pool.clone()),
         sender: None,

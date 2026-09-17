@@ -104,7 +104,7 @@ impl App {
         }
         // Send the complete stylesheet, so already-running and warm applications
         // receive exactly the version selected in the WM, even across hosts.
-        let json = sheet.to_json();
+        let json = octosense::style::wire_sheet(&sheet).to_json();
         for slot in state.clients.values().filter(|slot| slot.ready) {
             if let Some(sender) = &slot.sender {
                 send_to_app(sender, vec![StudioToApp::Custom(json.clone())]);
@@ -171,7 +171,7 @@ impl App {
         );
     }
     pub(super) fn send_desktop_style(&mut self, client: ClientId) {
-        let Some(json) = self.stylesheet.as_ref().map(|s| s.to_json()) else {
+        let Some(json) = self.stylesheet.as_ref().map(|s| octosense::style::wire_sheet(s).to_json()) else {
             return;
         };
         if let Some(sender) = self
