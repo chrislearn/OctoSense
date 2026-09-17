@@ -7,7 +7,7 @@
 //! - `suggest_activity`：一条通用活动建议 / 城市小签，不依赖他人行程。
 //! 发布、互认、领奖始终由本人操作，AI 不能代签；隐藏记录不进入 AI（F 节）。
 
-use crate::data::{ECHOES, INTENTS, OuyuState, SIGNS, SLOTS, day_label};
+use crate::data::{ECHOES, INTENTS, OuyuState, SIGNS, SLOTS, day_label, minutes_of_day, today_days};
 use makepad_app_module::makepad_ai_services::wire::{Risk, ServiceCall, ServiceManifest, ToolDef, ToolResult};
 
 /// 本轮注册的工具列表。
@@ -39,7 +39,7 @@ pub fn manifest() -> ServiceManifest {
 /// 注意结构上没有姓名、人数、联系方式字段——H 节的硬要求由类型保证。
 #[derive(Clone, Debug, Default)]
 pub struct OpportunitySnapshot {
-    /// 本人当前是否有有效发布。
+    /// 本人当前是否有还没到期的行踪。几条同时有效时，快照里只放最先结束的那条。
     pub published: bool,
     /// 草图场景模拟的机会条件是否满足（非稀疏场景）。
     pub opportunity: bool,
@@ -51,13 +51,15 @@ pub struct OpportunitySnapshot {
 }
 
 impl OpportunitySnapshot {
-    /// 从应用状态取快照：只取发布与回声，联系人 / 回忆根本不会进快照。
+    /// 从应用状态取快照：只取行踪与回声，联系人 / 回忆根本不会进快照。
     pub fn from_state(state: &OuyuState, opportunity: bool) -> Self {
-        let p = state.publish.as_ref();
+        let today = today_days();
+        let active = state.active_publishes(today, minutes_of_day());
+        let p = active.first().copied();
         Self {
             published: p.is_some(),
             opportunity,
-            day: p.map(|p| p.day),
+            day: p.and_then(|p| p.day_at(today)),
             slot: p.map(|p| p.slot),
             area: p.map(|p| p.area),
             intent: p.map(|p| p.intent),
@@ -167,8 +169,8 @@ mod tests {
 
     #[test]
     fn opportunities_reflect_publish_and_scene() {
-        let mut s = OuyuState::demo();
-        s.publish(0, 1, 0, 0);
+        let mut s = OuyuState::for_tests();
+        s.publish(1, 1, 1, 0);
         s.set_echo(0);
         // 正常场景：有机会 + 发布的粗区域 / 时段桶 / 回声意愿。
         let snap = OpportunitySnapshot::from_state(&s, true);
@@ -176,14 +178,14 @@ mod tests {
         assert_eq!(r.outcome, ToolOutcome::Ok);
         assert!(r.text.contains("\"has_opportunity\":true"), "{}", r.text);
         assert!(r.text.contains("\"area\":\"三里屯一带\""), "{}", r.text);
-        assert!(r.text.contains("\"time_bucket\":\"今天下午\""), "{}", r.text);
+        assert!(r.text.contains("\"time_bucket\":\"明天下午\""), "{}", r.text);
         assert!(r.text.contains("\"咖啡\""), "{}", r.text);
         // 稀疏场景：条件不满足。
         let snap = OpportunitySnapshot::from_state(&s, false);
         let r = answer(&snap, &call("get_area_opportunities"));
         assert!(r.text.contains("\"has_opportunity\":false"), "{}", r.text);
         // 未发布：没有区域 / 时段。
-        let s2 = OuyuState::demo();
+        let s2 = OuyuState::for_tests();
         let snap = OpportunitySnapshot::from_state(&s2, true);
         let r = answer(&snap, &call("get_area_opportunities"));
         assert!(r.text.contains("\"area\":null"), "{}", r.text);
@@ -202,8 +204,8 @@ mod tests {
     #[test]
     fn outputs_never_contain_identity() {
         // H 节硬要求：任何联系人都不能出现在工具输出里（含隐藏回忆的称呼）。
-        let mut s = OuyuState::demo();
-        s.publish(0, 1, 0, 0);
+        let mut s = OuyuState::for_tests();
+        s.publish(1, 1, 1, 0);
         s.set_echo(1);
         s.push_memory(0, "林舟", MemoryChoice::Hidden);
         let snap = OpportunitySnapshot::from_state(&s, true);

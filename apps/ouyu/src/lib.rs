@@ -17,24 +17,26 @@ pub mod areas;
 pub mod canvas;
 pub mod data;
 pub mod share;
+pub mod theme;
 
 use canvas::{ChartData, OuyuChart, OuyuShareCard};
+use theme::{Pal, ThemeMode};
 use data::*;
 use share::ShareStyle;
 
 script_mod! {
-    use mod.prelude.widgets.*
+    use mod.prelude.ouyu.*
     use mod.widgets.*
 
     mod.widgets.OuyuView = set_type_default() do #(OuyuView::register_widget(vm)) {
         ..mod.widgets.RectView
         width: Fill height: Fill
         show_bg: true
-        draw_bg.color: #x0b1220
+        draw_bg.color: ouyu.bg
         flow: Right
 
         // Tab 切换淡入: 用应用底色从不透明到透明扫过页面区。
-        draw_fade +: { color: #x0b1220 draw_depth: 6.0 }
+        draw_fade +: { color: ouyu.bg draw_depth: 6.0 }
 
         // ---- 左侧 208px 侧栏 ----
         sidebar := RoundedView {
@@ -43,7 +45,7 @@ script_mod! {
             padding: Inset{left: 12.0, right: 12.0, top: 20.0, bottom: 14.0}
             spacing: 6.0
             draw_bg +: {
-                color: #x0d1626
+                color: ouyu.bg_chrome
                 border_radius: 0.0
                 border_size: 0.0
             }
@@ -56,14 +58,14 @@ script_mod! {
                 title := Label {
                     text: "偶遇 OuYu"
                     draw_text +: {
-                        color: #e7edf8
+                        color: ouyu.ink
                         text_style +: { font_size: 18.0 }
                     }
                 }
                 slogan := Label {
                     text: "给生活留一点偶然"
                     draw_text +: {
-                        color: #a4b2c9
+                        color: ouyu.ink_2
                         text_style +: { font_size: 12.5 }
                     }
                 }
@@ -74,22 +76,13 @@ script_mod! {
             tab_memories := OuyuTabIcon { text: "回忆" draw_icon +: { svg: crate_resource("self:resources/icons/nav-memories.svg") } }
             tab_achieve := OuyuTabIcon { text: "我" draw_icon +: { svg: crate_resource("self:resources/icons/nav-me.svg") } }
             sb_spacer := View { width: Fill height: Fill }
-            sb_mode_label := Label {
-                text: "界面模式"
-                margin: Inset{left: 6.0, bottom: 4.0}
-                draw_text +: {
-                    color: #6b7a99
-                    text_style +: { font_size: 12.5 }
-                }
-            }
-            sb_mode := OuyuBtn { width: Fill text: "自动" }
             sb_note := Label {
                 width: Fill
-                text: "设计草图 · 模拟数据"
+                text: "数据只在这台设备上。"
                 margin: Inset{left: 6.0}
                 draw_text +: {
                     wrap: Words
-                    color: #x7b8aa3
+                    color: ouyu.ink_3
                     text_style +: { font_size: 12.5 line_spacing: 1.35 }
                 }
             }
@@ -100,15 +93,18 @@ script_mod! {
             width: Fill height: Fill
             flow: Down
             draw_bg +: {
-                color: #x0b1220
-                border_color: #x26364c
+                color: ouyu.bg
+                border_color: ouyu.line_soft
                 border_size: 0.0
                 border_radius: 0.0
             }
 
-            // ---- 手机模式顶栏（宽屏隐藏：宽屏的标题在左侧栏）----
+            // ---- 顶栏：当页标题 + 当页主动作 ----
+            //
+            // 右边那个按钮跟着 Tab 走：发现页是「发布行踪」，相遇页是
+            // 「确认相遇」，别的页没有主动作就收起来。它是这两件事唯一的入口，
+            // 所以宽屏也留着这条顶栏，不再只给手机。
             topbar := View {
-                visible: false
                 width: Fill height: 58
                 flow: Right
                 align: Align{x: 0.0, y: 0.5}
@@ -118,11 +114,11 @@ script_mod! {
                     width: Fill
                     text: "偶遇 OuYu"
                     draw_text +: {
-                        color: #ffca91
+                        color: ouyu.warm
                         text_style +: { font_size: 15.0 }
                     }
                 }
-                tb_mode := OuyuBtn { text: "自动" }
+                tb_action := OuyuBtnPrimarySm { visible: false width: Fit text: "发布行踪" }
             }
             // ---- 内容区 + 右列解释栏 ----
             main := View {
@@ -139,7 +135,7 @@ script_mod! {
                         width: Fill height: Fill
                         flow: Down
 
-                    // ---- 发现页（首页：发布 + 匿名机会 + 回声 + 互认入口）----
+                    // ---- 发现页（首页：什么时候出门 + 匿名机会）----
                     page_discover := ScrollYView {
                         width: Fill height: Fill
                         flow: Down
@@ -154,7 +150,7 @@ script_mod! {
                                 text: "也许，刚好遇见。"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 24.0 line_spacing: 1.35 }
                                 }
                             }
@@ -163,7 +159,7 @@ script_mod! {
                                 text: "照常过你的一天。给重逢留一点空间。"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -183,7 +179,6 @@ script_mod! {
                                 align: Align{x: 0.0, y: 0.5}
                                 spacing: 8.0
                                 tc_title := OuyuH3 { width: Fill text: "什么时候出门？" }
-                                tc_hint := OuyuMuted { width: Fit text: "只影响排序" }
                             }
                             seg_track := OuyuSegTrack {
                                 sg0 := OuyuSeg { text: "今天" }
@@ -222,7 +217,7 @@ script_mod! {
                             rk_note := OuyuMuted {
                                 width: Fill
                                 margin: Inset{left: 12.0, right: 12.0, bottom: 2.0}
-                                text: "只分档，不给人数、身份或距离。"
+                                text: "只显示可能性高低，不显示人数、身份或距离。"
                             }
                             rk_list := View {
                                 width: Fill height: Fit
@@ -239,12 +234,12 @@ script_mod! {
                                 visible: false
                                 em_icon := OuyuIcon {
                                     icon_walk: Walk{ width: 28.0 height: Fit }
-                                    draw_icon +: { svg: crate_resource("self:resources/icons/nav-discover.svg") color: #x3c4c6b }
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/nav-discover.svg") color: ouyu.ink_ghost }
                                 }
                                 em_text := Label {
                                     width: Fit
                                     text: "这一天还没有足够的机会"
-                                    draw_text +: { color: #a4b2c9 text_style +: { font_size: 13.0 } }
+                                    draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
                                 }
                             }
                             rk_more_head := OuyuGroupHead {
@@ -271,108 +266,13 @@ script_mod! {
                                 sign_note := OuyuMuted { width: Fill text: "与他人行程无关。" }
                             }
                         }
-
-                        // 我的去向：一条紧凑状态条，不再是常驻的 400px 表单。
-                        mine_card := OuyuCard2 {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 14.0
-                            spacing: 10.0
-                            mn_icon := OuyuIcon {
-                                draw_icon +: { svg: crate_resource("self:resources/icons/location.svg") color: #a4b2c9 }
-                            }
-                            mn_col := View {
-                                width: Fill height: Fit
-                                flow: Down
-                                spacing: 2.0
-                                mn_title := OuyuBody { width: Fill text: "还没写你的去向" }
-                                mn_sub := OuyuMuted { width: Fill text: "写了才会进入别人的匿名机会。" }
-                            }
-                            mn_go := OuyuBtnPrimarySm { width: Fit text: "发布" }
-                            mn_edit := OuyuBtn { visible: false width: Fit text: "修改" }
-                            mn_withdraw := OuyuBtnDanger { visible: false width: Fit text: "撤回" }
-                        }
-
-                        echo_card := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: 18.0
-                            spacing: 10.0
-                            echo_title := Label {
-                                width: Fill
-                                text: "留一个轻轻的回声"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: #e7edf8
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            echo_note := Label {
-                                width: Fill
-                                text: "匿名、无已读，随行程到期。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: #a4b2c9
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                }
-                            }
-                            echo_row := View {
-                                width: Fill height: Fit
-                                flow: Right{wrap: true}
-                                wrap_spacing: 8.0
-                                spacing: 8.0
-                                echo0 := OuyuChip { text: "咖啡" }
-                                echo1 := OuyuChip { text: "散步" }
-                                echo2 := OuyuChip { text: "吃饭" }
-                            }
-                            echo_status := Label {
-                                visible: false
-                                width: Fill
-                                text: "已留下回声 · 随行程到期"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: #ffca91
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                }
-                            }
-                        }
-
-                        met_card := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 18.0
-                            spacing: 12.0
-                            met_col := View {
-                                width: Fill height: Fit
-                                flow: Down
-                                spacing: 4.0
-                                met_title := Label {
-                                    text: "真的碰到朋友了？"
-                                    draw_text +: {
-                                        color: #e7edf8
-                                        text_style +: { font_size: 14.0 }
-                                    }
-                                }
-                                met_sub := Label {
-                                    width: Fill
-                                    text: "各自确认，留个纪念。"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: #a4b2c9
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                    }
-                                }
-                            }
-                            met_go := OuyuBtnPrimary { text: "我们碰到了" }
-                        }
                     }
 
                     // ---- 发布向导（三步：什么时候 / 哪一带 / 想做什么）----
                     //
-                    // 发布是一个动作，不是首页上常驻的表单：从发现页的「发布」
-                    // 进来，退出即丢草稿（docs/02 第二节）。
+                    // 发布是一个动作，不是首页上常驻的表单：从顶栏的「发布行踪」
+                    // 进来，退出即丢草稿（docs/02 第二节）。行踪可以有多条，
+                    // 修改某一条从「我 → 我的行踪」进来。
                     // 底栏不进滚动区：第 2 步的片区列表有十几行，按钮若跟着内容
                     // 走，人得先滚一屏才能点「下一步」。
                     page_publish := View {
@@ -394,7 +294,7 @@ script_mod! {
                             pw_back := OuyuIconBtn {
                                 draw_icon +: { svg: crate_resource("self:resources/icons/chevron-left.svg") }
                             }
-                            pw_title := OuyuH1 { width: Fill text: "写一下你的去向" }
+                            pw_title := OuyuH1 { width: Fill text: "写一下你的行踪" }
                             pw_step := OuyuMuted { width: Fit text: "1 / 3" }
                         }
                         pw_sub := OuyuMuted {
@@ -545,12 +445,12 @@ script_mod! {
                                 visible: false
                                 em_icon := OuyuIcon {
                                     icon_walk: Walk{ width: 28.0 height: Fit }
-                                    draw_icon +: { svg: crate_resource("self:resources/icons/search.svg") color: #x3c4c6b }
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/search.svg") color: ouyu.ink_ghost }
                                 }
                                 em_text := Label {
                                     width: Fit
                                     text: "没有匹配的片区"
-                                    draw_text +: { color: #a4b2c9 text_style +: { font_size: 13.0 } }
+                                    draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
                                 }
                             }
                             s2_more := OuyuMuted { width: Fill text: "" }
@@ -605,9 +505,9 @@ script_mod! {
                         }
                     }
 
-                    // ---- 相遇页（现场互认流程）----
-                    // ---- 相遇页（现场互认）----
+                    // ---- 相遇页（首屏成就 + 现场互认）----
                     //
+                    // 首屏是曲线 / 里程碑 / 分享卡；点顶栏「确认相遇」后进入互认，
                     // 四个用户可见的态，一次只露一个：① 选人 → ② 定位门槛
                     // → ③ 等待 → ④ 结果。六条结局（成功 / 同地不成立 / 无库存
                     // / 超时 / 信息不一致 / 未授权）都停在同一张结果屏上。
@@ -622,7 +522,7 @@ script_mod! {
                             text: "这次，真的遇见了。"
                             draw_text +: {
                                 wrap: Words
-                                color: #e7edf8
+                                color: ouyu.ink
                                 text_style +: { font_size: 24.0 line_spacing: 1.35 }
                             }
                         }
@@ -631,16 +531,372 @@ script_mod! {
                             text: "先在线下认出彼此，再各自确认。"
                             draw_text +: {
                                 wrap: Words
-                                color: #a4b2c9
+                                color: ouyu.ink_2
                                 text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                            }
+                        }
+
+                        // ---- 首屏：成就内容（曲线 / 里程碑 / 分享卡）----
+                        //
+                        // 相遇页平时就停在这里。互认流程从顶栏「确认相遇」进，
+                        // 走完或退出再回到这一屏。
+                        meet_home := View {
+                            width: Fill height: Fit
+                            flow: Down
+                            spacing: 14.0
+                            // 频率曲线：4 / 8 周切换 + 自绘折线 + 可展开数据表。
+                            curve_card := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 18.0
+                                spacing: 10.0
+                                curve_head := View {
+                                    width: Fill height: Fit
+                                    flow: Right
+                                    align: Align{x: 0.0, y: 0.5}
+                                    spacing: 8.0
+                                    curve_title := Label {
+                                        width: Fill
+                                        text: "相遇频率曲线"
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink
+                                            text_style +: { font_size: 15.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    wk4 := OuyuChip { text: "4 周" }
+                                    wk8 := OuyuChip { text: "8 周" }
+                                }
+                                curve_sub := Label {
+                                    width: Fill
+                                    text: "最近 8 周，记住 0 次重逢"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                    }
+                                }
+                                curve_chart := OuyuChart { width: Fill height: 200 }
+                                curve_empty := Label {
+                                    visible: false
+                                    width: Fill
+                                    text: "下一次偶然，值得期待"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.warm
+                                        text_style +: { font_size: 15.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                curve_caption := Label {
+                                    width: Fill
+                                    text: "按周汇总，本周还没过完。"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink_4
+                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                    }
+                                }
+                                wk_toggle := OuyuBtn { text: "每周次数" }
+                                wk_table := View {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 6.0
+                                    wk_r0 := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        wk_d := Label {
+                                            width: Fill
+                                            text: ""
+                                            draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
+                                        }
+                                        wk_c := Label {
+                                            text: ""
+                                            draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
+                                        }
+                                    }
+                                    wk_r1 := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        wk_d := Label {
+                                            width: Fill
+                                            text: ""
+                                            draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
+                                        }
+                                        wk_c := Label {
+                                            text: ""
+                                            draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
+                                        }
+                                    }
+                                    wk_r2 := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        wk_d := Label {
+                                            width: Fill
+                                            text: ""
+                                            draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
+                                        }
+                                        wk_c := Label {
+                                            text: ""
+                                            draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
+                                        }
+                                    }
+                                    wk_r3 := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        wk_d := Label {
+                                            width: Fill
+                                            text: ""
+                                            draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
+                                        }
+                                        wk_c := Label {
+                                            text: ""
+                                            draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
+                                        }
+                                    }
+                                    wk_r4 := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        wk_d := Label {
+                                            width: Fill
+                                            text: ""
+                                            draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
+                                        }
+                                        wk_c := Label {
+                                            text: ""
+                                            draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
+                                        }
+                                    }
+                                    wk_r5 := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        wk_d := Label {
+                                            width: Fill
+                                            text: ""
+                                            draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
+                                        }
+                                        wk_c := Label {
+                                            text: ""
+                                            draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
+                                        }
+                                    }
+                                    wk_r6 := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        wk_d := Label {
+                                            width: Fill
+                                            text: ""
+                                            draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
+                                        }
+                                        wk_c := Label {
+                                            text: ""
+                                            draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
+                                        }
+                                    }
+                                    wk_r7 := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        wk_d := Label {
+                                            width: Fill
+                                            text: ""
+                                            draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
+                                        }
+                                        wk_c := Label {
+                                            text: ""
+                                            draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
+                                        }
+                                    }
+                                }
+                            }
+                            // 里程碑：点亮 / 等自然发生，不用凑次数，无排名。
+                            ms_card := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 18.0
+                                spacing: 10.0
+                                ms_head := View {
+                                    width: Fill height: Fit
+                                    flow: Right
+                                    align: Align{x: 0.0, y: 0.5}
+                                    ms_title := Label {
+                                        width: Fill
+                                        text: "我的小小里程碑"
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink
+                                            text_style +: { font_size: 15.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    ms_badge := Label {
+                                        text: "不用凑次数"
+                                        draw_text +: {
+                                            color: ouyu.warm
+                                            text_style +: { font_size: 11.0 }
+                                        }
+                                    }
+                                }
+                                ms_row := View {
+                                    width: Fill height: Fit
+                                    flow: Right
+                                    spacing: 12.0
+                                    ms0 := OuyuCard {
+                                        width: Fill height: Fit
+                                        flow: Down
+                                        padding: 14.0
+                                        spacing: 6.0
+                                        ms_icon := Label {
+                                            text: "☆"
+                                            draw_text +: {
+                                                color: ouyu.warm
+                                                text_style +: { font_size: 17.0 }
+                                            }
+                                        }
+                                        ms_title := Label {
+                                            text: "第一次刚刚好"
+                                            draw_text +: {
+                                                color: ouyu.ink
+                                                text_style +: { font_size: 13.0 }
+                                            }
+                                        }
+                                        ms_desc := Label {
+                                            text: "记住一次重逢"
+                                            draw_text +: {
+                                                color: ouyu.ink_2
+                                                text_style +: { font_size: 12.5 }
+                                            }
+                                        }
+                                        ms_state := Label {
+                                            text: "等自然发生"
+                                            draw_text +: {
+                                                color: ouyu.ink_4
+                                                text_style +: { font_size: 12.5 }
+                                            }
+                                        }
+                                    }
+                                    ms1 := OuyuCard {
+                                        width: Fill height: Fit
+                                        flow: Down
+                                        padding: 14.0
+                                        spacing: 6.0
+                                        ms_icon := Label {
+                                            text: "☆"
+                                            draw_text +: {
+                                                color: ouyu.warm
+                                                text_style +: { font_size: 17.0 }
+                                            }
+                                        }
+                                        ms_title := Label {
+                                            text: "生活有回响"
+                                            draw_text +: {
+                                                color: ouyu.ink
+                                                text_style +: { font_size: 13.0 }
+                                            }
+                                        }
+                                        ms_desc := Label {
+                                            text: "记住三次相遇"
+                                            draw_text +: {
+                                                color: ouyu.ink_2
+                                                text_style +: { font_size: 12.5 }
+                                            }
+                                        }
+                                        ms_state := Label {
+                                            text: "等自然发生"
+                                            draw_text +: {
+                                                color: ouyu.ink_4
+                                                text_style +: { font_size: 12.5 }
+                                            }
+                                        }
+                                    }
+                                    ms2 := OuyuCard {
+                                        width: Fill height: Fit
+                                        flow: Down
+                                        padding: 14.0
+                                        spacing: 6.0
+                                        ms_icon := Label {
+                                            text: "☆"
+                                            draw_text +: {
+                                                color: ouyu.warm
+                                                text_style +: { font_size: 17.0 }
+                                            }
+                                        }
+                                        ms_title := Label {
+                                            text: "把日常过成故事"
+                                            draw_text +: {
+                                                color: ouyu.ink
+                                                text_style +: { font_size: 13.0 }
+                                            }
+                                        }
+                                        ms_desc := Label {
+                                            text: "七个有相遇的日子"
+                                            draw_text +: {
+                                                color: ouyu.ink_2
+                                                text_style +: { font_size: 12.5 }
+                                            }
+                                        }
+                                        ms_state := Label {
+                                            text: "等自然发生"
+                                            draw_text +: {
+                                                color: ouyu.ink_4
+                                                text_style +: { font_size: 12.5 }
+                                            }
+                                        }
+                                    }
+                                }
+                                ms_note := Label {
+                                    width: Fill
+                                    text: "里程碑随可见回忆变化，不保存也不扣分。"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink_4
+                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                    }
+                                }
+                            }
+                            // 分享入口。
+                            share_card := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 18.0
+                                spacing: 12.0
+                                share_text := View {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 6.0
+                                    share_t := Label {
+                                        width: Fill
+                                        text: "把生活里的偶然，分享给朋友。"
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink
+                                            text_style +: { font_size: 15.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    share_b := Label {
+                                        width: Fill
+                                        text: "分享卡只有你的汇总，没有别人的身份。"
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink_2
+                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                        }
+                                    }
+                                }
+                                sh_go := OuyuBtnPrimary { text: "生成分享卡" draw_icon +: { svg: crate_resource("self:resources/icons/share.svg") } }
                             }
                         }
 
                         // ---- ① 选人 ----
                         meet_pick := View {
+                            visible: false
                             width: Fill height: Fit
                             flow: Down
                             spacing: 10.0
+                            pick_back := OuyuLink {
+                                width: Fit
+                                text: "返回"
+                                draw_icon +: { svg: crate_resource("self:resources/icons/chevron-left.svg") }
+                            }
                             pick_card := OuyuCard {
                                 width: Fill height: Fit
                                 flow: Down
@@ -652,7 +908,7 @@ script_mod! {
                                     text: "在场的是谁？"
                                     draw_text +: {
                                         wrap: Words
-                                        color: #a4b2c9
+                                        color: ouyu.ink_2
                                         text_style +: { font_size: 13.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -669,7 +925,7 @@ script_mod! {
                                     text: "还没有熟人，先到「熟人」页导入。"
                                     draw_text +: {
                                         wrap: Words
-                                        color: #a4b2c9
+                                        color: ouyu.ink_2
                                         text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                     }
                                 }
@@ -689,7 +945,7 @@ script_mod! {
                                 width: Fill
                                 text: "已记住这次相遇"
                                 draw_text +: {
-                                    color: #9be2bf
+                                    color: ouyu.good
                                     text_style +: { font_size: 12.5 }
                                 }
                             }
@@ -715,7 +971,7 @@ script_mod! {
                                     text: "需要定位一次，确认你们在同一个地方"
                                     draw_text +: {
                                         wrap: Words
-                                        color: #e7edf8
+                                        color: ouyu.ink
                                         text_style +: { font_size: 18.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -724,7 +980,7 @@ script_mod! {
                                     text: "相遇礼只发给真的在同一处碰上的两个人。"
                                     draw_text +: {
                                         wrap: Words
-                                        color: #a4b2c9
+                                        color: ouyu.ink_2
                                         text_style +: { font_size: 13.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -733,7 +989,7 @@ script_mod! {
                                     text: "只在你点确认的那一刻读一次。"
                                     draw_text +: {
                                         wrap: Words
-                                        color: #a4b2c9
+                                        color: ouyu.ink_2
                                         text_style +: { font_size: 13.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -742,7 +998,7 @@ script_mod! {
                                     text: "只用来比对是否同地，比对完即丢弃，不上传不留存。"
                                     draw_text +: {
                                         wrap: Words
-                                        color: #a4b2c9
+                                        color: ouyu.ink_2
                                         text_style +: { font_size: 13.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -760,7 +1016,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #ffca91
+                                        color: ouyu.warm
                                         text_style +: { font_size: 13.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -794,7 +1050,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #e7edf8
+                                        color: ouyu.ink
                                         text_style +: { font_size: 17.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -803,7 +1059,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #ffca91
+                                        color: ouyu.warm
                                         text_style +: { font_size: 15.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -812,7 +1068,7 @@ script_mod! {
                                     text: "没有已读和在线状态。"
                                     draw_text +: {
                                         wrap: Words
-                                        color: #a4b2c9
+                                        color: ouyu.ink_2
                                         text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                     }
                                 }
@@ -827,7 +1083,7 @@ script_mod! {
                                         text: "让对方输入这串码，或打开链接："
                                         draw_text +: {
                                             wrap: Words
-                                            color: #a4b2c9
+                                            color: ouyu.ink_2
                                             text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                         }
                                     }
@@ -836,7 +1092,7 @@ script_mod! {
                                         text: ""
                                         draw_text +: {
                                             wrap: Words
-                                            color: #e7edf8
+                                            color: ouyu.ink
                                             text_style +: { font_size: 26.0 line_spacing: 1.35 }
                                         }
                                     }
@@ -845,7 +1101,7 @@ script_mod! {
                                         text: ""
                                         draw_text +: {
                                             wrap: Words
-                                            color: #82b5ff
+                                            color: ouyu.blue
                                             text_style +: { font_size: 13.0 line_spacing: 1.35 }
                                         }
                                     }
@@ -871,7 +1127,7 @@ script_mod! {
                                         width: Fit height: Fit
                                         rs_ok_icon := OuyuIcon {
                                             icon_walk: Walk{ width: 40.0 height: Fit }
-                                            draw_icon +: { svg: crate_resource("self:resources/icons/check-circle.svg") color: #9be2bf }
+                                            draw_icon +: { svg: crate_resource("self:resources/icons/check-circle.svg") color: ouyu.good }
                                         }
                                     }
                                     rs_no := View {
@@ -879,7 +1135,7 @@ script_mod! {
                                         width: Fit height: Fit
                                         rs_no_icon := OuyuIcon {
                                             icon_walk: Walk{ width: 40.0 height: Fit }
-                                            draw_icon +: { svg: crate_resource("self:resources/icons/alert-circle.svg") color: #ffca91 }
+                                            draw_icon +: { svg: crate_resource("self:resources/icons/alert-circle.svg") color: ouyu.warm }
                                         }
                                     }
                                 }
@@ -888,7 +1144,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #e7edf8
+                                        color: ouyu.ink
                                         text_style +: { font_size: 18.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -897,7 +1153,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #a4b2c9
+                                        color: ouyu.ink_2
                                         text_style +: { font_size: 13.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -909,7 +1165,7 @@ script_mod! {
                                 padding: 18.0
                                 spacing: 10.0
                                 draw_bg +: {
-                                    color: #ffca91
+                                    color: ouyu.coupon
                                     border_radius: 20.0
                                 }
                                 ck_head := View {
@@ -922,14 +1178,14 @@ script_mod! {
                                         text: ""
                                         draw_text +: {
                                             wrap: Words
-                                            color: #x5a3d1e
+                                            color: ouyu.on_warm
                                             text_style +: { font_size: 13.0 line_spacing: 1.35 }
                                         }
                                     }
                                     ck_badge := Label {
-                                        text: "虚构示例"
+                                        text: "相遇礼"
                                         draw_text +: {
-                                            color: #x5a3d1e
+                                            color: ouyu.on_warm
                                             text_style +: { font_size: 11.0 }
                                         }
                                     }
@@ -939,7 +1195,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #x2b1c0d
+                                        color: ouyu.on_warm_hi
                                         text_style +: { font_size: 24.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -948,7 +1204,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #x5a3d1e
+                                        color: ouyu.on_warm
                                         text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                     }
                                 }
@@ -960,14 +1216,14 @@ script_mod! {
                                     ck_token := Label {
                                         text: ""
                                         draw_text +: {
-                                            color: #x2b1c0d
+                                            color: ouyu.on_warm_hi
                                             text_style +: { font_size: 13.0 }
                                         }
                                     }
                                     ck_expiry := Label {
                                         text: ""
                                         draw_text +: {
-                                            color: #x5a3d1e
+                                            color: ouyu.on_warm
                                             text_style +: { font_size: 13.0 }
                                         }
                                     }
@@ -977,7 +1233,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #x2b1c0d
+                                        color: ouyu.on_warm_hi
                                         text_style +: { font_size: 13.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -1000,7 +1256,7 @@ script_mod! {
                                     text: "可用门店"
                                     draw_text +: {
                                         wrap: Words
-                                        color: #a4b2c9
+                                        color: ouyu.ink_2
                                         text_style +: { font_size: 13.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -1012,7 +1268,7 @@ script_mod! {
                                     text: "只给大致远近，不给米数。"
                                     draw_text +: {
                                         wrap: Words
-                                        color: #x7b8aa3
+                                        color: ouyu.ink_3
                                         text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                     }
                                 }
@@ -1028,7 +1284,7 @@ script_mod! {
                                     text: "这次回忆怎么留？"
                                     draw_text +: {
                                         wrap: Words
-                                        color: #a4b2c9
+                                        color: ouyu.ink_2
                                         text_style +: { font_size: 13.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -1046,7 +1302,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #a4b2c9
+                                        color: ouyu.ink_2
                                         text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                     }
                                 }
@@ -1075,7 +1331,7 @@ script_mod! {
                             text: "熟人，来自你的生活。"
                             draw_text +: {
                                 wrap: Words
-                                color: #e7edf8
+                                color: ouyu.ink
                                 text_style +: { font_size: 24.0 line_spacing: 1.35 }
                             }
                         }
@@ -1084,7 +1340,7 @@ script_mod! {
                             text: "无需好友申请，也不显示对方是否安装。"
                             draw_text +: {
                                 wrap: Words
-                                color: #a4b2c9
+                                color: ouyu.ink_2
                                 text_style +: { font_size: 14.0 line_spacing: 1.35 }
                             }
                         }
@@ -1099,10 +1355,10 @@ script_mod! {
                                 align: Align{x: 0.0, y: 0.5}
                                 ct_head_text := Label {
                                     width: Fill
-                                    text: "本机熟人 · 3 位"
+                                    text: "我的熟人 · 3 位"
                                     draw_text +: {
                                         wrap: Words
-                                        color: #e7edf8
+                                        color: ouyu.ink
                                         text_style +: { font_size: 18.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -1110,10 +1366,10 @@ script_mod! {
                             }
                             ct_note := Label {
                                 width: Fill
-                                text: "次数含隐藏的回忆；成就页只算未隐藏的。"
+                                text: "次数包含隐藏的回忆。"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                 }
                             }
@@ -1135,7 +1391,7 @@ script_mod! {
                                 text: ""
                                 draw_text +: {
                                     wrap: Words
-                                    color: #ff9eab
+                                    color: ouyu.bad
                                     text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                 }
                             }
@@ -1151,7 +1407,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #ffca91
+                                        color: ouyu.warm
                                         text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                     }
                                 }
@@ -1162,29 +1418,49 @@ script_mod! {
                                 width: Fill height: Fit
                                 flow: Down
                                 spacing: 8.0
+                                // 一个熟人两行封顶：名字和次数一行，四个动作
+                                // 一行。宽屏上 c_main 仍是一条 Right，两半并排
+                                // 成一行；手机上 apply_shaping 把它翻成 Down，
+                                // 于是恰好两行 —— 而不是让四个按钮自己乱换行。
                                 c_main := View {
                                     width: Fill height: Fit
                                     flow: Right
                                     align: Align{x: 0.0, y: 0.5}
-                                    spacing: 8.0
-                                    c_name := Label {
-                                        width: 90
-                                        draw_text +: {
-                                            color: #e7edf8
-                                            text_style +: { font_size: 14.0 }
+                                    spacing: 10.0
+                                    c_top := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 8.0
+                                        c_name := Label {
+                                            width: Fit
+                                            draw_text +: {
+                                                text_overflow: TextOverflow.Ellipsis
+                                                max_lines: 1
+                                                color: ouyu.ink
+                                                text_style +: { font_size: 14.0 }
+                                            }
+                                        }
+                                        c_count := Label {
+                                            width: Fill
+                                            draw_text +: {
+                                                text_overflow: TextOverflow.Ellipsis
+                                                max_lines: 1
+                                                color: ouyu.ink_2
+                                                text_style +: { font_size: 12.5 }
+                                            }
                                         }
                                     }
-                                    c_count := Label {
-                                        width: Fill
-                                        draw_text +: {
-                                            color: #a4b2c9
-                                            text_style +: { font_size: 12.5 }
-                                        }
+                                    c_acts := View {
+                                        width: Fit height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 6.0
+                                        c_view := OuyuBtnSm { text: "回忆" }
+                                        c_merge := OuyuBtnSm { text: "合并" }
+                                        c_delmem := OuyuBtnSm { text: "清空回忆" }
+                                        c_del := OuyuBtnDangerSm { text: "删除" }
                                     }
-                                    c_view := OuyuBtn { text: "回忆" }
-                                    c_merge := OuyuBtn { text: "合并" }
-                                    c_delmem := OuyuBtn { text: "清空回忆" }
-                                    c_del := OuyuBtnDanger { text: "删除" }
                                 }
                                 c_confirm := View {
                                     visible: false
@@ -1197,7 +1473,7 @@ script_mod! {
                                         width: Fill
                                         draw_text +: {
                                             wrap: Words
-                                            color: #ff9eab
+                                            color: ouyu.bad
                                             text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                         }
                                     }
@@ -1210,29 +1486,49 @@ script_mod! {
                                 width: Fill height: Fit
                                 flow: Down
                                 spacing: 8.0
+                                // 一个熟人两行封顶：名字和次数一行，四个动作
+                                // 一行。宽屏上 c_main 仍是一条 Right，两半并排
+                                // 成一行；手机上 apply_shaping 把它翻成 Down，
+                                // 于是恰好两行 —— 而不是让四个按钮自己乱换行。
                                 c_main := View {
                                     width: Fill height: Fit
                                     flow: Right
                                     align: Align{x: 0.0, y: 0.5}
-                                    spacing: 8.0
-                                    c_name := Label {
-                                        width: 90
-                                        draw_text +: {
-                                            color: #e7edf8
-                                            text_style +: { font_size: 14.0 }
+                                    spacing: 10.0
+                                    c_top := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 8.0
+                                        c_name := Label {
+                                            width: Fit
+                                            draw_text +: {
+                                                text_overflow: TextOverflow.Ellipsis
+                                                max_lines: 1
+                                                color: ouyu.ink
+                                                text_style +: { font_size: 14.0 }
+                                            }
+                                        }
+                                        c_count := Label {
+                                            width: Fill
+                                            draw_text +: {
+                                                text_overflow: TextOverflow.Ellipsis
+                                                max_lines: 1
+                                                color: ouyu.ink_2
+                                                text_style +: { font_size: 12.5 }
+                                            }
                                         }
                                     }
-                                    c_count := Label {
-                                        width: Fill
-                                        draw_text +: {
-                                            color: #a4b2c9
-                                            text_style +: { font_size: 12.5 }
-                                        }
+                                    c_acts := View {
+                                        width: Fit height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 6.0
+                                        c_view := OuyuBtnSm { text: "回忆" }
+                                        c_merge := OuyuBtnSm { text: "合并" }
+                                        c_delmem := OuyuBtnSm { text: "清空回忆" }
+                                        c_del := OuyuBtnDangerSm { text: "删除" }
                                     }
-                                    c_view := OuyuBtn { text: "回忆" }
-                                    c_merge := OuyuBtn { text: "合并" }
-                                    c_delmem := OuyuBtn { text: "清空回忆" }
-                                    c_del := OuyuBtnDanger { text: "删除" }
                                 }
                                 c_confirm := View {
                                     visible: false
@@ -1245,7 +1541,7 @@ script_mod! {
                                         width: Fill
                                         draw_text +: {
                                             wrap: Words
-                                            color: #ff9eab
+                                            color: ouyu.bad
                                             text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                         }
                                     }
@@ -1258,29 +1554,49 @@ script_mod! {
                                 width: Fill height: Fit
                                 flow: Down
                                 spacing: 8.0
+                                // 一个熟人两行封顶：名字和次数一行，四个动作
+                                // 一行。宽屏上 c_main 仍是一条 Right，两半并排
+                                // 成一行；手机上 apply_shaping 把它翻成 Down，
+                                // 于是恰好两行 —— 而不是让四个按钮自己乱换行。
                                 c_main := View {
                                     width: Fill height: Fit
                                     flow: Right
                                     align: Align{x: 0.0, y: 0.5}
-                                    spacing: 8.0
-                                    c_name := Label {
-                                        width: 90
-                                        draw_text +: {
-                                            color: #e7edf8
-                                            text_style +: { font_size: 14.0 }
+                                    spacing: 10.0
+                                    c_top := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 8.0
+                                        c_name := Label {
+                                            width: Fit
+                                            draw_text +: {
+                                                text_overflow: TextOverflow.Ellipsis
+                                                max_lines: 1
+                                                color: ouyu.ink
+                                                text_style +: { font_size: 14.0 }
+                                            }
+                                        }
+                                        c_count := Label {
+                                            width: Fill
+                                            draw_text +: {
+                                                text_overflow: TextOverflow.Ellipsis
+                                                max_lines: 1
+                                                color: ouyu.ink_2
+                                                text_style +: { font_size: 12.5 }
+                                            }
                                         }
                                     }
-                                    c_count := Label {
-                                        width: Fill
-                                        draw_text +: {
-                                            color: #a4b2c9
-                                            text_style +: { font_size: 12.5 }
-                                        }
+                                    c_acts := View {
+                                        width: Fit height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 6.0
+                                        c_view := OuyuBtnSm { text: "回忆" }
+                                        c_merge := OuyuBtnSm { text: "合并" }
+                                        c_delmem := OuyuBtnSm { text: "清空回忆" }
+                                        c_del := OuyuBtnDangerSm { text: "删除" }
                                     }
-                                    c_view := OuyuBtn { text: "回忆" }
-                                    c_merge := OuyuBtn { text: "合并" }
-                                    c_delmem := OuyuBtn { text: "清空回忆" }
-                                    c_del := OuyuBtnDanger { text: "删除" }
                                 }
                                 c_confirm := View {
                                     visible: false
@@ -1293,7 +1609,7 @@ script_mod! {
                                         width: Fill
                                         draw_text +: {
                                             wrap: Words
-                                            color: #ff9eab
+                                            color: ouyu.bad
                                             text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                         }
                                     }
@@ -1306,29 +1622,49 @@ script_mod! {
                                 width: Fill height: Fit
                                 flow: Down
                                 spacing: 8.0
+                                // 一个熟人两行封顶：名字和次数一行，四个动作
+                                // 一行。宽屏上 c_main 仍是一条 Right，两半并排
+                                // 成一行；手机上 apply_shaping 把它翻成 Down，
+                                // 于是恰好两行 —— 而不是让四个按钮自己乱换行。
                                 c_main := View {
                                     width: Fill height: Fit
                                     flow: Right
                                     align: Align{x: 0.0, y: 0.5}
-                                    spacing: 8.0
-                                    c_name := Label {
-                                        width: 90
-                                        draw_text +: {
-                                            color: #e7edf8
-                                            text_style +: { font_size: 14.0 }
+                                    spacing: 10.0
+                                    c_top := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 8.0
+                                        c_name := Label {
+                                            width: Fit
+                                            draw_text +: {
+                                                text_overflow: TextOverflow.Ellipsis
+                                                max_lines: 1
+                                                color: ouyu.ink
+                                                text_style +: { font_size: 14.0 }
+                                            }
+                                        }
+                                        c_count := Label {
+                                            width: Fill
+                                            draw_text +: {
+                                                text_overflow: TextOverflow.Ellipsis
+                                                max_lines: 1
+                                                color: ouyu.ink_2
+                                                text_style +: { font_size: 12.5 }
+                                            }
                                         }
                                     }
-                                    c_count := Label {
-                                        width: Fill
-                                        draw_text +: {
-                                            color: #a4b2c9
-                                            text_style +: { font_size: 12.5 }
-                                        }
+                                    c_acts := View {
+                                        width: Fit height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 6.0
+                                        c_view := OuyuBtnSm { text: "回忆" }
+                                        c_merge := OuyuBtnSm { text: "合并" }
+                                        c_delmem := OuyuBtnSm { text: "清空回忆" }
+                                        c_del := OuyuBtnDangerSm { text: "删除" }
                                     }
-                                    c_view := OuyuBtn { text: "回忆" }
-                                    c_merge := OuyuBtn { text: "合并" }
-                                    c_delmem := OuyuBtn { text: "清空回忆" }
-                                    c_del := OuyuBtnDanger { text: "删除" }
                                 }
                                 c_confirm := View {
                                     visible: false
@@ -1341,7 +1677,7 @@ script_mod! {
                                         width: Fill
                                         draw_text +: {
                                             wrap: Words
-                                            color: #ff9eab
+                                            color: ouyu.bad
                                             text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                         }
                                     }
@@ -1354,29 +1690,49 @@ script_mod! {
                                 width: Fill height: Fit
                                 flow: Down
                                 spacing: 8.0
+                                // 一个熟人两行封顶：名字和次数一行，四个动作
+                                // 一行。宽屏上 c_main 仍是一条 Right，两半并排
+                                // 成一行；手机上 apply_shaping 把它翻成 Down，
+                                // 于是恰好两行 —— 而不是让四个按钮自己乱换行。
                                 c_main := View {
                                     width: Fill height: Fit
                                     flow: Right
                                     align: Align{x: 0.0, y: 0.5}
-                                    spacing: 8.0
-                                    c_name := Label {
-                                        width: 90
-                                        draw_text +: {
-                                            color: #e7edf8
-                                            text_style +: { font_size: 14.0 }
+                                    spacing: 10.0
+                                    c_top := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 8.0
+                                        c_name := Label {
+                                            width: Fit
+                                            draw_text +: {
+                                                text_overflow: TextOverflow.Ellipsis
+                                                max_lines: 1
+                                                color: ouyu.ink
+                                                text_style +: { font_size: 14.0 }
+                                            }
+                                        }
+                                        c_count := Label {
+                                            width: Fill
+                                            draw_text +: {
+                                                text_overflow: TextOverflow.Ellipsis
+                                                max_lines: 1
+                                                color: ouyu.ink_2
+                                                text_style +: { font_size: 12.5 }
+                                            }
                                         }
                                     }
-                                    c_count := Label {
-                                        width: Fill
-                                        draw_text +: {
-                                            color: #a4b2c9
-                                            text_style +: { font_size: 12.5 }
-                                        }
+                                    c_acts := View {
+                                        width: Fit height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 6.0
+                                        c_view := OuyuBtnSm { text: "回忆" }
+                                        c_merge := OuyuBtnSm { text: "合并" }
+                                        c_delmem := OuyuBtnSm { text: "清空回忆" }
+                                        c_del := OuyuBtnDangerSm { text: "删除" }
                                     }
-                                    c_view := OuyuBtn { text: "回忆" }
-                                    c_merge := OuyuBtn { text: "合并" }
-                                    c_delmem := OuyuBtn { text: "清空回忆" }
-                                    c_del := OuyuBtnDanger { text: "删除" }
                                 }
                                 c_confirm := View {
                                     visible: false
@@ -1389,7 +1745,7 @@ script_mod! {
                                         width: Fill
                                         draw_text +: {
                                             wrap: Words
-                                            color: #ff9eab
+                                            color: ouyu.bad
                                             text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                         }
                                     }
@@ -1402,29 +1758,49 @@ script_mod! {
                                 width: Fill height: Fit
                                 flow: Down
                                 spacing: 8.0
+                                // 一个熟人两行封顶：名字和次数一行，四个动作
+                                // 一行。宽屏上 c_main 仍是一条 Right，两半并排
+                                // 成一行；手机上 apply_shaping 把它翻成 Down，
+                                // 于是恰好两行 —— 而不是让四个按钮自己乱换行。
                                 c_main := View {
                                     width: Fill height: Fit
                                     flow: Right
                                     align: Align{x: 0.0, y: 0.5}
-                                    spacing: 8.0
-                                    c_name := Label {
-                                        width: 90
-                                        draw_text +: {
-                                            color: #e7edf8
-                                            text_style +: { font_size: 14.0 }
+                                    spacing: 10.0
+                                    c_top := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 8.0
+                                        c_name := Label {
+                                            width: Fit
+                                            draw_text +: {
+                                                text_overflow: TextOverflow.Ellipsis
+                                                max_lines: 1
+                                                color: ouyu.ink
+                                                text_style +: { font_size: 14.0 }
+                                            }
+                                        }
+                                        c_count := Label {
+                                            width: Fill
+                                            draw_text +: {
+                                                text_overflow: TextOverflow.Ellipsis
+                                                max_lines: 1
+                                                color: ouyu.ink_2
+                                                text_style +: { font_size: 12.5 }
+                                            }
                                         }
                                     }
-                                    c_count := Label {
-                                        width: Fill
-                                        draw_text +: {
-                                            color: #a4b2c9
-                                            text_style +: { font_size: 12.5 }
-                                        }
+                                    c_acts := View {
+                                        width: Fit height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 6.0
+                                        c_view := OuyuBtnSm { text: "回忆" }
+                                        c_merge := OuyuBtnSm { text: "合并" }
+                                        c_delmem := OuyuBtnSm { text: "清空回忆" }
+                                        c_del := OuyuBtnDangerSm { text: "删除" }
                                     }
-                                    c_view := OuyuBtn { text: "回忆" }
-                                    c_merge := OuyuBtn { text: "合并" }
-                                    c_delmem := OuyuBtn { text: "清空回忆" }
-                                    c_del := OuyuBtnDanger { text: "删除" }
                                 }
                                 c_confirm := View {
                                     visible: false
@@ -1437,7 +1813,7 @@ script_mod! {
                                         width: Fill
                                         draw_text +: {
                                             wrap: Words
-                                            color: #ff9eab
+                                            color: ouyu.bad
                                             text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                         }
                                     }
@@ -1449,12 +1825,12 @@ script_mod! {
                                 visible: false
                                 em_icon := OuyuIcon {
                                     icon_walk: Walk{ width: 28.0 height: Fit }
-                                    draw_icon +: { svg: crate_resource("self:resources/icons/nav-contacts.svg") color: #x3c4c6b }
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/nav-contacts.svg") color: ouyu.ink_ghost }
                                 }
                                 em_text := Label {
                                     width: Fit
                                     text: "还没有熟人"
-                                    draw_text +: { color: #a4b2c9 text_style +: { font_size: 13.0 } }
+                                    draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
                                 }
                             }
                         }
@@ -1465,14 +1841,14 @@ script_mod! {
                             spacing: 10.0
                             vcf_status := Label {
                                 width: Fill
-                                text: "从 contacts.vcf 导入，不查询安装状态"
+                                text: "从通讯录文件（.vcf）导入"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #x7b8aa3
+                                    color: ouyu.ink_3
                                     text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                 }
                             }
-                            vcf_btn := OuyuBtn { text: "导入 vCard" }
+                            vcf_btn := OuyuBtn { text: "导入文件" }
                         }
                         dir_head := View {
                             width: Fill height: Fit
@@ -1484,7 +1860,7 @@ script_mod! {
                                 text: "通讯录 · 4 人"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                 }
                             }
@@ -1495,7 +1871,7 @@ script_mod! {
                             width: Fill
                             draw_text +: {
                                 wrap: Words
-                                color: #x7b8aa3
+                                color: ouyu.ink_3
                                 text_style +: { font_size: 12.5 line_spacing: 1.35 }
                             }
                             text: ""
@@ -1514,7 +1890,7 @@ script_mod! {
                             text: "留下一点，想记住的。"
                             draw_text +: {
                                 wrap: Words
-                                color: #e7edf8
+                                color: ouyu.ink
                                 text_style +: { font_size: 24.0 line_spacing: 1.35 }
                             }
                         }
@@ -1523,7 +1899,7 @@ script_mod! {
                             text: "行程不留记录，这里只有你自己记的相遇。"
                             draw_text +: {
                                 wrap: Words
-                                color: #a4b2c9
+                                color: ouyu.ink_2
                                 text_style +: { font_size: 14.0 line_spacing: 1.35 }
                             }
                         }
@@ -1556,14 +1932,14 @@ script_mod! {
                             text: "隐藏的回忆不参与搜索。"
                             draw_text +: {
                                 wrap: Words
-                                color: #x7b8aa3
+                                color: ouyu.ink_3
                                 text_style +: { font_size: 12.5 line_spacing: 1.35 }
                             }
                         }
                         sec_mem := Label {
                             text: "回忆"
                             draw_text +: {
-                                color: #a4b2c9
+                                color: ouyu.ink_2
                                 text_style +: { font_size: 13.0 }
                             }
                         }
@@ -1577,7 +1953,7 @@ script_mod! {
                             m_date := Label {
                                 width: 104
                                 draw_text +: {
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 }
                                 }
                             }
@@ -1585,7 +1961,7 @@ script_mod! {
                                 width: Fill
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -1601,7 +1977,7 @@ script_mod! {
                             m_date := Label {
                                 width: 104
                                 draw_text +: {
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 }
                                 }
                             }
@@ -1609,7 +1985,7 @@ script_mod! {
                                 width: Fill
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -1625,7 +2001,7 @@ script_mod! {
                             m_date := Label {
                                 width: 104
                                 draw_text +: {
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 }
                                 }
                             }
@@ -1633,7 +2009,7 @@ script_mod! {
                                 width: Fill
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -1649,7 +2025,7 @@ script_mod! {
                             m_date := Label {
                                 width: 104
                                 draw_text +: {
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 }
                                 }
                             }
@@ -1657,7 +2033,7 @@ script_mod! {
                                 width: Fill
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -1673,7 +2049,7 @@ script_mod! {
                             m_date := Label {
                                 width: 104
                                 draw_text +: {
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 }
                                 }
                             }
@@ -1681,7 +2057,7 @@ script_mod! {
                                 width: Fill
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -1697,7 +2073,7 @@ script_mod! {
                             m_date := Label {
                                 width: 104
                                 draw_text +: {
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 }
                                 }
                             }
@@ -1705,7 +2081,7 @@ script_mod! {
                                 width: Fill
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -1721,7 +2097,7 @@ script_mod! {
                             m_date := Label {
                                 width: 104
                                 draw_text +: {
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 }
                                 }
                             }
@@ -1729,7 +2105,7 @@ script_mod! {
                                 width: Fill
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -1745,7 +2121,7 @@ script_mod! {
                             m_date := Label {
                                 width: 104
                                 draw_text +: {
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 }
                                 }
                             }
@@ -1753,7 +2129,7 @@ script_mod! {
                                 width: Fill
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -1763,12 +2139,12 @@ script_mod! {
                             visible: false
                             em_icon := OuyuIcon {
                                 icon_walk: Walk{ width: 28.0 height: Fit }
-                                draw_icon +: { svg: crate_resource("self:resources/icons/nav-memories.svg") color: #x3c4c6b }
+                                draw_icon +: { svg: crate_resource("self:resources/icons/nav-memories.svg") color: ouyu.ink_ghost }
                             }
                             em_text := Label {
                                 width: Fit
                                 text: "这里暂时留白"
-                                draw_text +: { color: #a4b2c9 text_style +: { font_size: 13.0 } }
+                                draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
                             }
                         }
                         sec_hid := Label {
@@ -1776,7 +2152,7 @@ script_mod! {
                             text: "已隐藏"
                             draw_text +: {
                                 wrap: Words
-                                color: #a4b2c9
+                                color: ouyu.ink_2
                                 text_style +: { font_size: 13.0 line_spacing: 1.35 }
                             }
                         }
@@ -1790,7 +2166,7 @@ script_mod! {
                             m_date := Label {
                                 width: 104
                                 draw_text +: {
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 }
                                 }
                             }
@@ -1798,7 +2174,7 @@ script_mod! {
                                 width: Fill
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -1814,7 +2190,7 @@ script_mod! {
                             m_date := Label {
                                 width: 104
                                 draw_text +: {
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 }
                                 }
                             }
@@ -1822,7 +2198,7 @@ script_mod! {
                                 width: Fill
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -1838,7 +2214,7 @@ script_mod! {
                             m_date := Label {
                                 width: 104
                                 draw_text +: {
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 }
                                 }
                             }
@@ -1846,7 +2222,7 @@ script_mod! {
                                 width: Fill
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -1862,7 +2238,7 @@ script_mod! {
                             m_date := Label {
                                 width: 104
                                 draw_text +: {
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 }
                                 }
                             }
@@ -1870,7 +2246,7 @@ script_mod! {
                                 width: Fill
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -1886,7 +2262,7 @@ script_mod! {
                             m_date := Label {
                                 width: 104
                                 draw_text +: {
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 }
                                 }
                             }
@@ -1894,7 +2270,7 @@ script_mod! {
                                 width: Fill
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -1910,7 +2286,7 @@ script_mod! {
                             m_date := Label {
                                 width: 104
                                 draw_text +: {
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 }
                                 }
                             }
@@ -1918,7 +2294,7 @@ script_mod! {
                                 width: Fill
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -1934,7 +2310,7 @@ script_mod! {
                             m_date := Label {
                                 width: 104
                                 draw_text +: {
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 }
                                 }
                             }
@@ -1942,7 +2318,7 @@ script_mod! {
                                 width: Fill
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -1958,7 +2334,7 @@ script_mod! {
                             m_date := Label {
                                 width: 104
                                 draw_text +: {
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 }
                                 }
                             }
@@ -1966,7 +2342,7 @@ script_mod! {
                                 width: Fill
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -1978,7 +2354,7 @@ script_mod! {
                             text: "没有隐藏的回忆。"
                             draw_text +: {
                                 wrap: Words
-                                color: #a4b2c9
+                                color: ouyu.ink_2
                                 text_style +: { font_size: 12.5 line_spacing: 1.35 }
                             }
                         }
@@ -1987,13 +2363,15 @@ script_mod! {
                             text: "隐藏的仍会保存并计次，可随时恢复；隐藏不是加密。"
                             draw_text +: {
                                 wrap: Words
-                                color: #x7b8aa3
+                                color: ouyu.ink_3
                                 text_style +: { font_size: 12.5 line_spacing: 1.35 }
                             }
                         }
                     }
 
-                    // ---- 成就页（06 节：摘要 + 频率曲线 + 里程碑 + 分享入口）----
+                    // ---- 「我」页：我的行踪 + 三个入口（券包 / 设置 / 关于）----
+                    //
+                    // 成就曲线、里程碑和分享卡在相遇页首屏；本机统计那张卡没有了。
                     page_achieve := ScrollYView {
                         visible: false
                         width: Fill height: Fill
@@ -2002,456 +2380,64 @@ script_mod! {
 
                         ac_title := Label {
                             width: Fill
-                            text: "那些偶然，慢慢有了形状。"
+                            text: "我"
                             draw_text +: {
                                 wrap: Words
-                                color: #e7edf8
+                                color: ouyu.ink
                                 text_style +: { font_size: 24.0 line_spacing: 1.35 }
                             }
                         }
                         ac_sub := Label {
                             width: Fill
-                            text: "生活小成就，不是排名。"
+                            text: "你发布过的行踪、手里的券和设置，都在这里。"
                             draw_text +: {
                                 wrap: Words
-                                color: #a4b2c9
+                                color: ouyu.ink_2
                                 text_style +: { font_size: 14.0 line_spacing: 1.35 }
                             }
                         }
-                        // 摘要行：数字大号暖杏（06 节口径写明在卡片上）。
-                        sum_card := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: 18.0
-                            spacing: 10.0
-                            sum_head := Label {
-                                width: Fill
-                                text: "本机统计"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: #ffca91
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                }
-                            }
-                            sum_note := Label {
-                                width: Fill
-                                text: "只算未隐藏的回忆，删除后重新计算。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: #a4b2c9
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                }
-                            }
-                            sum_row := View {
-                                width: Fill height: Fit
-                                flow: Right
-                                sum_col0 := View {
-                                    width: Fill height: Fit
-                                    flow: Down
-                                    spacing: 4.0
-                                    sum_n0 := Label {
-                                        text: "0"
-                                        draw_text +: {
-                                            color: #ffca91
-                                            text_style +: { font_size: 26.0 }
-                                        }
-                                    }
-                                    sum_l0 := Label {
-                                        width: Fill
-                                        text: "记住的相遇"
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: #a4b2c9
-                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                        }
-                                    }
-                                }
-                                sum_col1 := View {
-                                    width: Fill height: Fit
-                                    flow: Down
-                                    spacing: 4.0
-                                    sum_n1 := Label {
-                                        text: "0"
-                                        draw_text +: {
-                                            color: #ffca91
-                                            text_style +: { font_size: 26.0 }
-                                        }
-                                    }
-                                    sum_l1 := Label {
-                                        width: Fill
-                                        text: "有相遇的日子"
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: #a4b2c9
-                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                        }
-                                    }
-                                }
-                                sum_col2 := View {
-                                    width: Fill height: Fit
-                                    flow: Down
-                                    spacing: 4.0
-                                    sum_n2 := Label {
-                                        text: "0"
-                                        draw_text +: {
-                                            color: #ffca91
-                                            text_style +: { font_size: 26.0 }
-                                        }
-                                    }
-                                    sum_l2 := Label {
-                                        width: Fill
-                                        text: "近 8 周相遇"
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: #a4b2c9
-                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        // 频率曲线：4 / 8 周切换 + 自绘折线 + 可展开数据表。
-                        curve_card := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: 18.0
-                            spacing: 10.0
-                            curve_head := View {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                spacing: 8.0
-                                curve_title := Label {
-                                    width: Fill
-                                    text: "相遇频率曲线"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: #e7edf8
-                                        text_style +: { font_size: 15.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                wk4 := OuyuChip { text: "4 周" }
-                                wk8 := OuyuChip { text: "8 周" }
-                            }
-                            curve_sub := Label {
-                                width: Fill
-                                text: "最近 8 周，记住 0 次重逢"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: #a4b2c9
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                }
-                            }
-                            curve_chart := OuyuChart { width: Fill height: 200 }
-                            curve_empty := Label {
-                                visible: false
-                                width: Fill
-                                text: "下一次偶然，值得期待"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: #ffca91
-                                    text_style +: { font_size: 15.0 line_spacing: 1.35 }
-                                }
-                            }
-                            curve_caption := Label {
-                                width: Fill
-                                text: "按周汇总，最后一周未结束；0 只表示没有可见记录。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: #6b7a99
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                }
-                            }
-                            wk_toggle := OuyuBtn { text: "每周次数" }
-                            wk_table := View {
-                                visible: false
-                                width: Fill height: Fit
-                                flow: Down
-                                spacing: 6.0
-                                wk_r0 := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    wk_d := Label {
-                                        width: Fill
-                                        text: ""
-                                        draw_text +: { color: #a4b2c9 text_style +: { font_size: 12.5 } }
-                                    }
-                                    wk_c := Label {
-                                        text: ""
-                                        draw_text +: { color: #ffca91 text_style +: { font_size: 12.5 } }
-                                    }
-                                }
-                                wk_r1 := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    wk_d := Label {
-                                        width: Fill
-                                        text: ""
-                                        draw_text +: { color: #a4b2c9 text_style +: { font_size: 12.5 } }
-                                    }
-                                    wk_c := Label {
-                                        text: ""
-                                        draw_text +: { color: #ffca91 text_style +: { font_size: 12.5 } }
-                                    }
-                                }
-                                wk_r2 := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    wk_d := Label {
-                                        width: Fill
-                                        text: ""
-                                        draw_text +: { color: #a4b2c9 text_style +: { font_size: 12.5 } }
-                                    }
-                                    wk_c := Label {
-                                        text: ""
-                                        draw_text +: { color: #ffca91 text_style +: { font_size: 12.5 } }
-                                    }
-                                }
-                                wk_r3 := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    wk_d := Label {
-                                        width: Fill
-                                        text: ""
-                                        draw_text +: { color: #a4b2c9 text_style +: { font_size: 12.5 } }
-                                    }
-                                    wk_c := Label {
-                                        text: ""
-                                        draw_text +: { color: #ffca91 text_style +: { font_size: 12.5 } }
-                                    }
-                                }
-                                wk_r4 := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    wk_d := Label {
-                                        width: Fill
-                                        text: ""
-                                        draw_text +: { color: #a4b2c9 text_style +: { font_size: 12.5 } }
-                                    }
-                                    wk_c := Label {
-                                        text: ""
-                                        draw_text +: { color: #ffca91 text_style +: { font_size: 12.5 } }
-                                    }
-                                }
-                                wk_r5 := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    wk_d := Label {
-                                        width: Fill
-                                        text: ""
-                                        draw_text +: { color: #a4b2c9 text_style +: { font_size: 12.5 } }
-                                    }
-                                    wk_c := Label {
-                                        text: ""
-                                        draw_text +: { color: #ffca91 text_style +: { font_size: 12.5 } }
-                                    }
-                                }
-                                wk_r6 := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    wk_d := Label {
-                                        width: Fill
-                                        text: ""
-                                        draw_text +: { color: #a4b2c9 text_style +: { font_size: 12.5 } }
-                                    }
-                                    wk_c := Label {
-                                        text: ""
-                                        draw_text +: { color: #ffca91 text_style +: { font_size: 12.5 } }
-                                    }
-                                }
-                                wk_r7 := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    wk_d := Label {
-                                        width: Fill
-                                        text: ""
-                                        draw_text +: { color: #a4b2c9 text_style +: { font_size: 12.5 } }
-                                    }
-                                    wk_c := Label {
-                                        text: ""
-                                        draw_text +: { color: #ffca91 text_style +: { font_size: 12.5 } }
-                                    }
-                                }
-                            }
-                        }
-                        // 里程碑：点亮 / 等自然发生，不用凑次数，无排名。
-                        ms_card := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: 18.0
-                            spacing: 10.0
-                            ms_head := View {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                ms_title := Label {
-                                    width: Fill
-                                    text: "我的小小里程碑"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: #e7edf8
-                                        text_style +: { font_size: 15.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                ms_badge := Label {
-                                    text: "不用凑次数"
-                                    draw_text +: {
-                                        color: #ffca91
-                                        text_style +: { font_size: 11.0 }
-                                    }
-                                }
-                            }
-                            ms_row := View {
-                                width: Fill height: Fit
-                                flow: Right
-                                spacing: 12.0
-                                ms0 := OuyuCard {
-                                    width: Fill height: Fit
-                                    flow: Down
-                                    padding: 14.0
-                                    spacing: 6.0
-                                    ms_icon := Label {
-                                        text: "☆"
-                                        draw_text +: {
-                                            color: #ffca91
-                                            text_style +: { font_size: 17.0 }
-                                        }
-                                    }
-                                    ms_title := Label {
-                                        text: "第一次刚刚好"
-                                        draw_text +: {
-                                            color: #e7edf8
-                                            text_style +: { font_size: 13.0 }
-                                        }
-                                    }
-                                    ms_desc := Label {
-                                        text: "记住一次重逢"
-                                        draw_text +: {
-                                            color: #a4b2c9
-                                            text_style +: { font_size: 12.5 }
-                                        }
-                                    }
-                                    ms_state := Label {
-                                        text: "等自然发生"
-                                        draw_text +: {
-                                            color: #6b7a99
-                                            text_style +: { font_size: 12.5 }
-                                        }
-                                    }
-                                }
-                                ms1 := OuyuCard {
-                                    width: Fill height: Fit
-                                    flow: Down
-                                    padding: 14.0
-                                    spacing: 6.0
-                                    ms_icon := Label {
-                                        text: "☆"
-                                        draw_text +: {
-                                            color: #ffca91
-                                            text_style +: { font_size: 17.0 }
-                                        }
-                                    }
-                                    ms_title := Label {
-                                        text: "生活有回响"
-                                        draw_text +: {
-                                            color: #e7edf8
-                                            text_style +: { font_size: 13.0 }
-                                        }
-                                    }
-                                    ms_desc := Label {
-                                        text: "记住三次相遇"
-                                        draw_text +: {
-                                            color: #a4b2c9
-                                            text_style +: { font_size: 12.5 }
-                                        }
-                                    }
-                                    ms_state := Label {
-                                        text: "等自然发生"
-                                        draw_text +: {
-                                            color: #6b7a99
-                                            text_style +: { font_size: 12.5 }
-                                        }
-                                    }
-                                }
-                                ms2 := OuyuCard {
-                                    width: Fill height: Fit
-                                    flow: Down
-                                    padding: 14.0
-                                    spacing: 6.0
-                                    ms_icon := Label {
-                                        text: "☆"
-                                        draw_text +: {
-                                            color: #ffca91
-                                            text_style +: { font_size: 17.0 }
-                                        }
-                                    }
-                                    ms_title := Label {
-                                        text: "把日常过成故事"
-                                        draw_text +: {
-                                            color: #e7edf8
-                                            text_style +: { font_size: 13.0 }
-                                        }
-                                    }
-                                    ms_desc := Label {
-                                        text: "七个有相遇的日子"
-                                        draw_text +: {
-                                            color: #a4b2c9
-                                            text_style +: { font_size: 12.5 }
-                                        }
-                                    }
-                                    ms_state := Label {
-                                        text: "等自然发生"
-                                        draw_text +: {
-                                            color: #6b7a99
-                                            text_style +: { font_size: 12.5 }
-                                        }
-                                    }
-                                }
-                            }
-                            ms_note := Label {
-                                width: Fill
-                                text: "里程碑随可见回忆变化，不保存也不扣分。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: #6b7a99
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                }
-                            }
-                        }
-                        // 分享入口。
-                        share_card := OuyuCard {
+                        // 我的行踪：只放最近发布的几条进行中的；全部历史在「更多」里。
+                        tr_head := View {
                             width: Fill height: Fit
                             flow: Right
                             align: Align{x: 0.0, y: 0.5}
-                            padding: 18.0
-                            spacing: 12.0
-                            share_text := View {
-                                width: Fill height: Fit
-                                flow: Down
-                                spacing: 6.0
-                                share_t := Label {
-                                    width: Fill
-                                    text: "把生活里的偶然，分享给朋友。"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: #e7edf8
-                                        text_style +: { font_size: 15.0 line_spacing: 1.35 }
-                                    }
+                            margin: Inset{top: 6.0, bottom: 2.0}
+                            tr_head_text := OuyuGroupHead { width: Fill margin: 0.0 text: "我的行踪" }
+                            tr_more := OuyuLink {
+                                width: Fit
+                                text: "更多"
+                                draw_icon +: { svg: crate_resource("self:resources/icons/chevron-right.svg") }
+                            }
+                        }
+                        tr_card := OuyuCard {
+                            width: Fill height: Fit
+                            flow: Down
+                            padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 6.0}
+                            spacing: 0.0
+                            tr0 := OuyuTrackRow { }
+                            tr1 := OuyuTrackRow { }
+                            tr2 := OuyuTrackRow { }
+                            tr_empty := OuyuEmpty {
+                                visible: false
+                                em_icon := OuyuIcon {
+                                    icon_walk: Walk{ width: 28.0 height: Fit }
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/location.svg") color: ouyu.ink_ghost }
                                 }
-                                share_b := Label {
-                                    width: Fill
-                                    text: "分享卡只有你的汇总，没有别人的身份。"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: #a4b2c9
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                    }
+                                em_text := Label {
+                                    width: Fit
+                                    text: "现在没有进行中的行踪"
+                                    draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
                                 }
                             }
-                            sh_go := OuyuBtnPrimary { text: "生成分享卡" draw_icon +: { svg: crate_resource("self:resources/icons/share.svg") } }
+                            tr_note := Label {
+                                width: Fill
+                                margin: Inset{left: 12.0, right: 12.0, top: 6.0, bottom: 4.0}
+                                text: "到期后自动下线。发布过的都在「更多」里。"
+                                draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                            }
                         }
-                        // 「我」页的三个入口：券包、设置、关于。开发者选项收在设置里 ——
-                        // 它属于「这台机器上的调试开关」，不属于第一屏。
+                        // 三个入口：券包、设置、关于。
+                        hub_head := OuyuGroupHead { text: "更多" }
                         hub_card := OuyuCard {
                             width: Fill height: Fit
                             flow: Down
@@ -2478,12 +2464,12 @@ script_mod! {
                         wl_title := Label {
                             width: Fill
                             text: "我的券"
-                            draw_text +: { wrap: Words color: #e7edf8 text_style +: { font_size: 24.0 line_spacing: 1.35 } }
+                            draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 24.0 line_spacing: 1.35 } }
                         }
                         wl_sub := Label {
                             width: Fill
                             text: "商户赞助，确认相遇后发放，7 天内使用。"
-                            draw_text +: { wrap: Words color: #a4b2c9 text_style +: { font_size: 14.0 line_spacing: 1.35 } }
+                            draw_text +: { wrap: Words color: ouyu.ink_2 text_style +: { font_size: 14.0 line_spacing: 1.35 } }
                         }
                         // 02 B 节要求把这件事直接写在券包上，而不是藏进隐私政策。
                         wl_note := OuyuCard {
@@ -2494,24 +2480,24 @@ script_mod! {
                             spacing: 10.0
                             wl_note_icon := OuyuIcon {
                                 icon_walk: Walk{ width: 16.0 height: Fit }
-                                draw_icon +: { svg: crate_resource("self:resources/icons/lock.svg") color: #9be2bf }
+                                draw_icon +: { svg: crate_resource("self:resources/icons/lock.svg") color: ouyu.good }
                             }
                             wl_note_text := Label {
                                 width: Fill
                                 text: "券面只有商户和核销码，没有和谁、在哪、哪天。"
-                                draw_text +: { wrap: Words color: #a4b2c9 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                draw_text +: { wrap: Words color: ouyu.ink_2 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
                             }
                         }
                         wl_state := OuyuEmpty {
                             visible: false
                             em_icon := OuyuIcon {
                                 icon_walk: Walk{ width: 28.0 height: Fit }
-                                draw_icon +: { svg: crate_resource("self:resources/icons/coupon.svg") color: #x3c4c6b }
+                                draw_icon +: { svg: crate_resource("self:resources/icons/coupon.svg") color: ouyu.ink_ghost }
                             }
                             em_text := Label {
                                 width: Fit
                                 text: "还没有相遇礼"
-                                draw_text +: { color: #a4b2c9 text_style +: { font_size: 13.0 } }
+                                draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
                             }
                         }
                         wl_avail := View {
@@ -2549,6 +2535,72 @@ script_mod! {
                         }
                     }
 
+                    // ---- 我的行踪（「我」页「更多」进入的覆盖页）----
+                    page_tracks := ScrollYView {
+                        visible: false
+                        width: Fill height: Fill
+                        flow: Down
+                        spacing: 14.0
+
+                        tk_back := OuyuLink {
+                            width: Fit
+                            text: "返回「我」"
+                            draw_icon +: { svg: crate_resource("self:resources/icons/chevron-left.svg") }
+                        }
+                        tk_title := Label {
+                            width: Fill
+                            text: "我的行踪"
+                            draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 24.0 line_spacing: 1.35 } }
+                        }
+                        tk_sub := Label {
+                            width: Fill
+                            text: "发布过的都在这里。进行中的可以修改或删除，到期的只留给你回看。"
+                            draw_text +: { wrap: Words color: ouyu.ink_2 text_style +: { font_size: 14.0 line_spacing: 1.35 } }
+                        }
+                        tk_card := OuyuCard {
+                            width: Fill height: Fit
+                            flow: Down
+                            padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 6.0}
+                            spacing: 0.0
+                            tk0 := OuyuTrackRow { }
+                            tk1 := OuyuTrackRow { }
+                            tk2 := OuyuTrackRow { }
+                            tk3 := OuyuTrackRow { }
+                            tk4 := OuyuTrackRow { }
+                            tk5 := OuyuTrackRow { }
+                            tk6 := OuyuTrackRow { }
+                            tk7 := OuyuTrackRow { }
+                            tk8 := OuyuTrackRow { }
+                            tk9 := OuyuTrackRow { }
+                            tk10 := OuyuTrackRow { }
+                            tk11 := OuyuTrackRow { }
+                            tk12 := OuyuTrackRow { }
+                            tk13 := OuyuTrackRow { }
+                            tk14 := OuyuTrackRow { }
+                            tk15 := OuyuTrackRow { }
+                            tk16 := OuyuTrackRow { }
+                            tk17 := OuyuTrackRow { }
+                            tk18 := OuyuTrackRow { }
+                            tk19 := OuyuTrackRow { }
+                            tk20 := OuyuTrackRow { }
+                            tk21 := OuyuTrackRow { }
+                            tk22 := OuyuTrackRow { }
+                            tk23 := OuyuTrackRow { }
+                            tk_empty := OuyuEmpty {
+                                visible: false
+                                em_icon := OuyuIcon {
+                                    icon_walk: Walk{ width: 28.0 height: Fit }
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/location.svg") color: ouyu.ink_ghost }
+                                }
+                                em_text := Label {
+                                    width: Fit
+                                    text: "还没有发布过行踪"
+                                    draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
+                                }
+                            }
+                        }
+                    }
+
                     // ---- 设置（「我」页进入的覆盖页）----
                     page_settings := ScrollYView {
                         visible: false
@@ -2564,7 +2616,33 @@ script_mod! {
                         se_title := Label {
                             width: Fill
                             text: "设置"
-                            draw_text +: { wrap: Words color: #e7edf8 text_style +: { font_size: 24.0 line_spacing: 1.35 } }
+                            draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 24.0 line_spacing: 1.35 } }
+                        }
+
+                        // ---- 外观 ----
+                        //
+                        // 放在第一组：它改的是整屏的样子，读设置的人一眼就该
+                        // 看见有得选，而不是翻到最后才发现。
+                        ap_head := OuyuGroupHead { text: "外观" }
+                        ap_card := OuyuCard {
+                            width: Fill height: Fit
+                            flow: Down
+                            padding: 14.0
+                            spacing: 10.0
+                            ap_name := Label {
+                                width: Fill
+                                text: "界面深浅"
+                                draw_text +: { color: ouyu.ink text_style +: { font_size: 15.0 } }
+                            }
+                            ap_seg := OuyuSegTrack {
+                                ap_dark := OuyuSeg { text: "夜色" }
+                                ap_light := OuyuSeg { text: "白昼" }
+                            }
+                            ap_note := Label {
+                                width: Fill
+                                text: "只改这台设备上的偶遇，不动系统设置。"
+                                draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                            }
                         }
 
                         // ---- 定位权限 ----
@@ -2590,7 +2668,7 @@ script_mod! {
                                 width: Fill
                                 margin: Inset{left: 12.0, right: 12.0, top: 6.0}
                                 text: "不做「附近有熟人」这类提醒，那等于实时位置广播。"
-                                draw_text +: { wrap: Words color: #x7b8aa3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
                             }
                         }
 
@@ -2613,7 +2691,7 @@ script_mod! {
                                 cf_text := Label {
                                     width: Fill
                                     text: "将清掉本机全部数据，无法撤销。要先导出吗？"
-                                    draw_text +: { wrap: Words color: #ff9eab text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                    draw_text +: { wrap: Words color: ouyu.bad text_style +: { font_size: 12.5 line_spacing: 1.35 } }
                                 }
                                 cf_row := View {
                                     width: Fill height: Fit
@@ -2628,116 +2706,10 @@ script_mod! {
                                 width: Fill
                                 margin: Inset{left: 12.0, right: 12.0, top: 6.0}
                                 text: "所有数据只在本机；导出文件不含坐标和地点。"
-                                draw_text +: { wrap: Words color: #x7b8aa3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
                             }
                         }
 
-                        // ---- 开发者选项 ----
-                        dev_head := OuyuGroupHead { text: "开发者选项" }
-                        // 开发者选项：草图场景开关，以及「替对方按一下」的模拟入口。
-                        //
-                        // 这些按钮一旦出现在相遇流程里，人就会以为确认是自己这台
-                        // 手机说了算的。它们只属于这里。
-                        dev_card := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: 18.0
-                            spacing: 10.0
-                            dv_head := View {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                spacing: 8.0
-                                dv_icon := OuyuIcon {
-                                    icon_walk: Walk{ width: 16.0 height: Fit }
-                                    draw_icon +: { svg: crate_resource("self:resources/icons/settings.svg") }
-                                }
-                                dv_title := Label {
-                                    width: Fill
-                                    text: "开发者选项"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: #e7edf8
-                                        text_style +: { font_size: 15.0 line_spacing: 1.35 }
-                                    }
-                                }
-                            }
-                            dv_sub := Label {
-                                width: Fill
-                                text: "仅供演示：真实版本里对方的确认来自对方手机。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: #a4b2c9
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                }
-                            }
-                            dv_sparse := OuyuBtn { width: Fill text: "切换稀疏场景" }
-                            dv_notice_label := Label {
-                                width: Fill
-                                text: "通知 · 让到期提醒现在就响"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: #a4b2c9
-                                    text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                }
-                            }
-                            dv_notice := View {
-                                width: Fill height: Fit
-                                flow: Right{wrap: true}
-                                wrap_spacing: 8.0
-                                spacing: 8.0
-                                dv_nt_pub := OuyuBtn { text: "去向快到期" }
-                                dv_nt_rwd := OuyuBtn { text: "券快过期" }
-                            }
-                            dv_state_label := Label {
-                                width: Fill
-                                text: "列表四态"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: #a4b2c9
-                                    text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                }
-                            }
-                            dv_state := View {
-                                width: Fill height: Fit
-                                flow: Right{wrap: true}
-                                wrap_spacing: 8.0
-                                spacing: 8.0
-                                dv_ready := OuyuBtn { text: "正常" }
-                                dv_loading := OuyuBtn { text: "加载中" }
-                                dv_failed := OuyuBtn { text: "出错" }
-                                dv_offline := OuyuBtn { text: "离线" }
-                            }
-                            dv_meet_label := Label {
-                                width: Fill
-                                text: "现场互认 · 替对方按一下"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: #a4b2c9
-                                    text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                }
-                            }
-                            dv_meet := View {
-                                width: Fill height: Fit
-                                flow: Right{wrap: true}
-                                wrap_spacing: 8.0
-                                spacing: 8.0
-                                dv_ok := OuyuBtn { text: "对方也确认" }
-                                dv_mismatch := OuyuBtn { text: "信息不一致" }
-                                dv_far := OuyuBtn { text: "同地不成立" }
-                                dv_stock := OuyuBtn { text: "没有库存" }
-                                dv_expire := OuyuBtn { text: "立即超时" }
-                            }
-                            dv_meet_note := Label {
-                                width: Fill
-                                text: "需先在相遇页进入等待态。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: #x7b8aa3
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                }
-                            }
-                        }
                         // ---- 关于 ----
                         about_head := OuyuGroupHead { text: "关于" }
                         about_card := OuyuCard {
@@ -2747,18 +2719,18 @@ script_mod! {
                             spacing: 8.0
                             ab_name := Label {
                                 width: Fill
-                                text: "偶遇 OuYu · 设计稿 v0.4"
-                                draw_text +: { wrap: Words color: #e7edf8 text_style +: { font_size: 15.0 line_spacing: 1.35 } }
+                                text: "偶遇 OuYu v0.4"
+                                draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 15.0 line_spacing: 1.35 } }
                             }
                             ab_p1 := Label {
                                 width: Fill
                                 text: "偶遇只做一件事：让本来就可能发生的相遇更容易发生一点，然后退开。"
-                                draw_text +: { wrap: Words color: #a4b2c9 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                draw_text +: { wrap: Words color: ouyu.ink_2 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
                             }
                             ab_p2 := Label {
                                 width: Fill
                                 text: "不做：谁在附近、人数与距离、实时位置、把隐藏回忆算进统计。"
-                                draw_text +: { wrap: Words color: #x7b8aa3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
                             }
                             // 跳过引导的人在这里能重看那三句话（02 七.1）。
                             ab_intro := OuyuBtn { text: "重看开场" }
@@ -2777,7 +2749,7 @@ script_mod! {
                             text: "让朋友看见，你生活里的光。"
                             draw_text +: {
                                 wrap: Words
-                                color: #e7edf8
+                                color: ouyu.ink
                                 text_style +: { font_size: 24.0 line_spacing: 1.35 }
                             }
                         }
@@ -2786,7 +2758,7 @@ script_mod! {
                             text: "先预览，再决定发不发。"
                             draw_text +: {
                                 wrap: Words
-                                color: #a4b2c9
+                                color: ouyu.ink_2
                                 text_style +: { font_size: 14.0 line_spacing: 1.35 }
                             }
                         }
@@ -2808,14 +2780,14 @@ script_mod! {
                                         text: "分享卡预览"
                                         draw_text +: {
                                             wrap: Words
-                                            color: #e7edf8
+                                            color: ouyu.ink
                                             text_style +: { font_size: 15.0 line_spacing: 1.35 }
                                         }
                                     }
                                     sp_badge := Label {
                                         text: "仅用可见回忆"
                                         draw_text +: {
-                                            color: #ffca91
+                                            color: ouyu.warm
                                             text_style +: { font_size: 11.0 }
                                         }
                                     }
@@ -2839,7 +2811,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #ffca91
+                                        color: ouyu.warm
                                         text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                     }
                                 }
@@ -2848,7 +2820,7 @@ script_mod! {
                                     text: "保存后可在任意社交媒体自行发布。"
                                     draw_text +: {
                                         wrap: Words
-                                        color: #6b7a99
+                                        color: ouyu.ink_4
                                         text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                     }
                                 }
@@ -2865,7 +2837,7 @@ script_mod! {
                                     sps_t := Label {
                                         text: "样式"
                                         draw_text +: {
-                                            color: #e7edf8
+                                            color: ouyu.ink
                                             text_style +: { font_size: 14.0 }
                                         }
                                     }
@@ -2886,7 +2858,7 @@ script_mod! {
                                     spw_t := Label {
                                         text: "内容"
                                         draw_text +: {
-                                            color: #e7edf8
+                                            color: ouyu.ink
                                             text_style +: { font_size: 14.0 }
                                         }
                                     }
@@ -2895,7 +2867,7 @@ script_mod! {
                                         text: "汇总次数、成就文案、署名。"
                                         draw_text +: {
                                             wrap: Words
-                                            color: #a4b2c9
+                                            color: ouyu.ink_2
                                             text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                         }
                                     }
@@ -2906,7 +2878,7 @@ script_mod! {
                                         text: "会额外透露你的相遇频率"
                                         draw_text +: {
                                             wrap: Words
-                                            color: #ffca91
+                                            color: ouyu.warm
                                             text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                         }
                                     }
@@ -2915,7 +2887,7 @@ script_mod! {
                                         text: "曲线会透露近 8 周频率，不含联系人或地点。"
                                         draw_text +: {
                                             wrap: Words
-                                            color: #6b7a99
+                                            color: ouyu.ink_4
                                             text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                         }
                                     }
@@ -2928,7 +2900,7 @@ script_mod! {
                                     spc_t := Label {
                                         text: "文案灵感"
                                         draw_text +: {
-                                            color: #e7edf8
+                                            color: ouyu.ink
                                             text_style +: { font_size: 14.0 }
                                         }
                                     }
@@ -2937,7 +2909,7 @@ script_mod! {
                                         text: "不用专程约，刚好遇见。\n给生活留一点偶然。"
                                         draw_text +: {
                                             wrap: Words
-                                            color: #ffca91
+                                            color: ouyu.warm
                                             text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                         }
                                     }
@@ -2946,7 +2918,7 @@ script_mod! {
                                         text: "标记朋友前，先问问对方。"
                                         draw_text +: {
                                             wrap: Words
-                                            color: #a4b2c9
+                                            color: ouyu.ink_2
                                             text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                         }
                                     }
@@ -2961,7 +2933,7 @@ script_mod! {
                                 text: "汇总次数会透露你的活跃程度；已发出的图片不会随本机删除撤回。"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                 }
                             }
@@ -2989,7 +2961,7 @@ script_mod! {
                             text: ""
                             draw_text +: {
                                 wrap: Words
-                                color: #e7edf8
+                                color: ouyu.ink
                                 text_style +: { font_size: 22.0 line_spacing: 1.35 }
                             }
                         }
@@ -2998,7 +2970,7 @@ script_mod! {
                             text: ""
                             draw_text +: {
                                 wrap: Words
-                                color: #a4b2c9
+                                color: ouyu.ink_2
                                 text_style +: { font_size: 14.0 line_spacing: 1.35 }
                             }
                         }
@@ -3010,7 +2982,7 @@ script_mod! {
                             md_note_head := Label {
                                 width: Fill
                                 text: "你的备注"
-                                draw_text +: { wrap: Words color: #e7edf8 text_style +: { font_size: 15.0 line_spacing: 1.35 } }
+                                draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 15.0 line_spacing: 1.35 } }
                             }
                             md_note := OuyuInput {
                                 empty_text: "写一句只给你自己看的"
@@ -3018,7 +2990,7 @@ script_mod! {
                             md_note_tip := Label {
                                 width: Fill
                                 text: "备注只在本机，不进统计和分享卡。"
-                                draw_text +: { wrap: Words color: #x7b8aa3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
                             }
                             md_save := OuyuBtnPrimary { text: "保存备注" }
                         }
@@ -3032,13 +3004,13 @@ script_mod! {
                             md_hide_tip := Label {
                                 width: Fill
                                 text: "隐藏后不进搜索、提醒和成就，仍计一次相遇。"
-                                draw_text +: { wrap: Words color: #a4b2c9 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                draw_text +: { wrap: Words color: ouyu.ink_2 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
                             }
                             md_del := OuyuBtnDanger { width: Fill text: "删除这一条" }
                             md_del_tip := Label {
                                 width: Fill
                                 text: "删除后 5 秒内可撤销；只删你这一份。"
-                                draw_text +: { wrap: Words color: #x7b8aa3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
                             }
                         }
                     }
@@ -3059,15 +3031,15 @@ script_mod! {
                             spacing: 6.0
                             in_d0 := RoundedView {
                                 width: 22 height: 4
-                                draw_bg +: { color: #82b5ff border_radius: 2.0 }
+                                draw_bg +: { color: ouyu.blue border_radius: 2.0 }
                             }
                             in_d1 := RoundedView {
                                 width: 22 height: 4
-                                draw_bg +: { color: #x26364c border_radius: 2.0 }
+                                draw_bg +: { color: ouyu.line_soft border_radius: 2.0 }
                             }
                             in_d2 := RoundedView {
                                 width: 22 height: 4
-                                draw_bg +: { color: #x26364c border_radius: 2.0 }
+                                draw_bg +: { color: ouyu.line_soft border_radius: 2.0 }
                             }
                             in_gap := View { width: Fill height: Fit }
                             in_skip := OuyuLink { text: "跳过" }
@@ -3086,7 +3058,7 @@ script_mod! {
                                     width: Fit height: Fit
                                     in_i := OuyuIcon {
                                         icon_walk: Walk{ width: 40.0 height: Fit }
-                                        draw_icon +: { svg: crate_resource("self:resources/icons/nav-discover.svg") color: #ffca91 }
+                                        draw_icon +: { svg: crate_resource("self:resources/icons/nav-discover.svg") color: ouyu.warm }
                                     }
                                 }
                                 in_ic1 := View {
@@ -3094,7 +3066,7 @@ script_mod! {
                                     width: Fit height: Fit
                                     in_i := OuyuIcon {
                                         icon_walk: Walk{ width: 40.0 height: Fit }
-                                        draw_icon +: { svg: crate_resource("self:resources/icons/nav-meet.svg") color: #ffca91 }
+                                        draw_icon +: { svg: crate_resource("self:resources/icons/nav-meet.svg") color: ouyu.warm }
                                     }
                                 }
                                 in_ic2 := View {
@@ -3102,7 +3074,7 @@ script_mod! {
                                     width: Fit height: Fit
                                     in_i := OuyuIcon {
                                         icon_walk: Walk{ width: 40.0 height: Fit }
-                                        draw_icon +: { svg: crate_resource("self:resources/icons/lock.svg") color: #x9be2bf }
+                                        draw_icon +: { svg: crate_resource("self:resources/icons/lock.svg") color: ouyu.good }
                                     }
                                 }
                             }
@@ -3111,7 +3083,7 @@ script_mod! {
                                 text: ""
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 22.0 line_spacing: 1.35 }
                                 }
                             }
@@ -3120,7 +3092,7 @@ script_mod! {
                                 text: ""
                                 draw_text +: {
                                     wrap: Words
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 15.0 line_spacing: 1.35 }
                                 }
                             }
@@ -3136,7 +3108,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #x9be2bf
+                                        color: ouyu.good
                                         text_style +: { font_size: 13.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -3145,7 +3117,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #x9be2bf
+                                        color: ouyu.good
                                         text_style +: { font_size: 13.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -3154,7 +3126,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #x9be2bf
+                                        color: ouyu.good
                                         text_style +: { font_size: 13.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -3163,7 +3135,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #x9be2bf
+                                        color: ouyu.good
                                         text_style +: { font_size: 13.0 line_spacing: 1.35 }
                                     }
                                 }
@@ -3196,10 +3168,10 @@ script_mod! {
                             align: Align{x: 0.0, y: 0.5}
                             padding: 14.0
                             spacing: 10.0
-                            draw_bg +: { color: #x152235 border_color: #x3a4f74 border_size: 1.0 }
+                            draw_bg +: { color: ouyu.card border_color: ouyu.line_notice border_size: 1.0 }
                             nt_icon := OuyuIcon {
                                 icon_walk: Walk{ width: 18.0 height: Fit }
-                                draw_icon +: { svg: crate_resource("self:resources/icons/bell.svg") color: #ffca91 }
+                                draw_icon +: { svg: crate_resource("self:resources/icons/bell.svg") color: ouyu.warm }
                             }
                             nt_col := View {
                                 width: Fill height: Fit
@@ -3210,7 +3182,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #e7edf8
+                                        color: ouyu.ink
                                         text_style +: { font_size: 13.5 line_spacing: 1.35 }
                                     }
                                 }
@@ -3219,7 +3191,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #a4b2c9
+                                        color: ouyu.ink_2
                                         text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                     }
                                 }
@@ -3238,16 +3210,6 @@ script_mod! {
                         toast := OuyuToast { }
                     }
 
-                    // 悬浮发布入口：只在发现页出现，压在页面之上、导航之下。
-                    fab_layer := View {
-                        width: Fill height: Fill
-                        flow: Down
-                        align: Align{x: 1.0, y: 1.0}
-                        padding: Inset{right: 2.0, bottom: 2.0}
-                        fab := OuyuFab {
-                            draw_icon +: { svg: crate_resource("self:resources/icons/plus.svg") }
-                        }
-                    }
                 }
 
                 // ---- 右列解释栏（窗口窄于 ~900px 时隐藏）----
@@ -3270,7 +3232,7 @@ script_mod! {
                             text: ""
                             draw_text +: {
                                 wrap: Words
-                                color: #ffca91
+                                color: ouyu.warm
                                 text_style +: { font_size: 14.0 line_spacing: 1.35 }
                             }
                         }
@@ -3284,7 +3246,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #a4b2c9
+                                        color: ouyu.ink_2
                                         text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                     }
                                 }
@@ -3293,7 +3255,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #e7edf8
+                                        color: ouyu.ink
                                         text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                     }
                                 }
@@ -3308,7 +3270,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #a4b2c9
+                                        color: ouyu.ink_2
                                         text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                     }
                                 }
@@ -3317,7 +3279,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #e7edf8
+                                        color: ouyu.ink
                                         text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                     }
                                 }
@@ -3332,7 +3294,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #a4b2c9
+                                        color: ouyu.ink_2
                                         text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                     }
                                 }
@@ -3341,7 +3303,7 @@ script_mod! {
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
-                                        color: #e7edf8
+                                        color: ouyu.ink
                                         text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                     }
                                 }
@@ -3351,7 +3313,7 @@ script_mod! {
                             text: ""
                             draw_text +: {
                                 wrap: Words
-                                color: #x7b8aa3
+                                color: ouyu.ink_3
                                 text_style +: { font_size: 12.5 line_spacing: 1.35 }
                             }
                         }
@@ -3368,7 +3330,7 @@ script_mod! {
                             ad1_t := Label {
                                 text: "偶遇不是找人雷达"
                                 draw_text +: {
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 }
                                 }
                             }
@@ -3377,7 +3339,7 @@ script_mod! {
                                 text: "看不到谁发布了行程；别人也看不到你的头像、姓名和位置。"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                 }
                             }
@@ -3392,7 +3354,7 @@ script_mod! {
                                 text: "从可能，到真的相遇"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -3401,7 +3363,7 @@ script_mod! {
                                 text: "1 发布粗区域与时段\n2 正常生活，线下认出彼此\n3 双方互认，可选相遇礼"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                 }
                             }
@@ -3414,7 +3376,7 @@ script_mod! {
                             ad3_t := Label {
                                 text: "你始终可以退出"
                                 draw_text +: {
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 }
                                 }
                             }
@@ -3423,7 +3385,7 @@ script_mod! {
                                 text: "发布随时可撤回。宁可少提示，也不披露某个熟人。"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                 }
                             }
@@ -3444,7 +3406,7 @@ script_mod! {
                                 text: "定位只用在领奖验证"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -3453,7 +3415,7 @@ script_mod! {
                                 text: "不持续定位，不向任何人展示坐标。拒绝也能记回忆。"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                 }
                             }
@@ -3468,7 +3430,7 @@ script_mod! {
                                 text: "每次相遇，重新选择"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -3477,7 +3439,7 @@ script_mod! {
                                 text: "保存、隐藏或不保存只影响这一次。"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                 }
                             }
@@ -3498,7 +3460,7 @@ script_mod! {
                                 text: "记不记，留到每次相遇"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -3507,7 +3469,7 @@ script_mod! {
                                 text: "每次确认时选保存、隐藏或不保存，不设永久策略。"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                 }
                             }
@@ -3522,7 +3484,7 @@ script_mod! {
                                 text: "删除联系人，不必删回忆"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
@@ -3531,7 +3493,7 @@ script_mod! {
                                 text: "删除时可选是否连回忆一起删，默认保留。"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                 }
                             }
@@ -3550,7 +3512,7 @@ script_mod! {
                             ame1_t := Label {
                                 text: "默认不记地点"
                                 draw_text +: {
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 }
                                 }
                             }
@@ -3559,7 +3521,7 @@ script_mod! {
                                 text: "只记和谁、哪一天，不记时刻、位置或路线。"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                 }
                             }
@@ -3572,7 +3534,7 @@ script_mod! {
                             ame2_t := Label {
                                 text: "删除只影响这一份"
                                 draw_text +: {
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 }
                                 }
                             }
@@ -3581,7 +3543,7 @@ script_mod! {
                                 text: "删不掉对方自己记的那一份。"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                 }
                             }
@@ -3600,7 +3562,7 @@ script_mod! {
                             aac1_t := Label {
                                 text: "成就不是任务"
                                 draw_text +: {
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 }
                                 }
                             }
@@ -3609,7 +3571,7 @@ script_mod! {
                                 text: "没有签到、排行榜和惩罚。"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                 }
                             }
@@ -3622,7 +3584,7 @@ script_mod! {
                             aac2_t := Label {
                                 text: "分享时留住边界"
                                 draw_text +: {
-                                    color: #e7edf8
+                                    color: ouyu.ink
                                     text_style +: { font_size: 14.0 }
                                 }
                             }
@@ -3631,7 +3593,7 @@ script_mod! {
                                 text: "分享卡只含汇总次数和文案，不带联系人、地点或日期。"
                                 draw_text +: {
                                     wrap: Words
-                                    color: #a4b2c9
+                                    color: ouyu.ink_2
                                     text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                 }
                             }
@@ -3648,8 +3610,8 @@ script_mod! {
                 padding: Inset{left: 6.0, right: 6.0, top: 4.0, bottom: 4.0}
                 spacing: 4.0
                 draw_bg +: {
-                    color: #x0d1626
-                    border_color: #x1d2b42
+                    color: ouyu.bg_chrome
+                    border_color: ouyu.line
                     border_size: 1.0
                     border_radius: 0.0
                 }
@@ -3701,8 +3663,37 @@ const TABS: [LiveId; 5] = [
     live_id!(tab_memories),
     live_id!(tab_achieve),
 ];
-/// 手机形态顶栏标题：与底部导航保持一致。
+/// 顶栏标题：与导航保持一致。
 const TAB_TITLES: [&str; 5] = ["发现", "相遇", "熟人", "回忆", "我"];
+/// 「我 → 我的行踪」只铺最近发布的这几条进行中的。
+const TRACK_ROWS: [LiveId; 3] = [live_id!(tr0), live_id!(tr1), live_id!(tr2)];
+/// 「我的行踪 → 更多」：进行中的全部 + 最多 20 条到期记录。
+const HIST_ROWS: [LiveId; 24] = [
+    live_id!(tk0),
+    live_id!(tk1),
+    live_id!(tk2),
+    live_id!(tk3),
+    live_id!(tk4),
+    live_id!(tk5),
+    live_id!(tk6),
+    live_id!(tk7),
+    live_id!(tk8),
+    live_id!(tk9),
+    live_id!(tk10),
+    live_id!(tk11),
+    live_id!(tk12),
+    live_id!(tk13),
+    live_id!(tk14),
+    live_id!(tk15),
+    live_id!(tk16),
+    live_id!(tk17),
+    live_id!(tk18),
+    live_id!(tk19),
+    live_id!(tk20),
+    live_id!(tk21),
+    live_id!(tk22),
+    live_id!(tk23),
+];
 const PAGES: [LiveId; 5] = [
     live_id!(page_discover),
     live_id!(page_meet),
@@ -3815,7 +3806,6 @@ const RECENT_ROWS: [LiveId; 5] = [
     live_id!(pr3),
     live_id!(pr4),
 ];
-const ECHO_CHIPS: [LiveId; 3] = [live_id!(echo0), live_id!(echo1), live_id!(echo2)];
 /// 券包三个分区各留四个位置。演示数据不会更多；真实版本这里要换成列表控件。
 const WA_ROWS: [LiveId; 4] = [live_id!(wa0), live_id!(wa1), live_id!(wa2), live_id!(wa3)];
 const WU_ROWS: [LiveId; 4] = [live_id!(wu0), live_id!(wu1), live_id!(wu2), live_id!(wu3)];
@@ -3832,15 +3822,6 @@ const MEET_ROWS: [LiveId; 6] = [
 ];
 const SHOP_ROWS: [LiveId; 3] = [live_id!(sv0), live_id!(sv1), live_id!(sv2)];
 
-/// 开发者选项里「替对方按一下」的五个动作。
-#[derive(Clone, Copy, PartialEq)]
-enum DevAct {
-    Confirm,
-    Mismatch,
-    NotSamePlace,
-    NoStock,
-    Expire,
-}
 const CONTACT_ROWS: [LiveId; 6] = [
     live_id!(ct0),
     live_id!(ct1),
@@ -3910,11 +3891,11 @@ const FILT_CHIPS: [LiveId; 6] = [
     live_id!(filt5),
 ];
 
-/// 成就页：4 / 8 周切换 chips。
+/// 相遇页首屏：4 / 8 周切换 chips。
 const WK_CHIPS: [LiveId; 2] = [live_id!(wk4), live_id!(wk8)];
-/// 成就页：三个里程碑卡片。
+/// 相遇页首屏：三个里程碑卡片。
 const MS_ROWS: [LiveId; 3] = [live_id!(ms0), live_id!(ms1), live_id!(ms2)];
-/// 成就页：「查看每周次数」数据表的 8 行。
+/// 相遇页首屏：「查看每周次数」数据表的 8 行。
 const WK_ROWS: [LiveId; 8] = [
     live_id!(wk_r0),
     live_id!(wk_r1),
@@ -3953,43 +3934,6 @@ const PAGE_TITLES: [LiveId; 7] = [
     live_id!(sp_title),
 ];
 
-/// 界面模式（05 节的响应式规则，在宿主里也要能手动切换）：
-/// `Auto` 跟随可用宽度；`Phone` 锁定窄屏单列，窗口够宽时收进居中的手机框方便预览；
-/// `Wide` 锁定侧栏布局。宿主本身的手机 / 桌面切换在样式菜单里，两者互不冲突。
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-enum UiMode {
-    #[default]
-    Auto,
-    Phone,
-    Wide,
-}
-
-impl UiMode {
-    fn next(self) -> Self {
-        match self {
-            Self::Auto => Self::Phone,
-            Self::Phone => Self::Wide,
-            Self::Wide => Self::Auto,
-        }
-    }
-    /// 侧栏按钮上的完整文案。
-    fn long_label(self) -> &'static str {
-        match self {
-            Self::Auto => "自动",
-            Self::Phone => "手机模式",
-            Self::Wide => "大屏模式",
-        }
-    }
-    /// 手机顶栏上的短文案。
-    fn short_label(self) -> &'static str {
-        match self {
-            Self::Auto => "自动",
-            Self::Phone => "手机",
-            Self::Wide => "大屏",
-        }
-    }
-}
-
 /// 解析后的布局形态：手机（底部导航）/ 平板（侧栏，无右列）/ 桌面（侧栏 + 右列）。
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 enum Shape {
@@ -4003,16 +3947,10 @@ enum Shape {
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Shaping {
     shape: Shape,
-    /// 宽 surface 上的手机预览框（居中一条手机宽度的列）。
-    framed: bool,
     /// 右列解释栏是否还有位置。
     aside: bool,
     /// 横屏手机这类矮 surface：压缩街区插图与曲线高度。
     short: bool,
-    /// 手机框的尺寸。
-    frame: (f64, f64),
-    /// 手机框左右留白（居中用内边距实现，避免 align 影响底色绘制）。
-    pad: (f64, f64),
 }
 
 /// 开场三屏的正文列宽。
@@ -4023,40 +3961,23 @@ const PHONE_MAX: f64 = 720.0;
 const DESKTOP_MIN: f64 = 1060.0;
 /// 右列解释栏至少需要的宽度。
 const ASIDE_MIN: f64 = 900.0;
-/// 手机预览框的宽 / 最大高（对齐宿主 mobile.rs 的 412x892 手机 surface）。
-const FRAME_W: f64 = 412.0;
-const FRAME_H: f64 = 880.0;
 
-/// 可用 surface 尺寸 + 界面模式 → 布局形态。宿主把应用放进多大的 tile，
-/// 这里就按多大排版：窗口尺寸不代表 tile 尺寸，所以只看自己拿到的 turtle。
-fn shaping_for(mode: UiMode, size: Vec2d) -> Shaping {
+/// 可用 surface 尺寸 → 布局形态。宿主把应用放进多大的 tile，这里就按多大
+/// 排版：窗口尺寸不代表 tile 尺寸，所以只看自己拿到的 turtle。
+/// 手机 / 桌面的切换在宿主的样式菜单里，应用内不再另给一个开关。
+fn shaping_for(size: Vec2d) -> Shaping {
     let (w, h) = (size.x, size.y);
-    let auto = if w < PHONE_MAX {
+    let shape = if w < PHONE_MAX {
         Shape::Phone
     } else if w < DESKTOP_MIN {
         Shape::Tablet
     } else {
         Shape::Desktop
     };
-    let (shape, framed) = match mode {
-        UiMode::Auto => (auto, false),
-        UiMode::Phone => (Shape::Phone, w >= FRAME_W + 140.0),
-        // 「大屏」最宽也只能给到当前宽度撑得住的那一档，免得锁死成不可用的布局。
-        UiMode::Wide => (if auto == Shape::Phone { Shape::Tablet } else { auto }, false),
-    };
-    let inner_w = if framed { FRAME_W } else { w };
-    let inner_h = if framed { (h - 24.0).clamp(360.0, FRAME_H) } else { h };
     Shaping {
         shape,
-        framed,
-        aside: shape == Shape::Desktop && inner_w >= ASIDE_MIN,
-        short: inner_h < 560.0,
-        frame: (FRAME_W, inner_h),
-        pad: if framed {
-            (((w - FRAME_W) * 0.5).max(0.0), ((h - inner_h) * 0.5).max(0.0))
-        } else {
-            (0.0, 0.0)
-        },
+        aside: shape == Shape::Desktop && w >= ASIDE_MIN,
+        short: h < 560.0,
     }
 }
 
@@ -4066,17 +3987,8 @@ fn shaping_for(mode: UiMode, size: Vec2d) -> Shaping {
 enum Sheet {
     Wallet,
     Settings,
-}
-
-/// 列表页的四个态（docs/02 七.5）。「空」不在这里 —— 空是数据说了算的，
-/// 另外三个是加载和网络说了算的，混在一个枚举里会让「空」被误当成一种故障。
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-enum ListState {
-    #[default]
-    Ready,
-    Loading,
-    Failed,
-    Offline,
+    /// 「我的行踪」的全部历史。
+    Tracks,
 }
 
 #[derive(Script, ScriptHook, Widget)]
@@ -4091,6 +4003,10 @@ pub struct OuyuView {
     state: OuyuState,
     #[rust]
     initialized: bool,
+    /// 当前色板里 Rust 侧要用到的那几个角色（见 theme.rs 的 `Pal`）。
+    /// 换主题时跟着 `restyle` 一起重读。
+    #[rust]
+    pal: Pal,
     /// Tab 淡入动画: 起始时间与当前不透明度。
     #[rust]
     fade_start: Option<f64>,
@@ -4100,9 +4016,6 @@ pub struct OuyuView {
     next_frame: NextFrame,
 
     // ---- 发现页 ----
-    /// 草图场景：稀疏 = 匿名条件未满足，只给城市小签（仅演示条件）。
-    #[rust]
-    sparse: bool,
     /// 发现页选中的日期（相对今天 0..=6）。
     #[rust]
     day_sel: usize,
@@ -4115,6 +4028,15 @@ pub struct OuyuView {
     /// 发布草稿（day 偏移, slot, 片区 id, intent）；退出向导即丢弃。
     #[rust]
     draft: (usize, usize, u16, usize),
+    /// 向导正在修改的那条行踪（publish id）；None = 在写新的一条。
+    #[rust]
+    wizard_edit: Option<usize>,
+    /// 「我 → 我的行踪」每一行铺的是哪条（publish id）。
+    #[rust]
+    track_row_ids: Vec<usize>,
+    /// 「我的行踪 → 更多」每一行铺的是哪条（publish id）。
+    #[rust]
+    hist_row_ids: Vec<usize>,
     /// 每个片区行当前铺的是哪个片区 —— 点一行时要知道点中了谁。
     #[rust]
     row_areas: Vec<(LiveId, u16)>,
@@ -4129,6 +4051,9 @@ pub struct OuyuView {
     pick_filters: bool,
 
     // ---- 相遇页 ----
+    /// 互认流程是否打开（首屏 → 选人）。会话建立后由 `session` 接管。
+    #[rust]
+    meet_open: bool,
     /// 选中的联系人（contacts 下标）。
     #[rust]
     meet_sel: usize,
@@ -4187,6 +4112,10 @@ pub struct OuyuView {
     /// 导出后显示的那行路径。
     #[rust]
     export_note: Option<String>,
+    /// 这一拍点下的深浅。换主题会把整棵树重刷一遍，所以不在事件处理中途
+    /// 动手 —— 记下来，等这一拍的 action 全走完再换。
+    #[rust]
+    pending_theme: Option<ThemeMode>,
 
     // ---- 删除撤销 ----
     /// 5 秒内还能放回去的那份快照。
@@ -4198,10 +4127,6 @@ pub struct OuyuView {
     /// 通知的巡检计时器。一分钟看一眼够了 —— 两类通知的粒度都是分钟以上。
     #[rust]
     notice_poll: Timer,
-
-    /// 列表四态。只能从开发者选项改 —— 这份草图没有真的加载和真的断网。
-    #[rust]
-    list_state: ListState,
 
     // ---- 熟人页 ----
     /// 正在往别人身上并的那一位（contact id）。None 表示不在合并模式。
@@ -4246,9 +4171,6 @@ pub struct OuyuView {
     #[rust]
     notice_sent: Vec<NoticeKind>,
 
-    /// 界面模式：自动 / 手机 / 大屏，由侧栏与手机顶栏的按钮循环切换。
-    #[rust]
-    ui_mode: UiMode,
     /// 上次已套用的布局形态；相同就跳过，避免每帧重排。
     #[rust]
     shaping: Option<Shaping>,
@@ -4268,6 +4190,7 @@ impl OuyuView {
                 self.refresh_memories(cx);
             }
             self.code_open = false;
+            self.meet_open = false;
         }
         // 切 Tab 即离开分享卡预览和覆盖页（它们都不是 Tab）。
         // 发布向导也一样离开，草稿丢掉 —— 否则底部导航高亮在「我」，
@@ -4276,6 +4199,7 @@ impl OuyuView {
         self.sheet = None;
         self.clear_armed = false;
         self.wizard = None;
+        self.wizard_edit = None;
         self.mem_detail = None;
         self.merge_from = None;
         self.add_error = None;
@@ -4294,9 +4218,9 @@ impl OuyuView {
             for root in [live_id!(sidebar), live_id!(tabbar)] {
                 let mut tab = self.view.widget(cx, &[root, *id]);
                 if j == i {
-                    script_apply_eval!(cx, tab, { draw_icon +: { color: #ffca91 } });
+                    script_apply_eval!(cx, tab, { draw_icon +: { color: #(self.pal.warm) } });
                 } else {
-                    script_apply_eval!(cx, tab, { draw_icon +: { color: #a4b2c9 } });
+                    script_apply_eval!(cx, tab, { draw_icon +: { color: #(self.pal.ink_2) } });
                 }
             }
         }
@@ -4319,7 +4243,7 @@ impl OuyuView {
             1 => self.refresh_meet(cx),
             2 => self.refresh_contacts(cx),
             3 => self.refresh_memories(cx),
-            4 => self.refresh_achievements(cx),
+            4 => self.refresh_me(cx),
             _ => {}
         }
     }
@@ -4350,12 +4274,36 @@ impl OuyuView {
             .widget(cx, ids!(page_settings))
             .set_visible(cx, self.sheet == Some(Sheet::Settings));
         self.view
+            .widget(cx, ids!(page_tracks))
+            .set_visible(cx, self.sheet == Some(Sheet::Tracks));
+        self.view
             .widget(cx, ids!(page_publish))
             .set_visible(cx, wizard && !self.share_open && self.sheet.is_none() && !intro);
-        // 悬浮发布按钮只属于发现页。
-        self.view
-            .widget(cx, ids!(fab_layer))
-            .set_visible(cx, !overlay && self.state.tab == 0);
+        self.refresh_topbar(cx);
+    }
+
+    /// 顶栏右边的主动作：发现页「发布行踪」，相遇页首屏「确认相遇」。
+    /// 覆盖页开着、互认流程已经进去、或别的 Tab 上都收起来。
+    fn refresh_topbar(&mut self, cx: &mut Cx) {
+        let overlay = self.share_open
+            || self.wizard.is_some()
+            || self.sheet.is_some()
+            || self.intro.is_some()
+            || self.mem_detail.is_some();
+        let action = if overlay {
+            None
+        } else {
+            match self.state.tab {
+                0 => Some("发布行踪"),
+                1 if self.session.is_none() && !self.meet_open => Some("确认相遇"),
+                _ => None,
+            }
+        };
+        let btn = self.view.button(cx, ids!(shell.topbar.tb_action));
+        btn.set_visible(cx, action.is_some());
+        if let Some(text) = action {
+            btn.set_text(cx, text);
+        }
     }
 
     /// 让一组芯片互斥选中（CheckBox 本身是可再点关的, 这里强制单选）。
@@ -4384,7 +4332,45 @@ impl OuyuView {
         self.refresh_memories(cx);
         self.refresh_wallet(cx);
         self.refresh_settings(cx);
-        self.refresh_mode_buttons(cx);
+        self.refresh_me(cx);
+    }
+
+    // ---- 主题 ----
+
+    /// 换一套深浅。
+    ///
+    /// 走的是宿主给模块换外观的同一条路（`module_host.rs` 的 `apply_style`）：
+    /// 在当前 VM 里重跑一次「装色板 → 重建预设」，再拿新的类型默认值把整棵树
+    /// `ScriptReapply` 一遍。之后重读 Rust 侧那几个角色，并把所有跟数据走的
+    /// 颜色（选中的 Tab、强度分档、开关）重新写一次 —— reapply 只会把预设里
+    /// 的颜色刷回去，那几处是每次刷新时才算出来的。
+    fn apply_theme(&mut self, cx: &mut Cx, mode: ThemeMode) {
+        if theme::mode() == mode {
+            return;
+        }
+        theme::set_mode(mode);
+        cx.with_vm(|vm| {
+            vm.with_reload(|vm| {
+                theme::install(vm);
+                canvas::script_mod(vm);
+                script_mod(vm);
+            });
+            let source = script_eval!(vm, { mod.widgets.OuyuView });
+            self.script_apply(vm, &Apply::ScriptReapply, &mut Scope::empty(), source);
+        });
+        self.after_restyle(cx);
+    }
+
+    /// 重刷一遍界面上所有「不在预设里」的东西。换主题之后、以及独立窗口
+    /// 走完 `Event::LiveEdit` 之后都要跑一次。
+    fn after_restyle(&mut self, cx: &mut Cx) {
+        self.pal = Pal::read(cx);
+        // reapply 把布局也按预设刷回去了（手机 / 桌面是运行时算的），
+        // 清掉缓存的形态，下一帧按当前尺寸重排一次。
+        self.shaping = None;
+        self.refresh_all(cx);
+        self.update_page_visibility(cx);
+        self.redraw(cx);
     }
 
     // ---- 开场三屏 ----
@@ -4429,9 +4415,9 @@ impl OuyuView {
         for (i, id) in INTRO_DOTS.iter().enumerate() {
             let mut dot = self.view.widget(cx, &[live_id!(page_intro), live_id!(in_top), *id]);
             if i == step {
-                script_apply_eval!(cx, dot, { draw_bg +: { color: #82b5ff } });
+                script_apply_eval!(cx, dot, { draw_bg +: { color: #(self.pal.blue) } });
             } else {
-                script_apply_eval!(cx, dot, { draw_bg +: { color: #x26364c } });
+                script_apply_eval!(cx, dot, { draw_bg +: { color: #(self.pal.line_soft) } });
             }
         }
         let last = step + 1 == INTRO.len();
@@ -4472,41 +4458,6 @@ impl OuyuView {
         self.show_notice(cx, n);
     }
 
-    /// 把时钟挪到该响的那一刻，问一次真实逻辑「现在发什么」。
-    ///
-    /// 开关在这里临时打开又放回去 —— 演示不该顺手把用户的通知开关改掉。
-    fn demo_notice(&mut self, kind: NoticeKind) -> Option<Notice> {
-        let today = today_days();
-        let saved = (self.state.settings.notify_publish, self.state.settings.notify_reward);
-        self.state.settings.notify_publish = true;
-        self.state.settings.notify_reward = true;
-        let out = match kind {
-            NoticeKind::PublishExpiring => {
-                // 挪到这条去向所在时段结束前 15 分钟。
-                let slot = self.state.publish.as_ref().map(|p| p.slot.min(2)).unwrap_or(1);
-                let end = [12 * 60u32, 18 * 60, 22 * 60][slot];
-                due_notices(&self.state, today, end - 15)
-            }
-            NoticeKind::RewardExpiring => {
-                // 挪到券只剩一天的那天。
-                let exp = self
-                    .state
-                    .wallet
-                    .iter()
-                    .filter(|r| r.state(today) == RewardState::Available)
-                    .filter_map(|r| r.expires_on)
-                    .min();
-                match exp {
-                    Some(e) => due_notices(&self.state, e - 1, 9 * 60),
-                    None => Vec::new(),
-                }
-            }
-        };
-        self.state.settings.notify_publish = saved.0;
-        self.state.settings.notify_reward = saved.1;
-        out.into_iter().find(|n| n.kind == kind)
-    }
-
     /// 一条没有撤销按钮的提示（撤销那条走 `offer_undo`）。
     fn toast(&mut self, cx: &mut Cx, text: &str) {
         self.view
@@ -4542,17 +4493,6 @@ impl OuyuView {
         self.redraw(cx);
     }
 
-    /// 侧栏 / 手机顶栏上的模式按钮文案。
-    fn refresh_mode_buttons(&mut self, cx: &mut Cx) {
-        let mode = self.ui_mode;
-        self.view
-            .button(cx, ids!(sidebar.sb_mode))
-            .set_text(cx, mode.long_label());
-        self.view
-            .button(cx, ids!(shell.topbar.tb_mode))
-            .set_text(cx, mode.short_label());
-    }
-
     /// 按当前 surface 尺寸重排。托管在 tile 里时窗口尺寸没有意义，
     /// 所以只看 draw_walk 拿到的 turtle 矩形（见 Widget::draw_walk）。
     fn update_responsive(&mut self, cx: &mut Cx, size: Vec2d) {
@@ -4560,7 +4500,7 @@ impl OuyuView {
             return;
         }
         self.last_size = size;
-        let want = shaping_for(self.ui_mode, size);
+        let want = shaping_for(size);
         // 开场三屏的留白按像素宽度走，档位没变也得重算一遍。
         if self.shaping == Some(want) && self.intro.is_none() {
             return;
@@ -4595,18 +4535,22 @@ impl OuyuView {
         // 紧跟着的这一次重排又会把它们放回来。
         let intro = self.intro.is_some();
 
-        // 手机：左侧栏收起，导航去底部，标题进顶栏。
+        // 手机：左侧栏收起，导航去底部。顶栏（标题 + 当页主动作）所有形态都在。
         self.view.widget(cx, ids!(sidebar)).set_visible(cx, !phone && !intro);
-        // 矮 tile 里侧栏底部塞不下说明文字，只留模式按钮。
-        self.view
-            .widget(cx, ids!(sidebar.sb_mode_label))
-            .set_visible(cx, !s.short);
+        // 矮 tile 里侧栏底部塞不下说明文字。
         self.view
             .widget(cx, ids!(sidebar.sb_note))
             .set_visible(cx, !s.short);
-        self.view.widget(cx, ids!(shell.topbar)).set_visible(cx, phone && !intro);
+        self.view.widget(cx, ids!(shell.topbar)).set_visible(cx, !intro);
         self.view.widget(cx, ids!(shell.tabbar)).set_visible(cx, phone && !intro);
         self.view.widget(cx, ids!(main.aside)).set_visible(cx, s.aside && !intro);
+        if let Some(mut top) = self.view.view(cx, ids!(shell.topbar)).borrow_mut() {
+            top.layout.padding = if phone {
+                Inset { left: 18.0, right: 12.0, top: 0.0, bottom: 0.0 }
+            } else {
+                Inset { left: 20.0, right: 20.0, top: 0.0, bottom: 0.0 }
+            };
+        }
 
         // 开场三屏：宽屏上把整页收进一条 620px 的列。三句话是要被读完的，
         // 一行铺满 1280px 读起来会跳行。
@@ -4615,35 +4559,12 @@ impl OuyuView {
             v.layout.padding = Inset { left: side, right: side, top: 0.0, bottom: 0.0 };
         }
 
-        // 手机模式套在宽窗口上时，把整个应用收进居中的手机框做预览。
-        // 用 padding 而不是 align 居中：align 会让根视图的底色跟着子项收缩。
-        self.view.layout.padding = Inset {
-            left: s.pad.0,
-            right: s.pad.0,
-            top: s.pad.1,
-            bottom: s.pad.1,
-        };
-        let (fw, fh) = s.frame;
-        if let Some(mut shell) = self.view.view(cx, ids!(shell)).borrow_mut() {
-            shell.walk.width = if s.framed { Size::Fixed(fw) } else { Size::fill() };
-            shell.walk.height = if s.framed { Size::Fixed(fh) } else { Size::fill() };
-        }
-        let (border, radius) = if s.framed { (1.0, 26.0) } else { (0.0, 0.0) };
-        let mut shell = self.view.widget(cx, ids!(shell));
-        script_apply_eval!(cx, shell, {
-            draw_bg +: {
-                color: #x0b1220
-                border_size: #(border)
-                border_radius: #(radius)
-                border_color: #x3a4f74
-            }
-        });
-
         if let Some(mut main) = self.view.view(cx, ids!(main)).borrow_mut() {
+            // 顶栏已经占了一截，正文区上边距收一点。
             main.layout.padding = if phone {
-                Inset { left: 16.0, right: 16.0, top: 18.0, bottom: 10.0 }
+                Inset { left: 16.0, right: 16.0, top: 6.0, bottom: 10.0 }
             } else {
-                Inset { left: 20.0, right: 20.0, top: 20.0, bottom: 16.0 }
+                Inset { left: 20.0, right: 20.0, top: 8.0, bottom: 16.0 }
             };
             main.layout.spacing = if s.aside { 16.0 } else { 0.0 };
         }
@@ -4653,11 +4574,27 @@ impl OuyuView {
             self.set_row_wrap(cx, &[id], phone);
         }
         for row in CONTACT_ROWS {
-            self.set_row_wrap(cx, &[row, live_id!(c_main)], phone);
+            // 熟人行不换行，改成整块翻向：宽屏一条 Right（名字次数在左，
+            // 动作在右，一行），手机竖过来（名字次数一行，动作一行，两行）。
+            // 交给 wrap 的话按钮会按剩余宽度自己断，断出第三行来。
+            if let Some(mut view) = self.view.view(cx, &[row, live_id!(c_main)]).borrow_mut() {
+                view.layout.flow = if phone {
+                    Flow::Down
+                } else {
+                    Flow::Right { row_align: RowAlign::Top, wrap: false }
+                };
+                view.layout.spacing = if phone { 6.0 } else { 10.0 };
+            }
             self.set_row_wrap(cx, &[row, live_id!(c_confirm)], phone);
         }
         for row in MEM_ROWS.into_iter().chain(HID_ROWS) {
             self.set_row_wrap(cx, &[row], phone);
+        }
+        for row in TRACK_ROWS {
+            self.set_row_wrap(cx, &[live_id!(page_achieve), live_id!(tr_card), row], phone);
+        }
+        for row in HIST_ROWS {
+            self.set_row_wrap(cx, &[live_id!(page_tracks), live_id!(tk_card), row], phone);
         }
 
         // 三张里程碑卡 / 分享页左右两栏：手机上改成竖排。
@@ -4693,7 +4630,7 @@ impl OuyuView {
     /// AI 工具应答（02 H 节）：只取匿名快照——结构上没有姓名 / 人数 / 联系方式，
     /// 隐藏回忆不进 AI；发布、互认、领奖仍由本人在界面操作。
     pub fn ai_answer(&self, call: &ServiceCall) -> ToolResult {
-        let snap = ai::OpportunitySnapshot::from_state(&self.state, !self.sparse);
+        let snap = ai::OpportunitySnapshot::from_state(&self.state, true);
         ai::answer(&snap, call)
     }
 
@@ -4730,19 +4667,19 @@ impl OuyuView {
         let mut dot = self.view.widget(cx, &[row, live_id!(ar_dot)]);
         match level {
             OppLevel::Likely => {
-                script_apply_eval!(cx, lvw, { draw_text +: { color: #ffca91 } });
-                script_apply_eval!(cx, dot, { draw_icon +: { color: #ffca91 } });
+                script_apply_eval!(cx, lvw, { draw_text +: { color: #(self.pal.warm) } });
+                script_apply_eval!(cx, dot, { draw_icon +: { color: #(self.pal.warm) } });
             }
             OppLevel::Possible => {
-                script_apply_eval!(cx, lvw, { draw_text +: { color: #82b5ff } });
-                script_apply_eval!(cx, dot, { draw_icon +: { color: #82b5ff } });
+                script_apply_eval!(cx, lvw, { draw_text +: { color: #(self.pal.blue) } });
+                script_apply_eval!(cx, dot, { draw_icon +: { color: #(self.pal.blue) } });
             }
             OppLevel::Few => {
-                script_apply_eval!(cx, lvw, { draw_text +: { color: #a4b2c9 } });
-                script_apply_eval!(cx, dot, { draw_icon +: { color: #a4b2c9 } });
+                script_apply_eval!(cx, lvw, { draw_text +: { color: #(self.pal.ink_2) } });
+                script_apply_eval!(cx, dot, { draw_icon +: { color: #(self.pal.ink_2) } });
             }
             OppLevel::BelowThreshold => {
-                script_apply_eval!(cx, dot, { draw_icon +: { color: #x3c4c6b } });
+                script_apply_eval!(cx, dot, { draw_icon +: { color: #(self.pal.ink_ghost) } });
             }
         }
     }
@@ -4781,28 +4718,21 @@ impl OuyuView {
             cb.set_active(cx, j == self.day_sel, Animate::Yes);
             let mut w = self.view.widget(cx, &path);
             match intensity[j] {
-                0 => script_apply_eval!(cx, w, { draw_icon +: { color: #x2b3a52 } }),
-                1..=14 => script_apply_eval!(cx, w, { draw_icon +: { color: #x5b6f92 } }),
-                15..=24 => script_apply_eval!(cx, w, { draw_icon +: { color: #82b5ff } }),
-                _ => script_apply_eval!(cx, w, { draw_icon +: { color: #ffca91 } }),
+                0 => script_apply_eval!(cx, w, { draw_icon +: { color: #(self.pal.heat_0) } }),
+                1..=14 => script_apply_eval!(cx, w, { draw_icon +: { color: #(self.pal.heat_1) } }),
+                15..=24 => script_apply_eval!(cx, w, { draw_icon +: { color: #(self.pal.blue) } }),
+                _ => script_apply_eval!(cx, w, { draw_icon +: { color: #(self.pal.warm) } }),
             }
         }
 
         // ---- 排行 ----
-        //
-        // sparse 是开发者选项里的草图场景：强制走「阈值不足」那条分支，
-        // 方便检查空态，不代表附近真实人数。
         let ranking = opportunity_ranking_at(today, self.day_sel);
-        let top: Vec<AreaOpportunity> = if self.sparse {
-            Vec::new()
-        } else {
-            ranking
-                .iter()
-                .copied()
-                .filter(|o| o.level.shown())
-                .take(RANK_ROWS.len())
-                .collect()
-        };
+        let top: Vec<AreaOpportunity> = ranking
+            .iter()
+            .copied()
+            .filter(|o| o.level.shown())
+            .take(RANK_ROWS.len())
+            .collect();
         for (j, id) in RANK_ROWS.iter().enumerate() {
             match top.get(j) {
                 Some(o) => self.fill_area_row(cx, *id, o.area, o.level, o.best_slot),
@@ -4830,9 +4760,9 @@ impl OuyuView {
             .set_text(
                 cx,
                 if has_top {
-                    "只分档，不给人数、身份或距离。"
+                    "只显示可能性高低，不显示人数、身份或距离。"
                 } else {
-                    "还不满足匿名保护条件，暂不显示熟人机会。"
+                    "这一天参与的人还不够多，先不显示。"
                 },
             );
         // 阈值不足的片区里挑三个当作普通建议：这是城市建议，不是熟人机会，
@@ -4850,62 +4780,6 @@ impl OuyuView {
             }
         }
 
-        // ---- 我的去向 ----
-        let published = self.state.publish.is_some();
-        let (title, sub) = match &self.state.publish {
-            Some(p) => (p.text(), "别人只会看到这一行。".to_string()),
-            None => (
-                "还没写你的去向".to_string(),
-                "写了才会进入别人的匿名机会。".to_string(),
-            ),
-        };
-        self.view
-            .label(cx, ids!(page_discover.mine_card.mn_col.mn_title))
-            .set_text(cx, &title);
-        self.view
-            .label(cx, ids!(page_discover.mine_card.mn_col.mn_sub))
-            .set_text(cx, &sub);
-        self.view
-            .widget(cx, ids!(page_discover.mine_card.mn_go))
-            .set_visible(cx, !published);
-        self.view
-            .widget(cx, ids!(page_discover.mine_card.mn_edit))
-            .set_visible(cx, published);
-        self.view
-            .widget(cx, ids!(page_discover.mine_card.mn_withdraw))
-            .set_visible(cx, published);
-
-        // ---- 开发者：草图场景开关（已收进「我」页的开发者选项）----
-        self.view.button(cx, ids!(page_settings.dev_card.dv_sparse)).set_text(
-            cx,
-            if self.sparse {
-                "稀疏场景（点击恢复）"
-            } else {
-                "切换稀疏场景"
-            },
-        );
-
-        // ---- 回声 ----
-        let echo = self.state.echo;
-        for (i, id) in ECHO_CHIPS.iter().enumerate() {
-            let path = [
-                live_id!(page_discover),
-                live_id!(echo_card),
-                live_id!(echo_row),
-                *id,
-            ];
-            self.view
-                .check_box(cx, &path)
-                .set_active(cx, echo == Some(i), Animate::Yes);
-        }
-        let status = self.view.widget(cx, ids!(page_discover.echo_card.echo_status));
-        match echo {
-            Some(i) => {
-                status.set_visible(cx, true);
-                status.set_text(cx, &format!("已留下「{}」· 随行程到期", ECHOES[i]));
-            }
-            None => status.set_visible(cx, false),
-        }
         self.refresh_aside(cx);
     }
 
@@ -4914,11 +4788,11 @@ impl OuyuView {
     /// 当前草稿对应的一行预览文案。
     fn draft_publish(&self) -> Publish {
         Publish {
-            day: self.draft.0,
+            id: usize::MAX,
+            date: today_days() + self.draft.0.min(DAY_SPAN - 1) as i64,
             slot: self.draft.1,
             area: self.draft.2,
             intent: self.draft.3,
-            status: PublishStatus::Draft,
         }
     }
 
@@ -5127,17 +5001,20 @@ impl OuyuView {
         self.view
             .label(cx, ids!(page_publish.pw_s3.s3_card2.s3_text))
             .set_text(cx, &preview);
-        let editing = self.state.publish.is_some();
+        let editing = self.wizard_edit.is_some();
         self.view
             .label(cx, ids!(page_publish.pw_top.pw_title))
-            .set_text(cx, if editing { "修改你的去向" } else { "写一下你的去向" });
+            .set_text(cx, if editing { "修改这条行踪" } else { "写一下你的行踪" });
     }
 
-    /// 打开发布向导。`area` 给了就预选那个片区（从排行里点进来的情况）。
-    fn open_wizard(&mut self, cx: &mut Cx, area: Option<u16>) {
-        let base = self.state.publish.clone();
+    /// 打开发布向导。`area` 给了就预选那个片区（从排行里点进来的情况）；
+    /// `edit` 给了就是在改那一条（从「我的行踪」点「修改」进来）。
+    fn open_wizard(&mut self, cx: &mut Cx, area: Option<u16>, edit: Option<usize>) {
+        let today = today_days();
+        let base = edit.and_then(|id| self.state.publishes.iter().find(|p| p.id == id).cloned());
+        self.wizard_edit = base.as_ref().map(|p| p.id);
         self.draft = match &base {
-            Some(p) => (p.day, p.slot, p.area, p.intent),
+            Some(p) => (p.day_at(today).unwrap_or(0), p.slot, p.area, p.intent),
             None => (self.day_sel.min(DAY_SPAN - 1), 1, areas::AREAS[0].id, 0),
         };
         if let Some(a) = area {
@@ -5168,8 +5045,10 @@ impl OuyuView {
     /// 关闭向导，草稿丢弃。
     fn close_wizard(&mut self, cx: &mut Cx) {
         self.wizard = None;
+        self.wizard_edit = None;
         self.update_page_visibility(cx);
         self.refresh_discover(cx);
+        self.refresh_me(cx);
         self.redraw(cx);
     }
 
@@ -5183,35 +5062,6 @@ impl OuyuView {
         } else if !want && !self.tick.is_empty() {
             cx.stop_timer(self.tick);
             self.tick = Timer::empty();
-        }
-    }
-
-    /// 开发者选项里替对方按的那一下。没走到等待态就什么都不做。
-    fn apply_dev_act(&mut self, cx: &mut Cx, act: DevAct) {
-        let Some(s) = self.session.as_mut() else { return };
-        let changed = match act {
-            DevAct::Confirm => s.peer_confirm(),
-            DevAct::Mismatch => {
-                s.peer_mismatch();
-                s.stage == RecogStage::Mismatch
-            }
-            DevAct::NotSamePlace => s.not_same_place(),
-            DevAct::NoStock => s.no_stock(),
-            DevAct::Expire => {
-                if s.stage == RecogStage::Waiting {
-                    s.elapsed = RECOG_WINDOW_SECS - 1;
-                    s.tick()
-                } else {
-                    false
-                }
-            }
-        };
-        if changed {
-            self.on_stage_changed(cx);
-            // 按完就回相遇页 —— 否则结果出在一个人看不见的页面上。
-            if self.state.tab != 1 {
-                self.set_tab(cx, 1);
-            }
         }
     }
 
@@ -5244,9 +5094,24 @@ impl OuyuView {
         self.refresh_meet_pick(cx, n);
 
         let stage = self.session.as_ref().map(|s| s.stage);
+        // 首屏（成就内容）只在没有会话、也没点「确认相遇」的时候露出来。
+        let home = stage.is_none() && !self.meet_open;
+        self.view
+            .widget(cx, ids!(page_meet.meet_home))
+            .set_visible(cx, home);
         self.view
             .widget(cx, ids!(page_meet.meet_pick))
-            .set_visible(cx, stage.is_none());
+            .set_visible(cx, stage.is_none() && self.meet_open);
+        let (title, sub) = if home {
+            ("那些偶然，慢慢有了形状。", "生活小成就，不是排名。认出彼此了？点右上角「确认相遇」。")
+        } else {
+            ("这次，真的遇见了。", "先在线下认出彼此，再各自确认。")
+        };
+        self.view.label(cx, ids!(page_meet.mp_title)).set_text(cx, title);
+        self.view.label(cx, ids!(page_meet.mp_sub)).set_text(cx, sub);
+        if home {
+            self.refresh_achievements(cx);
+        }
         self.view
             .widget(cx, ids!(page_meet.meet_gate))
             .set_visible(cx, matches!(stage, Some(RecogStage::LocationGate | RecogStage::NoLocation)));
@@ -5263,6 +5128,7 @@ impl OuyuView {
             Some(st) if st.is_result() => self.refresh_meet_result(cx, st),
             _ => {}
         }
+        self.refresh_topbar(cx);
         self.refresh_aside(cx);
     }
 
@@ -5490,7 +5356,7 @@ impl OuyuView {
             self,
             cx,
             &[base[0], base[1], base[2], live_id!(ck_status)],
-            if r.redeemed { "已核销（模拟）" } else { "到店出示核销码" },
+            if r.redeemed { "已核销" } else { "到店出示核销码" },
         );
         self.view
             .widget(cx, &[base[0], base[1], base[2], live_id!(ck_row), live_id!(ck_redeem)])
@@ -5519,6 +5385,7 @@ impl OuyuView {
             self.state.write_session_memory(&mut s);
         }
         self.code_open = false;
+        self.meet_open = false;
         self.sync_tick(cx);
         self.refresh_contacts(cx);
         self.refresh_memories(cx);
@@ -5531,7 +5398,7 @@ impl OuyuView {
         let n = self.state.contacts.len();
         self.view
             .widget(cx, ids!(page_contacts.ct_card.ct_head.ct_head_text))
-            .set_text(cx, &format!("本机熟人 · {} 位", n));
+            .set_text(cx, &format!("我的熟人 · {} 位", n));
 
         // 按字母排一次。`sort_by_key` 是稳定的，同一个字母里保持加入的先后，
         // 刷新一次不会自己换位置。「#」（认不出姓的）排到最后。
@@ -5628,7 +5495,7 @@ impl OuyuView {
                     .widget(cx, &[base[0], base[1], base[2], live_id!(c_confirm)])
                     .set_visible(cx, confirming);
                 if confirming {
-                    let text = "从本机熟人列表移除，不改系统通讯录。默认保留旧回忆。";
+                    let text = "从我的熟人里移除，不改系统通讯录。默认保留旧回忆。";
                     self.view
                         .widget(cx, &[base[0], base[1], base[2], live_id!(c_confirm), live_id!(c_ctext)])
                         .set_text(cx, text);
@@ -5671,9 +5538,11 @@ impl OuyuView {
         let today = today_days();
         let (title, rows, tip): (&str, [(String, String); 3], &str) = match self.state.tab {
             0 => {
-                let mine = match &self.state.publish {
-                    Some(p) if p.status == PublishStatus::Published => p.text_at(today),
-                    _ => "还没有发布".to_string(),
+                let active = self.state.active_publishes(today, minutes_of_day());
+                let mine = match active.as_slice() {
+                    [] => "还没有发布".to_string(),
+                    [p] => p.text_at(today),
+                    [p, ..] => format!("{}（共 {} 条）", p.text_at(today), active.len()),
                 };
                 let looking = day_label_at(today, self.day_sel).to_string();
                 let ranking = opportunity_ranking_at(today, self.day_sel);
@@ -5685,11 +5554,24 @@ impl OuyuView {
                 (
                     "这一页在看什么",
                     [
-                        ("你的去向".into(), mine),
+                        ("你的行踪".into(), mine),
                         ("正在看".into(), looking),
                         ("最靠前".into(), best),
                     ],
                     "档位按你的熟人算，不显示人数和是谁。",
+                )
+            }
+            1 if self.session.is_none() && !self.meet_open => {
+                let st = achievement_stats(&self.state.encounters, self.weeks, today);
+                let this_week = st.weekly.last().map(|w| w.count).unwrap_or(0);
+                (
+                    "你的这一份",
+                    [
+                        ("记住的相遇".into(), format!("{} 次", st.remembered)),
+                        ("相遇日".into(), format!("{} 天", st.days)),
+                        ("本周".into(), format!("{} 次", this_week)),
+                    ],
+                    "只算未隐藏的回忆。分享卡不带名字、地点和日期。",
                 )
             }
             1 => {
@@ -5728,11 +5610,11 @@ impl OuyuView {
                 (
                     "这份名单",
                     [
-                        ("本机熟人".into(), format!("{} 位", self.state.contacts.len())),
-                        ("通讯录池".into(), format!("{} 人", self.state.directory.len())),
+                        ("我的熟人".into(), format!("{} 位", self.state.contacts.len())),
+                        ("通讯录".into(), format!("{} 人", self.state.directory.len())),
                         ("回忆最多".into(), most),
                     ],
-                    "次数含隐藏回忆；成就页只算未隐藏的。",
+                    "次数包含隐藏的回忆；相遇页的统计只算未隐藏的。",
                 )
             }
             3 => {
@@ -5761,16 +5643,18 @@ impl OuyuView {
                 )
             }
             _ => {
-                let st = achievement_stats(&self.state.encounters, self.weeks, today);
-                let this_week = st.weekly.last().map(|w| w.count).unwrap_or(0);
+                let now = minutes_of_day();
+                let active = self.state.active_publishes(today, now).len();
+                let gone = self.state.publishes.len() - active;
+                let usable = self.state.rewards_in(today, RewardState::Available).len();
                 (
-                    "你的这一份",
+                    "你自己的东西",
                     [
-                        ("记住的相遇".into(), format!("{} 次", st.remembered)),
-                        ("相遇日".into(), format!("{} 天", st.days)),
-                        ("本周".into(), format!("{} 次", this_week)),
+                        ("有效行踪".into(), format!("{} 条", active)),
+                        ("已到期".into(), format!("{} 条", gone)),
+                        ("可用券".into(), format!("{} 张", usable)),
                     ],
-                    "只算未隐藏的回忆。分享卡不带名字、地点和日期。",
+                    "行踪只有大致片区和时段，没有坐标；到期自动下线。",
                 )
             }
         };
@@ -5967,8 +5851,81 @@ impl OuyuView {
 
     // ---- 成就页 / 分享卡 ----
 
-    fn refresh_achievements(&mut self, cx: &mut Cx) {
+    /// 把一组行踪铺到一张卡的行上：文案、状态、到期的收起修改 / 删除。
+    /// 返回铺上去的那些 publish id，行下标对应。
+    fn fill_track_rows(
+        &mut self,
+        cx: &mut Cx,
+        card: [LiveId; 2],
+        rows: &[LiveId],
+        items: &[(usize, String, bool)],
+    ) -> Vec<usize> {
+        for (i, id) in rows.iter().enumerate() {
+            let base = [card[0], card[1], *id];
+            let Some((_, text, gone)) = items.get(i) else {
+                self.view.widget(cx, &base).set_visible(cx, false);
+                continue;
+            };
+            self.view.widget(cx, &base).set_visible(cx, true);
+            let mut text_w = self
+                .view
+                .widget(cx, &[base[0], base[1], base[2], live_id!(tr_col), live_id!(tr_text)]);
+            text_w.set_text(cx, text);
+            if *gone {
+                script_apply_eval!(cx, text_w, { draw_text +: { color: #(self.pal.ink_3) } });
+            } else {
+                script_apply_eval!(cx, text_w, { draw_text +: { color: #(self.pal.ink) } });
+            }
+            self.view
+                .widget(cx, &[base[0], base[1], base[2], live_id!(tr_col), live_id!(tr_state)])
+                .set_text(cx, if *gone { "已到期" } else { "进行中 · 到时段结束" });
+            self.view
+                .widget(cx, &join(&base, live_id!(tr_edit)))
+                .set_visible(cx, !gone);
+            self.view
+                .widget(cx, &join(&base, live_id!(tr_del)))
+                .set_visible(cx, !gone);
+        }
+        items.iter().take(rows.len()).map(|r| r.0).collect()
+    }
+
+    /// 「我的行踪 → 更多」：进行中的在前（可改可删），到期的在后（只看）。
+    fn refresh_tracks(&mut self, cx: &mut Cx) {
         let today = today_days();
+        let now = minutes_of_day();
+        let items: Vec<(usize, String, bool)> = self
+            .state
+            .publish_history(today, now)
+            .into_iter()
+            .take(HIST_ROWS.len())
+            .map(|p| (p.id, p.text_at(today), p.expired_at(today, now)))
+            .collect();
+        self.hist_row_ids =
+            self.fill_track_rows(cx, [live_id!(page_tracks), live_id!(tk_card)], &HIST_ROWS, &items);
+        self.view
+            .widget(cx, ids!(page_tracks.tk_card.tk_empty))
+            .set_visible(cx, items.is_empty());
+    }
+
+    /// 「我」页：我的行踪（最近发布的几条进行中的）+ 三个入口。
+    fn refresh_me(&mut self, cx: &mut Cx) {
+        let today = today_days();
+        let now = minutes_of_day();
+        let mut live = self.state.active_publishes(today, now);
+        live.sort_by_key(|p| std::cmp::Reverse(p.id));
+        let items: Vec<(usize, String, bool)> = live
+            .into_iter()
+            .take(TRACK_ROWS.len())
+            .map(|p| (p.id, p.text_at(today), false))
+            .collect();
+        self.track_row_ids =
+            self.fill_track_rows(cx, [live_id!(page_achieve), live_id!(tr_card)], &TRACK_ROWS, &items);
+        self.view
+            .widget(cx, ids!(page_achieve.tr_card.tr_empty))
+            .set_visible(cx, items.is_empty());
+        self.view
+            .widget(cx, ids!(page_achieve.tr_card.tr_note))
+            .set_visible(cx, !items.is_empty());
         // 三个入口。券那一格直接显示「几张可用」，不用点进去才知道有没有。
         let avail = self.state.rewards_in(today, RewardState::Available).len();
         self.set_row(
@@ -5996,30 +5953,24 @@ impl OuyuView {
             ids!(page_achieve.hub_card.row_about),
             "关于偶遇",
             "",
-            "设计稿 v0.4",
+            "v0.4",
         );
+        self.refresh_aside(cx);
+    }
+
+    /// 相遇页首屏的成就内容：频率曲线、每周次数、里程碑（分享卡预览开着时一并刷）。
+    fn refresh_achievements(&mut self, cx: &mut Cx) {
+        let today = today_days();
         let stats = achievement_stats(&self.state.encounters, self.weeks, today);
-        // 摘要行。
-        self.view
-            .widget(cx, ids!(page_achieve.sum_card.sum_row.sum_col0.sum_n0))
-            .set_text(cx, &stats.remembered.to_string());
-        self.view
-            .widget(cx, ids!(page_achieve.sum_card.sum_row.sum_col1.sum_n1))
-            .set_text(cx, &stats.days.to_string());
-        self.view
-            .widget(cx, ids!(page_achieve.sum_card.sum_row.sum_col2.sum_n2))
-            .set_text(cx, &stats.recent().to_string());
-        self.view
-            .widget(cx, ids!(page_achieve.sum_card.sum_row.sum_col2.sum_l2))
-            .set_text(cx, &format!("近 {} 周相遇", self.weeks));
         // 曲线卡片：chips + 数据 + 留白。
         self.view
-            .widget(cx, ids!(page_achieve.curve_card.curve_head.curve_title))
+            .widget(cx, ids!(page_meet.meet_home.curve_card.curve_head.curve_title))
             .set_text(cx, "相遇频率曲线");
         self.set_chip_group(
             cx,
             &[
-                live_id!(page_achieve),
+                live_id!(page_meet),
+                live_id!(meet_home),
                 live_id!(curve_card),
                 live_id!(curve_head),
             ],
@@ -6027,16 +5978,16 @@ impl OuyuView {
             if self.weeks == 4 { 0 } else { 1 },
         );
         self.view
-            .widget(cx, ids!(page_achieve.curve_card.curve_sub))
+            .widget(cx, ids!(page_meet.meet_home.curve_card.curve_sub))
             .set_text(cx, &format!("最近 {} 周，记住 {} 次重逢", self.weeks, stats.recent()));
         let has_data = stats.recent() > 0;
         self.view
-            .widget(cx, ids!(page_achieve.curve_card.curve_chart))
+            .widget(cx, ids!(page_meet.meet_home.curve_card.curve_chart))
             .set_visible(cx, has_data);
         self.view
-            .widget(cx, ids!(page_achieve.curve_card.curve_empty))
+            .widget(cx, ids!(page_meet.meet_home.curve_card.curve_empty))
             .set_visible(cx, !has_data);
-        let chart = self.view.widget(cx, ids!(page_achieve.curve_card.curve_chart));
+        let chart = self.view.widget(cx, ids!(page_meet.meet_home.curve_card.curve_chart));
         if let Some(mut c) = chart.borrow_mut::<OuyuChart>() {
             let first = stats.weekly.first().map(|w| w.start).unwrap_or(today);
             let last = stats.weekly.last().map(|w| w.start).unwrap_or(today);
@@ -6050,14 +6001,15 @@ impl OuyuView {
         chart.redraw(cx);
         // 可展开的「查看每周次数」数据表（不依赖 hover 读数）。
         self.view
-            .widget(cx, ids!(page_achieve.curve_card.wk_toggle))
+            .widget(cx, ids!(page_meet.meet_home.curve_card.wk_toggle))
             .set_text(cx, if self.weekly_open { "收起" } else { "每周次数" });
         self.view
-            .widget(cx, ids!(page_achieve.curve_card.wk_table))
+            .widget(cx, ids!(page_meet.meet_home.curve_card.wk_table))
             .set_visible(cx, self.weekly_open);
         for (i, id) in WK_ROWS.iter().enumerate() {
             let base = [
-                live_id!(page_achieve),
+                live_id!(page_meet),
+                live_id!(meet_home),
                 live_id!(curve_card),
                 live_id!(wk_table),
                 *id,
@@ -6066,10 +6018,10 @@ impl OuyuView {
                 Some(w) if self.weekly_open => {
                     self.view.widget(cx, &base).set_visible(cx, true);
                     self.view
-                        .widget(cx, &[base[0], base[1], base[2], base[3], live_id!(wk_d)])
+                        .widget(cx, &join(&base, live_id!(wk_d)))
                         .set_text(cx, &format!("{} 这一周", fmt_md(w.start)));
                     self.view
-                        .widget(cx, &[base[0], base[1], base[2], base[3], live_id!(wk_c)])
+                        .widget(cx, &join(&base, live_id!(wk_c)))
                         .set_text(cx, &format!("{} 次", w.count));
                 }
                 _ => self.view.widget(cx, &base).set_visible(cx, false),
@@ -6079,17 +6031,18 @@ impl OuyuView {
         let ms = milestones(&stats);
         for (i, id) in MS_ROWS.iter().enumerate() {
             let base = [
-                live_id!(page_achieve),
+                live_id!(page_meet),
+                live_id!(meet_home),
                 live_id!(ms_card),
                 live_id!(ms_row),
                 *id,
             ];
             let m = &ms[i];
             self.view
-                .widget(cx, &[base[0], base[1], base[2], base[3], live_id!(ms_icon)])
+                .widget(cx, &join(&base, live_id!(ms_icon)))
                 .set_text(cx, if m.lit { "★" } else { "☆" });
             self.view
-                .widget(cx, &[base[0], base[1], base[2], base[3], live_id!(ms_state)])
+                .widget(cx, &join(&base, live_id!(ms_state)))
                 .set_text(cx, if m.lit { "已点亮" } else { "等自然发生" });
         }
         if self.share_open {
@@ -6125,51 +6078,24 @@ impl OuyuView {
         empty_action: &str,
         n: usize,
     ) -> bool {
-        let st = self.list_state;
-        let show_list = st == ListState::Ready && n > 0;
-        let show_slot = !show_list;
-        self.view.widget(cx, slot).set_visible(cx, show_slot);
-        if !show_slot {
-            return show_list;
-        }
-        let (text, sub, action) = match st {
-            ListState::Ready => (empty_text, "", empty_action),
-            ListState::Loading => ("正在加载…", "", ""),
-            ListState::Failed => (
-                "没能加载出来",
-                "稍后再试一次。",
-                "重试",
-            ),
-            ListState::Offline => (
-                "现在连不上网",
-                "本机数据照常可看；发布和互认要等网络。",
-                "重试",
-            ),
-        };
-        // 图标沿用这一页自己的那个（券 / 熟人 / 回忆），只换颜色 —— 运行时换不了
-        // svg，而且一页一个图标本来就比四页一个通用图标好认。
-        let mut icon_w = self.view.widget(cx, &join(slot, live_id!(em_icon)));
-        match st {
-            ListState::Ready => script_apply_eval!(cx, icon_w, { draw_icon +: { color: #x3c4c6b } }),
-            ListState::Failed => script_apply_eval!(cx, icon_w, { draw_icon +: { color: #ff9eab } }),
-            _ => script_apply_eval!(cx, icon_w, { draw_icon +: { color: #x5d6f8d } }),
+        let show_list = n > 0;
+        self.view.widget(cx, slot).set_visible(cx, !show_list);
+        if show_list {
+            return true;
         }
         self.view
             .widget(cx, &join(slot, live_id!(em_text)))
-            .set_text(cx, text);
+            .set_text(cx, empty_text);
         self.view
             .widget(cx, &join(slot, live_id!(em_sub)))
-            .set_visible(cx, !sub.is_empty());
-        self.view
-            .widget(cx, &join(slot, live_id!(em_sub)))
-            .set_text(cx, sub);
+            .set_visible(cx, false);
         self.view
             .widget(cx, &join(slot, live_id!(em_action)))
-            .set_visible(cx, !action.is_empty());
+            .set_visible(cx, !empty_action.is_empty());
         self.view
             .widget(cx, &join(slot, live_id!(em_action)))
-            .set_text(cx, action);
-        show_list
+            .set_text(cx, empty_action);
+        false
     }
 
     // ---- 删除撤销 ----
@@ -6225,7 +6151,7 @@ impl OuyuView {
                 .cloned()
                 .take(rows.len())
                 .collect();
-            let show = !items.is_empty() && self.list_state == ListState::Ready;
+            let show = !items.is_empty();
             self.view
                 .widget(cx, &[live_id!(page_wallet), sec])
                 .set_visible(cx, show);
@@ -6288,15 +6214,25 @@ impl OuyuView {
             .set_visible(cx, st == RewardState::Available);
         let mut card = self.view.widget(cx, base);
         if st == RewardState::Available {
-            script_apply_eval!(cx, card, { draw_bg +: { color: #ffca91 } });
+            script_apply_eval!(cx, card, { draw_bg +: { color: #(self.pal.coupon) } });
         } else {
-            script_apply_eval!(cx, card, { draw_bg +: { color: #x8f7c66 } });
+            script_apply_eval!(cx, card, { draw_bg +: { color: #(self.pal.coupon_off) } });
         }
     }
 
     // ---- 设置 ----
 
     fn refresh_settings(&mut self, cx: &mut Cx) {
+        let mode = theme::mode();
+        for (id, m) in [
+            (live_id!(ap_dark), ThemeMode::Dark),
+            (live_id!(ap_light), ThemeMode::Light),
+        ] {
+            let path = [live_id!(page_settings), live_id!(ap_card), live_id!(ap_seg), id];
+            self.view
+                .check_box(cx, &path)
+                .set_active(cx, m == mode, Animate::No);
+        }
         let granted = self.state.settings.location_granted;
         self.set_row(
             cx,
@@ -6340,7 +6276,7 @@ impl OuyuView {
         let mut clear_name = self
             .view
             .widget(cx, ids!(page_settings.data_card.row_clear.st_body.st_col.st_name));
-        script_apply_eval!(cx, clear_name, { draw_text +: { color: #ff9eab } });
+        script_apply_eval!(cx, clear_name, { draw_text +: { color: #(self.pal.bad) } });
         self.view
             .widget(cx, ids!(page_settings.data_card.clear_confirm))
             .set_visible(cx, self.clear_armed);
@@ -6377,9 +6313,9 @@ impl OuyuView {
         let track = join(&body, live_id!(sw_track));
         let mut track_w = self.view.widget(cx, &track);
         if on {
-            script_apply_eval!(cx, track_w, { draw_bg +: { color: #82b5ff } });
+            script_apply_eval!(cx, track_w, { draw_bg +: { color: #(self.pal.blue) } });
         } else {
-            script_apply_eval!(cx, track_w, { draw_bg +: { color: #x24354f } });
+            script_apply_eval!(cx, track_w, { draw_bg +: { color: #(self.pal.track_off) } });
         }
         self.view
             .widget(cx, &join(&track, live_id!(sw_off)))
@@ -6441,31 +6377,19 @@ impl OuyuView {
                 self.set_tab(cx, i);
             }
         }
-        // 界面模式：自动 → 手机 → 大屏 → 自动。宿主整机的手机 / 桌面切换在样式菜单里。
-        if self.view.button(cx, ids!(sidebar.sb_mode)).clicked(actions)
-            || self.view.button(cx, ids!(shell.topbar.tb_mode)).clicked(actions)
-        {
-            self.ui_mode = self.ui_mode.next();
-            self.shaping = None;
-            self.refresh_mode_buttons(cx);
-            self.redraw(cx);
-        }
-        // 开发者选项: 草图场景（阈值不足分支），不代表附近真实人数。
-        if self.view.button(cx, ids!(page_settings.dev_card.dv_sparse)).clicked(actions) {
-            self.sparse = !self.sparse;
-            self.refresh_discover(cx);
-        }
-        // 开发者选项: 替对方这一侧按一下。会话没走到等待态时全部无效。
-        for (id, act) in [
-            (live_id!(dv_ok), DevAct::Confirm),
-            (live_id!(dv_mismatch), DevAct::Mismatch),
-            (live_id!(dv_far), DevAct::NotSamePlace),
-            (live_id!(dv_stock), DevAct::NoStock),
-            (live_id!(dv_expire), DevAct::Expire),
-        ] {
-            let path = [live_id!(page_settings), live_id!(dev_card), live_id!(dv_meet), id];
-            if self.view.button(cx, &path).clicked(actions) {
-                self.apply_dev_act(cx, act);
+        // 顶栏主动作：发现页写一条新行踪；相遇页首屏进互认流程。
+        if self.view.button(cx, ids!(shell.topbar.tb_action)).clicked(actions) {
+            match self.state.tab {
+                0 => self.open_wizard(cx, None, None),
+                1 => {
+                    self.meet_open = true;
+                    self.view
+                        .widget(cx, ids!(page_meet.meet_pick.pick_done))
+                        .set_visible(cx, false);
+                    self.refresh_meet(cx);
+                    self.redraw(cx);
+                }
+                _ => {}
             }
         }
         // 发现页: 时间分段（今天 / 明天 / 本周）
@@ -6509,32 +6433,8 @@ impl OuyuView {
                 .clicked(actions)
             {
                 let area = self.area_of_row(*id);
-                self.open_wizard(cx, area);
+                self.open_wizard(cx, area, None);
             }
-        }
-        // 发现页: 发布 / 修改 / 撤回
-        let open_new = self.view.button(cx, ids!(fab_layer.fab)).clicked(actions)
-            || self
-                .view
-                .button(cx, ids!(page_discover.mine_card.mn_go))
-                .clicked(actions);
-        if open_new {
-            self.open_wizard(cx, None);
-        }
-        if self
-            .view
-            .button(cx, ids!(page_discover.mine_card.mn_edit))
-            .clicked(actions)
-        {
-            self.open_wizard(cx, None);
-        }
-        if self
-            .view
-            .button(cx, ids!(page_discover.mine_card.mn_withdraw))
-            .clicked(actions)
-        {
-            self.state.withdraw();
-            self.refresh_discover(cx);
         }
         // 发布向导: 退出（返回 / 放弃都丢草稿）
         if self
@@ -6664,8 +6564,17 @@ impl OuyuView {
         {
             match self.wizard {
                 Some(2) => {
-                    self.state
-                        .publish(self.draft.0, self.draft.1, self.draft.2, self.draft.3);
+                    let (day, slot, area, intent) = self.draft;
+                    match self.wizard_edit {
+                        Some(id) => {
+                            self.state.update_publish(id, day, slot, area, intent);
+                            self.toast(cx, "这条行踪改好了");
+                        }
+                        None => {
+                            self.state.publish(day, slot, area, intent);
+                            self.toast(cx, "已发布，到期自动退出");
+                        }
+                    }
                     self.close_wizard(cx);
                 }
                 Some(step) => {
@@ -6674,23 +6583,16 @@ impl OuyuView {
                 None => {}
             }
         }
-        // 发现页: 回声（固定三选）
-        for i in 0..ECHO_CHIPS.len() {
-            let path = [live_id!(page_discover), live_id!(echo_card), live_id!(echo_row), ECHO_CHIPS[i]];
-            if self.view.check_box(cx, &path).changed(actions).is_some() {
-                self.state.set_echo(i);
-                self.refresh_discover(cx);
-            }
-        }
-        // 发现页: 我们碰到了 → 相遇页
+        // 相遇页 ①: 返回首屏
         if self
             .view
-            .button(cx, ids!(page_discover.met_card.met_go))
+            .button(cx, ids!(page_meet.meet_pick.pick_back))
             .clicked(actions)
         {
-            self.set_tab(cx, 1);
+            self.meet_open = false;
+            self.refresh_meet(cx);
+            self.redraw(cx);
         }
-
         // 相遇页 ①: 选人
         for i in 0..MEET_ROWS.len() {
             let path = [
@@ -7133,24 +7035,25 @@ impl OuyuView {
             }
         }
 
-        // 成就页: 4 / 8 周切换
+        // 相遇页首屏: 4 / 8 周切换
         for i in 0..WK_CHIPS.len() {
             let path = [
-                live_id!(page_achieve),
+                live_id!(page_meet),
+                live_id!(meet_home),
                 live_id!(curve_card),
                 live_id!(curve_head),
                 WK_CHIPS[i],
             ];
             if self.view.check_box(cx, &path).changed(actions).is_some() {
                 self.weeks = if i == 0 { 4 } else { 8 };
-                self.set_chip_group(cx, &path[..3], &WK_CHIPS, i);
+                self.set_chip_group(cx, &path[..4], &WK_CHIPS, i);
                 self.refresh_achievements(cx);
             }
         }
-        // 成就页: 查看 / 收起每周次数
+        // 相遇页首屏: 查看 / 收起每周次数
         if self
             .view
-            .button(cx, ids!(page_achieve.curve_card.wk_toggle))
+            .button(cx, ids!(page_meet.meet_home.curve_card.wk_toggle))
             .clicked(actions)
         {
             self.weekly_open = !self.weekly_open;
@@ -7185,32 +7088,6 @@ impl OuyuView {
             self.open_intro(cx, 0);
             self.redraw(cx);
         }
-        // 开发者选项：让两条通知现在就到点。
-        //
-        // 走的是和真实路径同一个 `due_notices`：先把开关打开、把时间挪到
-        // 该响的那一刻，再问一次「现在该发什么」—— 而不是直接塞一句假文案。
-        // 这样演示里看到的，就是真实逻辑会发的那一条。
-        for (id, kind) in [
-            (live_id!(dv_nt_pub), NoticeKind::PublishExpiring),
-            (live_id!(dv_nt_rwd), NoticeKind::RewardExpiring),
-        ] {
-            let path = [
-                live_id!(page_settings),
-                live_id!(dev_card),
-                live_id!(dv_notice),
-                id,
-            ];
-            if !self.view.button(cx, &path).clicked(actions) {
-                continue;
-            }
-            match self.demo_notice(kind) {
-                Some(n) => self.show_notice(cx, n),
-                None => self.toast(cx, match kind {
-                    NoticeKind::PublishExpiring => "先发布一条今天的去向，再来按这个",
-                    NoticeKind::RewardExpiring => "手里没有可用的券，先去相遇页领一张",
-                }),
-            }
-        }
         // 通知条：知道了。
         if self
             .view
@@ -7238,14 +7115,59 @@ impl OuyuView {
                 self.update_page_visibility(cx);
             }
         }
+        // 「我」页: 我的行踪 → 更多（全部历史）
+        if self
+            .view
+            .button(cx, ids!(page_achieve.tr_head.tr_more))
+            .clicked(actions)
+        {
+            self.sheet = Some(Sheet::Tracks);
+            self.refresh_tracks(cx);
+            self.update_page_visibility(cx);
+        }
         // 覆盖页: 返回「我」
         if self.view.button(cx, ids!(page_wallet.wl_back)).clicked(actions)
             || self.view.button(cx, ids!(page_settings.se_back)).clicked(actions)
+            || self.view.button(cx, ids!(page_tracks.tk_back)).clicked(actions)
         {
             self.sheet = None;
             self.clear_armed = false;
-            self.refresh_achievements(cx);
+            self.refresh_me(cx);
             self.update_page_visibility(cx);
+        }
+        // 我的行踪（「我」页那几条 / 「更多」里的全部）—— 修改 / 删除。
+        // 只有没到期的行才露出这两个按钮；向导是盖在 Tab 页上的，从「更多」
+        // 进去改，就先收起「更多」，改完落回「我」。
+        let mut track_edit: Option<usize> = None;
+        let mut track_del: Option<usize> = None;
+        let lists: [([LiveId; 2], &[LiveId], &[usize]); 2] = [
+            ([live_id!(page_achieve), live_id!(tr_card)], &TRACK_ROWS, &self.track_row_ids),
+            ([live_id!(page_tracks), live_id!(tk_card)], &HIST_ROWS, &self.hist_row_ids),
+        ];
+        for (card, rows, ids) in lists {
+            for (i, id) in rows.iter().enumerate() {
+                let base = [card[0], card[1], *id];
+                let Some(pid) = ids.get(i).copied() else { continue };
+                if self.view.button(cx, &join(&base, live_id!(tr_edit))).clicked(actions) {
+                    track_edit = Some(pid);
+                }
+                if self.view.button(cx, &join(&base, live_id!(tr_del))).clicked(actions) {
+                    track_del = Some(pid);
+                }
+            }
+        }
+        if let Some(pid) = track_edit {
+            self.sheet = None;
+            self.open_wizard(cx, None, Some(pid));
+        }
+        if let Some(pid) = track_del {
+            self.state.withdraw(pid);
+            self.toast(cx, "已删除这条行踪");
+            self.refresh_me(cx);
+            if self.sheet == Some(Sheet::Tracks) {
+                self.refresh_tracks(cx);
+            }
+            self.refresh_discover(cx);
         }
         // 我的券: 核销（只有「可用」区的券有这个按钮）
         for (sec, rows) in [
@@ -7276,8 +7198,25 @@ impl OuyuView {
                         self.state.redeem_at(j);
                     }
                     self.refresh_wallet(cx);
-                    self.refresh_achievements(cx);
+                    self.refresh_me(cx);
                     self.refresh_meet(cx);
+                }
+            }
+        }
+        // 设置: 界面深浅。这一拍只记下来，真正换在 handle_event 末尾。
+        for (id, m) in [
+            (live_id!(ap_dark), ThemeMode::Dark),
+            (live_id!(ap_light), ThemeMode::Light),
+        ] {
+            let path = [live_id!(page_settings), live_id!(ap_card), live_id!(ap_seg), id];
+            if self.view.check_box(cx, &path).changed(actions).is_some() {
+                if theme::mode() == m {
+                    // 点的是已经选中的那一格：分段不该像开关一样被关掉。
+                    self.refresh_settings(cx);
+                } else {
+                    self.state.settings.set_theme_mode(m);
+                    self.state.save();
+                    self.pending_theme = Some(m);
                 }
             }
         }
@@ -7355,58 +7294,22 @@ impl OuyuView {
             self.refresh_all(cx);
             self.refresh_achievements(cx);
         }
-        // 开发者选项: 列表四态
-        for (id, st) in [
-            (live_id!(dv_ready), ListState::Ready),
-            (live_id!(dv_loading), ListState::Loading),
-            (live_id!(dv_failed), ListState::Failed),
-            (live_id!(dv_offline), ListState::Offline),
-        ] {
-            let path = [live_id!(page_settings), live_id!(dev_card), live_id!(dv_state), id];
-            if self.view.button(cx, &path).clicked(actions) {
-                self.list_state = st;
-                self.refresh_contacts(cx);
-                self.refresh_memories(cx);
-                self.refresh_wallet(cx);
-            }
-        }
-        // 四态上的那个按钮：出错 / 离线时是「重试」，空态时是这一页自己的动作。
-        if self
-            .view
-            .button(cx, ids!(page_memories.mem_empty.em_action))
-            .clicked(actions)
-        {
-            self.list_state = ListState::Ready;
-            self.refresh_memories(cx);
-        }
-        if self
-            .view
-            .button(cx, ids!(page_wallet.wl_state.em_action))
-            .clicked(actions)
-        {
-            self.list_state = ListState::Ready;
-            self.refresh_wallet(cx);
-        }
+        // 空态上的那个按钮：熟人页是「从通讯录导入」。
         if self
             .view
             .button(cx, ids!(page_contacts.ct_card.ct_empty.em_action))
             .clicked(actions)
         {
-            if self.list_state == ListState::Ready {
-                self.import_vcard(cx);
-            } else {
-                self.list_state = ListState::Ready;
-                self.refresh_contacts(cx);
-            }
+            self.import_vcard(cx);
         }
         // 撤销条
         if self.view.button(cx, ids!(toast_layer.toast.to_undo)).clicked(actions) {
             self.close_undo(cx, true);
         }
-        // 成就页: 生成分享卡 → 预览页
+        // 相遇页首屏: 生成分享卡 → 预览页
         if self
             .view
-            .button(cx, ids!(page_achieve.share_card.sh_go))
+            .button(cx, ids!(page_meet.meet_home.share_card.sh_go))
             .clicked(actions)
         {
             self.share_open = true;
@@ -7502,6 +7405,7 @@ impl Widget for OuyuView {
             self.draft = (0, 1, areas::AREAS[0].id, 0);
             self.weeks = 8;
             self.share_style = ShareStyle::Warm;
+            self.pal = Pal::read(cx);
             self.refresh_all(cx);
             // 第一次打开先讲三句话。跳过也记 onboarded，不会每次都拦。
             if !self.state.settings.onboarded {
@@ -7509,6 +7413,12 @@ impl Widget for OuyuView {
             }
             self.notice_poll = cx.start_interval(60.0);
             self.initialized = true;
+        }
+        // 独立窗口换主题走的是 app_main 的 LiveEdit（窗口底色和标题栏也得跟着
+        // 换，那两处不在 OuyuView 里）。Rebake 会把 DSL 里的文案刷回去，所以
+        // 收到之后把界面重新铺一遍。
+        if let Event::LiveEdit = event {
+            self.after_restyle(cx);
         }
         // Tab 淡入: 150ms 内 alpha 从 1 衰减到 0。
         if let Some(nf) = self.next_frame.is_event(event) {
@@ -7554,6 +7464,11 @@ impl Widget for OuyuView {
         }
         if let Event::Actions(actions) = event {
             self.handle_actions(cx, actions);
+        }
+        // 这一拍的 action 都走完了，现在换主题才不会把半路用到的 widget
+        // 引用换掉。
+        if let Some(mode) = self.pending_theme.take() {
+            self.apply_theme(cx, mode);
         }
     }
 }
@@ -7605,6 +7520,8 @@ impl AppModule for OuyuModule {
         "偶遇 OuYu"
     }
     fn register(&self, vm: &mut ScriptVm) {
+        // 色板先进 VM：后面两个 script_mod 里的预设都按 `ouyu.<角色>` 取色。
+        theme::install(vm);
         canvas::script_mod(vm);
         script_mod(vm);
     }
@@ -7660,52 +7577,23 @@ mod layout_tests {
     }
 
     #[test]
-    fn auto_follows_the_surface_it_is_actually_given() {
+    fn the_layout_follows_the_surface_it_is_actually_given() {
         // 宿主手机壳给的就是 412×892 的一整块面; 桌面 tile 才够放右列。
-        assert_eq!(shaping_for(UiMode::Auto, size(412.0, 892.0)).shape, Shape::Phone);
-        assert_eq!(shaping_for(UiMode::Auto, size(820.0, 700.0)).shape, Shape::Tablet);
-        assert_eq!(shaping_for(UiMode::Auto, size(1280.0, 800.0)).shape, Shape::Desktop);
-        // 自动模式永远铺满，不画手机框。
-        assert!(!shaping_for(UiMode::Auto, size(1280.0, 800.0)).framed);
+        assert_eq!(shaping_for(size(412.0, 892.0)).shape, Shape::Phone);
+        assert_eq!(shaping_for(size(820.0, 700.0)).shape, Shape::Tablet);
+        assert_eq!(shaping_for(size(1280.0, 800.0)).shape, Shape::Desktop);
     }
 
     #[test]
     fn the_aside_column_only_appears_when_the_desktop_shape_has_room() {
-        assert!(shaping_for(UiMode::Auto, size(1280.0, 800.0)).aside);
-        assert!(!shaping_for(UiMode::Auto, size(820.0, 700.0)).aside);
-        assert!(!shaping_for(UiMode::Auto, size(412.0, 892.0)).aside);
-    }
-
-    #[test]
-    fn forcing_phone_mode_frames_a_preview_on_a_wide_surface_only() {
-        let wide = shaping_for(UiMode::Phone, size(1280.0, 800.0));
-        assert_eq!(wide.shape, Shape::Phone);
-        assert!(wide.framed, "宽窗口上手机模式收进居中的手机框");
-        assert_eq!(wide.frame.0, FRAME_W);
-        assert!(wide.pad.0 > 0.0);
-        // 本来就只有一条手机宽，再套框只会更窄——铺满即可。
-        let narrow = shaping_for(UiMode::Phone, size(412.0, 892.0));
-        assert!(!narrow.framed);
-        assert_eq!(narrow.pad, (0.0, 0.0));
-    }
-
-    #[test]
-    fn wide_mode_never_asks_for_more_than_the_surface_can_hold() {
-        // 手机壳里选「大屏」最多到平板，锁不出一个放不下的桌面布局。
-        assert_eq!(shaping_for(UiMode::Wide, size(412.0, 892.0)).shape, Shape::Tablet);
-        assert_eq!(shaping_for(UiMode::Wide, size(1280.0, 800.0)).shape, Shape::Desktop);
+        assert!(shaping_for(size(1280.0, 800.0)).aside);
+        assert!(!shaping_for(size(820.0, 700.0)).aside);
+        assert!(!shaping_for(size(412.0, 892.0)).aside);
     }
 
     #[test]
     fn a_short_surface_is_flagged_so_the_illustrations_shrink() {
-        assert!(shaping_for(UiMode::Auto, size(1400.0, 440.0)).short);
-        assert!(!shaping_for(UiMode::Auto, size(1400.0, 800.0)).short);
-    }
-
-    #[test]
-    fn the_mode_button_cycles_auto_phone_wide() {
-        assert_eq!(UiMode::Auto.next(), UiMode::Phone);
-        assert_eq!(UiMode::Phone.next(), UiMode::Wide);
-        assert_eq!(UiMode::Wide.next(), UiMode::Auto);
+        assert!(shaping_for(size(1400.0, 440.0)).short);
+        assert!(!shaping_for(size(1400.0, 800.0)).short);
     }
 }
