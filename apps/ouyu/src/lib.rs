@@ -104,21 +104,28 @@ script_mod! {
             // 右边那个按钮跟着 Tab 走：发现页是「发布行踪」，相遇页是
             // 「确认相遇」，别的页没有主动作就收起来。它是这两件事唯一的入口，
             // 所以宽屏也留着这条顶栏，不再只给手机。
+            // 标题在所有页面上都居中：标题单独一层铺满整条顶栏居中对齐，
+            // 主动作按钮叠在上面靠右，按钮在不在都不会把标题挤偏。
             topbar := View {
                 width: Fill height: 58
-                flow: Right
-                align: Align{x: 0.0, y: 0.5}
-                padding: Inset{left: 18.0, right: 12.0}
-                spacing: 8.0
+                flow: Overlay
                 tb_title := Label {
-                    width: Fill
+                    width: Fill height: Fill
+                    align: Align{x: 0.5, y: 0.5}
                     text: "偶遇 OuYu"
                     draw_text +: {
                         color: ouyu.warm
                         text_style +: { font_size: 15.0 }
                     }
                 }
-                tb_action := OuyuBtnPrimarySm { visible: false width: Fit text: "发布行踪" }
+                tb_bar := View {
+                    width: Fill height: Fill
+                    flow: Right
+                    align: Align{x: 1.0, y: 0.5}
+                    padding: Inset{left: 18.0, right: 12.0}
+                    spacing: 8.0
+                    tb_action := OuyuBtnPrimarySm { visible: false width: Fit text: "发布行踪" }
+                }
             }
             // ---- 内容区 + 右列解释栏 ----
             main := View {
@@ -140,30 +147,6 @@ script_mod! {
                         width: Fill height: Fill
                         flow: Down
                         spacing: 16.0
-
-                        hero := View {
-                            width: Fill height: Fit
-                            flow: Down
-                            spacing: 6.0
-                            hero_title := Label {
-                                width: Fill
-                                text: "也许，刚好遇见。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 24.0 line_spacing: 1.35 }
-                                }
-                            }
-                            hero_sub := Label {
-                                width: Fill
-                                text: "照常过你的一天。给重逢留一点空间。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                        }
 
                         // 时间选择：今天 / 明天 / 本周 + 一周日期条。
                         // 进发现页第一眼要回答的问题是「什么时候出门」，
@@ -1325,25 +1308,6 @@ script_mod! {
                         width: Fill height: Fill
                         flow: Down
                         spacing: 14.0
-
-                        ct_title := Label {
-                            width: Fill
-                            text: "熟人，来自你的生活。"
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.ink
-                                text_style +: { font_size: 24.0 line_spacing: 1.35 }
-                            }
-                        }
-                        ct_sub := Label {
-                            width: Fill
-                            text: "无需好友申请，也不显示对方是否安装。"
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.ink_2
-                                text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                            }
-                        }
                         ct_card := OuyuCard {
                             width: Fill height: Fit
                             flow: Down
@@ -1362,7 +1326,27 @@ script_mod! {
                                         text_style +: { font_size: 18.0 line_spacing: 1.35 }
                                     }
                                 }
-                                ct_import := OuyuBtn { text: "导入联系人" }
+                                ct_import := OuyuAddBtn {
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/plus.svg") }
+                                }
+                            }
+                            // 「+」点开的导入菜单：就地展开在头部下面，
+                            // 选完一条自动收起。
+                            ct_menu_row := View {
+                                visible: false
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 1.0, y: 0.0}
+                                ct_menu := OuyuMenu {
+                                    im_local := OuyuMenuItem {
+                                        text: "从本机导入"
+                                        draw_icon +: { svg: crate_resource("self:resources/icons/nav-contacts.svg") }
+                                    }
+                                    im_file := OuyuMenuItem {
+                                        text: "从文件导入"
+                                        draw_icon +: { svg: crate_resource("self:resources/icons/download.svg") }
+                                    }
+                                }
                             }
                             ct_note := Label {
                                 width: Fill
@@ -1833,48 +1817,6 @@ script_mod! {
                                     draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
                                 }
                             }
-                        }
-                        vcf_row := View {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            spacing: 10.0
-                            vcf_status := Label {
-                                width: Fill
-                                text: "从通讯录文件（.vcf）导入"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_3
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                }
-                            }
-                            vcf_btn := OuyuBtn { text: "导入文件" }
-                        }
-                        dir_head := View {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            spacing: 10.0
-                            dir_label := Label {
-                                width: Fill
-                                text: "通讯录 · 4 人"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                }
-                            }
-                            dir_btn := OuyuBtn { text: "展开" }
-                        }
-                        dir_list := Label {
-                            visible: false
-                            width: Fill
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.ink_3
-                                text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                            }
-                            text: ""
                         }
                     }
 
@@ -2387,15 +2329,6 @@ script_mod! {
                                 text_style +: { font_size: 24.0 line_spacing: 1.35 }
                             }
                         }
-                        ac_sub := Label {
-                            width: Fill
-                            text: "你发布过的行踪、手里的券和设置，都在这里。"
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.ink_2
-                                text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                            }
-                        }
                         // 我的行踪：只放最近发布的几条进行中的；全部历史在「更多」里。
                         tr_head := View {
                             width: Fill height: Fit
@@ -2551,11 +2484,6 @@ script_mod! {
                             width: Fill
                             text: "我的行踪"
                             draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 24.0 line_spacing: 1.35 } }
-                        }
-                        tk_sub := Label {
-                            width: Fill
-                            text: "发布过的都在这里。进行中的可以修改或删除，到期的只留给你回看。"
-                            draw_text +: { wrap: Words color: ouyu.ink_2 text_style +: { font_size: 14.0 line_spacing: 1.35 } }
                         }
                         tk_card := OuyuCard {
                             width: Fill height: Fit
@@ -3910,13 +3838,10 @@ const WK_ROWS: [LiveId; 8] = [
 const STYLE_CHIPS: [LiveId; 2] = [live_id!(sh_warm), live_id!(sh_night)];
 
 /// 带 `Fill` 子项、手机形态下需要换行的行（换行后第二行放操作按钮）。
-const PHONE_WRAP_ROWS: [LiveId; 10] = [
+const PHONE_WRAP_ROWS: [LiveId; 7] = [
     live_id!(rk_head),
-    live_id!(ct_head),
     live_id!(ct_add),
     live_id!(ct_merge_bar),
-    live_id!(vcf_row),
-    live_id!(dir_head),
     live_id!(curve_head),
     live_id!(ms_head),
     live_id!(sp_head),
@@ -3924,11 +3849,9 @@ const PHONE_WRAP_ROWS: [LiveId; 10] = [
 ];
 
 /// 每页的大标题：手机形态下统一收小一号。
-const PAGE_TITLES: [LiveId; 7] = [
-    live_id!(hero_title),
+const PAGE_TITLES: [LiveId; 5] = [
     live_id!(pw_title),
     live_id!(mp_title),
-    live_id!(ct_title),
     live_id!(mm_title),
     live_id!(ac_title),
     live_id!(sp_title),
@@ -4071,6 +3994,9 @@ pub struct OuyuView {
     code_open: bool,
 
     // ---- 熟人页 ----
+    /// 头部「+」点开的导入菜单是否展开。
+    #[rust]
+    import_menu: bool,
     #[rust]
     confirm_row: Option<usize>,
     #[rust]
@@ -4203,6 +4129,7 @@ impl OuyuView {
         self.mem_detail = None;
         self.merge_from = None;
         self.add_error = None;
+        self.import_menu = false;
         let page_changed = self.state.tab != i;
         self.state.tab = i;
         for (j, id) in TABS.iter().enumerate() {
@@ -4299,7 +4226,7 @@ impl OuyuView {
                 _ => None,
             }
         };
-        let btn = self.view.button(cx, ids!(shell.topbar.tb_action));
+        let btn = self.view.button(cx, ids!(shell.topbar.tb_bar.tb_action));
         btn.set_visible(cx, action.is_some());
         if let Some(text) = action {
             btn.set_text(cx, text);
@@ -4544,7 +4471,7 @@ impl OuyuView {
         self.view.widget(cx, ids!(shell.topbar)).set_visible(cx, !intro);
         self.view.widget(cx, ids!(shell.tabbar)).set_visible(cx, phone && !intro);
         self.view.widget(cx, ids!(main.aside)).set_visible(cx, s.aside && !intro);
-        if let Some(mut top) = self.view.view(cx, ids!(shell.topbar)).borrow_mut() {
+        if let Some(mut top) = self.view.view(cx, ids!(shell.topbar.tb_bar)).borrow_mut() {
             top.layout.padding = if phone {
                 Inset { left: 18.0, right: 12.0, top: 0.0, bottom: 0.0 }
             } else {
@@ -5102,13 +5029,13 @@ impl OuyuView {
         self.view
             .widget(cx, ids!(page_meet.meet_pick))
             .set_visible(cx, stage.is_none() && self.meet_open);
-        let (title, sub) = if home {
-            ("那些偶然，慢慢有了形状。", "生活小成就，不是排名。认出彼此了？点右上角「确认相遇」。")
-        } else {
-            ("这次，真的遇见了。", "先在线下认出彼此，再各自确认。")
-        };
-        self.view.label(cx, ids!(page_meet.mp_title)).set_text(cx, title);
-        self.view.label(cx, ids!(page_meet.mp_sub)).set_text(cx, sub);
+        // 首屏（成就内容）不再顶大标题；大标题只给互认流程。
+        self.view
+            .widget(cx, ids!(page_meet.mp_title))
+            .set_visible(cx, !home);
+        self.view
+            .widget(cx, ids!(page_meet.mp_sub))
+            .set_visible(cx, !home);
         if home {
             self.refresh_achievements(cx);
         }
@@ -5442,7 +5369,7 @@ impl OuyuView {
             cx,
             ids!(page_contacts.ct_card.ct_empty),
             "还没有熟人",
-            "从通讯录导入",
+            "从本机通讯录导入",
             n,
         );
         let mut last_letter = '\0';
@@ -5517,12 +5444,8 @@ impl OuyuView {
             }
         }
         self.view
-            .widget(cx, ids!(page_contacts.dir_head.dir_label))
-            .set_text(cx, &format!("通讯录 · {} 人", self.state.directory.len()));
-        let dir = self.state.directory.join("  ");
-        self.view
-            .widget(cx, ids!(page_contacts.dir_list))
-            .set_text(cx, &dir);
+            .widget(cx, ids!(page_contacts.ct_card.ct_menu_row))
+            .set_visible(cx, self.import_menu);
         self.refresh_aside(cx);
     }
 
@@ -5675,23 +5598,51 @@ impl OuyuView {
             .set_text(cx, tip);
     }
 
-    /// 「导入 vCard」：读 <MAKEPAD_HOME>/ouyu/contacts.vcf, 名字并入通讯录池并落盘。
+    /// 一批名字加成熟人。重名 / 空名 / 过长的那几条静静跳过 ——
+    /// 批量导入不适合逐条弹错，返回真正加进去的人数由调用方去说。
+    fn adopt_names(&mut self, names: Vec<String>) -> usize {
+        let mut added = 0;
+        for n in names {
+            if self.state.add_contact(&n).is_ok() {
+                added += 1;
+            }
+        }
+        added
+    }
+
+    /// 「从本机导入」：把本机通讯录池里还没加的人一次加成熟人。
+    fn import_local(&mut self, cx: &mut Cx) {
+        let names = self.state.directory.clone();
+        let added = self.adopt_names(names);
+        if added == 0 {
+            self.toast(cx, "本机通讯录里没有新的人");
+        } else {
+            self.toast(cx, &format!("从本机通讯录加了 {} 位熟人", added));
+        }
+        self.refresh_contacts(cx);
+    }
+
+    /// 「从文件导入」：读 <MAKEPAD_HOME>/ouyu/contacts.vcf，名字加成熟人。
     fn import_vcard(&mut self, cx: &mut Cx) {
-        let status = self.view.widget(cx, ids!(page_contacts.vcf_row.vcf_status));
         let Some(path) = OuyuState::contacts_vcf() else {
-            status.set_text(cx, "未设置 MAKEPAD_HOME, 找不到状态目录");
+            self.toast(cx, "未设置 MAKEPAD_HOME, 找不到状态目录");
             return;
         };
         let text = match std::fs::read_to_string(&path) {
             Ok(t) => t,
             Err(_) => {
-                status.set_text(cx, &format!("把 .vcf 放到 {} 再点我", path.display()));
+                let msg = format!("把 .vcf 放到 {} 再点我", path.display());
+                self.toast(cx, &msg);
                 return;
             }
         };
-        let added = self.state.merge_directory(parse_vcard(&text));
+        let added = self.adopt_names(parse_vcard(&text));
         self.state.save();
-        status.set_text(cx, &format!("导入成功 {} 人", added));
+        if added == 0 {
+            self.toast(cx, "文件里的人都已经在熟人里了");
+        } else {
+            self.toast(cx, &format!("从文件加了 {} 位熟人", added));
+        }
         self.refresh_contacts(cx);
     }
 
@@ -5869,7 +5820,7 @@ impl OuyuView {
             self.view.widget(cx, &base).set_visible(cx, true);
             let mut text_w = self
                 .view
-                .widget(cx, &[base[0], base[1], base[2], live_id!(tr_col), live_id!(tr_text)]);
+                .widget(cx, &[base[0], base[1], base[2], live_id!(tr_top), live_id!(tr_text)]);
             text_w.set_text(cx, text);
             if *gone {
                 script_apply_eval!(cx, text_w, { draw_text +: { color: #(self.pal.ink_3) } });
@@ -5877,13 +5828,13 @@ impl OuyuView {
                 script_apply_eval!(cx, text_w, { draw_text +: { color: #(self.pal.ink) } });
             }
             self.view
-                .widget(cx, &[base[0], base[1], base[2], live_id!(tr_col), live_id!(tr_state)])
+                .widget(cx, &join(&base, live_id!(tr_state)))
                 .set_text(cx, if *gone { "已到期" } else { "进行中 · 到时段结束" });
             self.view
-                .widget(cx, &join(&base, live_id!(tr_edit)))
+                .widget(cx, &[base[0], base[1], base[2], live_id!(tr_top), live_id!(tr_edit)])
                 .set_visible(cx, !gone);
             self.view
-                .widget(cx, &join(&base, live_id!(tr_del)))
+                .widget(cx, &[base[0], base[1], base[2], live_id!(tr_top), live_id!(tr_del)])
                 .set_visible(cx, !gone);
         }
         items.iter().take(rows.len()).map(|r| r.0).collect()
@@ -6378,7 +6329,7 @@ impl OuyuView {
             }
         }
         // 顶栏主动作：发现页写一条新行踪；相遇页首屏进互认流程。
-        if self.view.button(cx, ids!(shell.topbar.tb_action)).clicked(actions) {
+        if self.view.button(cx, ids!(shell.topbar.tb_bar.tb_action)).clicked(actions) {
             match self.state.tab {
                 0 => self.open_wizard(cx, None, None),
                 1 => {
@@ -6905,30 +6856,31 @@ impl OuyuView {
                 self.refresh_contacts(cx);
             }
         }
-        // 熟人页: 导入 vCard（头部按钮与行内按钮同动作）
+        // 熟人页: 头部「+」展开 / 收起导入菜单
         if self
             .view
             .button(cx, ids!(page_contacts.ct_card.ct_head.ct_import))
             .clicked(actions)
-            || self
-                .view
-                .button(cx, ids!(page_contacts.vcf_row.vcf_btn))
-                .clicked(actions)
         {
-            self.import_vcard(cx);
+            self.import_menu = !self.import_menu;
+            self.refresh_contacts(cx);
         }
-        // 熟人页: 通讯录折叠
+        // 熟人页: 导入菜单的两条
         if self
             .view
-            .button(cx, ids!(page_contacts.dir_head.dir_btn))
+            .button(cx, ids!(page_contacts.ct_card.ct_menu_row.ct_menu.im_local))
             .clicked(actions)
         {
-            let list = self.view.widget(cx, ids!(page_contacts.dir_list));
-            let open = !list.visible();
-            list.set_visible(cx, open);
-            self.view
-                .widget(cx, ids!(page_contacts.dir_head.dir_btn))
-                .set_text(cx, if open { "收起" } else { "展开" });
+            self.import_menu = false;
+            self.import_local(cx);
+        }
+        if self
+            .view
+            .button(cx, ids!(page_contacts.ct_card.ct_menu_row.ct_menu.im_file))
+            .clicked(actions)
+        {
+            self.import_menu = false;
+            self.import_vcard(cx);
         }
 
         // 回忆页: 筛选芯片
@@ -7148,10 +7100,11 @@ impl OuyuView {
             for (i, id) in rows.iter().enumerate() {
                 let base = [card[0], card[1], *id];
                 let Some(pid) = ids.get(i).copied() else { continue };
-                if self.view.button(cx, &join(&base, live_id!(tr_edit))).clicked(actions) {
+                let top = [base[0], base[1], base[2], live_id!(tr_top)];
+                if self.view.button(cx, &join(&top, live_id!(tr_edit))).clicked(actions) {
                     track_edit = Some(pid);
                 }
-                if self.view.button(cx, &join(&base, live_id!(tr_del))).clicked(actions) {
+                if self.view.button(cx, &join(&top, live_id!(tr_del))).clicked(actions) {
                     track_del = Some(pid);
                 }
             }
@@ -7294,13 +7247,13 @@ impl OuyuView {
             self.refresh_all(cx);
             self.refresh_achievements(cx);
         }
-        // 空态上的那个按钮：熟人页是「从通讯录导入」。
+        // 空态上的那个按钮：熟人页是「从本机通讯录导入」。
         if self
             .view
             .button(cx, ids!(page_contacts.ct_card.ct_empty.em_action))
             .clicked(actions)
         {
-            self.import_vcard(cx);
+            self.import_local(cx);
         }
         // 撤销条
         if self.view.button(cx, ids!(toast_layer.toast.to_undo)).clicked(actions) {

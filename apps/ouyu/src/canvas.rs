@@ -526,6 +526,62 @@ script_mod! {
         }
     }
 
+    // 圆形「+」按钮：头部的新建 / 导入入口，点开一张菜单。
+    mod.widgets.OuyuAddBtn = mod.widgets.OuyuIconBtn{
+        width: 32 height: 32
+        icon_walk: Walk{ width: 15.0 height: Fit }
+        draw_icon +: { color: ouyu.ink }
+        draw_bg +: {
+            border_radius: 16.0
+            border_size: 1.0
+            border_color: ouyu.line
+            border_color_hover: ouyu.blue
+            border_color_down: ouyu.blue
+            border_color_focus: ouyu.line
+        }
+    }
+
+    // 下拉菜单面板：贴在触发按钮下方的一张小卡，里面若干 OuyuMenuItem。
+    // 不做浮层 —— 这一版菜单只有两三条，就地展开比盖一层更好收回。
+    mod.widgets.OuyuMenu = mod.widgets.RoundedView{
+        width: 172 height: Fit
+        flow: Down
+        padding: 6.0
+        spacing: 2.0
+        draw_bg +: {
+            color: ouyu.card_2
+            border_color: ouyu.line
+            border_size: 1.0
+            border_radius: 14.0
+        }
+    }
+
+    // 菜单条目：整条可点，文字左对齐，左边留一个图标位。
+    mod.widgets.OuyuMenuItem = mod.widgets.ButtonFlat{
+        width: Fill height: 34
+        spacing: 8.0
+        align: Align{x: 0.0, y: 0.5}
+        icon_walk: Walk{ width: 15.0 height: Fit }
+        padding: Inset{left: 10.0, right: 14.0, top: 6.0, bottom: 6.0}
+        label_walk +: { margin: Inset{left: 0.0} }
+        draw_icon +: { preserve_viewbox: true color: ouyu.ink_2 }
+        draw_bg +: {
+            border_radius: 10.0
+            border_size: 0.0
+            color: #0000
+            color_hover: ouyu.hl
+            color_down: ouyu.hl
+            color_focus: #0000
+        }
+        draw_text +: {
+            color: ouyu.ink
+            color_hover: ouyu.ink
+            color_down: ouyu.ink
+            color_focus: ouyu.ink
+            text_style +: { font_size: 13.0 }
+        }
+    }
+
     // 文字链：次要出口（「只留一条回忆」这类），不与主按钮争夺注意力。
     mod.widgets.OuyuLink = mod.widgets.ButtonFlat{
         height: Fit
@@ -969,33 +1025,35 @@ script_mod! {
         }
     }
 
-    // 「我的行踪」里的一行：一行文案 + 状态 + 修改 / 删除。
+    // 「我的行踪」里的一行，固定两行高：文案和「修改 / 删除」并排占第一行，
+    // 状态占第二行。文案让出按钮那点宽度后一行放不下就省略号收尾 —— 一条行踪
+    // 换行铺成三四行，列表上一屏只剩两三条，扫一眼看不到今天都发了什么。
     //
     // 到期的那几条只留文案和「已过期」，两个按钮由 Rust 收起 —— 改一条已经
     // 结束的行踪没有意义，删掉它也只是在删自己的回看记录。
     mod.widgets.OuyuTrackRow = mod.widgets.View{
         width: Fill height: Fit
-        flow: Right
-        align: Align{x: 0.0, y: 0.5}
+        flow: Down
         padding: Inset{left: 12.0, right: 12.0, top: 10.0, bottom: 10.0}
-        spacing: 8.0
-        tr_col := mod.widgets.View {
+        spacing: 2.0
+        tr_top := mod.widgets.View {
             width: Fill height: Fit
-            flow: Down
-            spacing: 2.0
+            flow: Right
+            align: Align{x: 0.0, y: 0.5}
+            spacing: 8.0
             tr_text := Label {
                 width: Fill
                 text: ""
-                draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 15.0 line_spacing: 1.35 } }
+                draw_text +: { wrap: Ellipsis color: ouyu.ink text_style +: { font_size: 15.0 } }
             }
-            tr_state := Label {
-                width: Fill
-                text: ""
-                draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.0 } }
-            }
+            tr_edit := mod.widgets.OuyuBtnSm { width: Fit text: "修改" }
+            tr_del := mod.widgets.OuyuBtnDangerSm { width: Fit text: "删除" }
         }
-        tr_edit := mod.widgets.OuyuBtn { width: Fit text: "修改" }
-        tr_del := mod.widgets.OuyuBtnDanger { width: Fit text: "删除" }
+        tr_state := Label {
+            width: Fill
+            text: ""
+            draw_text +: { wrap: Ellipsis color: ouyu.ink_3 text_style +: { font_size: 12.0 } }
+        }
     }
 
     // 开关行：右边是一枚药丸开关而不是箭头。
