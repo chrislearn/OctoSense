@@ -44,6 +44,8 @@ fn linked_modules() -> Vec<&'static dyn AppModule> {
     let mut out: Vec<&'static dyn AppModule> = Vec::new();
     #[cfg(any(feature = "app-reference", target_os = "android", target_os = "ios"))]
     out.push(&octosense_reference::REFERENCE_MODULE);
+    #[cfg(feature = "app-ouyu")]
+    out.push(&octosense_ouyu::OUYU_MODULE);
     #[cfg(any(feature = "app-sheets", target_os = "android", target_os = "ios"))]
     out.push(&makepad_sheets::SHEETS_MODULE);
     #[cfg(any(feature = "app-photos", target_os = "android", target_os = "ios"))]

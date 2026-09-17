@@ -8,6 +8,14 @@
     "policy": "new"
   },
   {
+    "id": "ouyu",
+    "label": "偶遇 OuYu",
+    "manifest": "../apps/ouyu/Cargo.toml",
+    "package": "octosense-ouyu",
+    "bin": "octosense-ouyu",
+    "policy": "new"
+  },
+  {
     "id": "browser",
     "label": "Browser",
     "manifest": "../../makepad/Cargo.toml",
