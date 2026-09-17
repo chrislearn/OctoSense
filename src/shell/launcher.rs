@@ -65,6 +65,7 @@ fn icon_for(id: &str) -> Option<Ico> {
         "fabric" => Ico::Shirt,
         "fab" => Ico::Refresh,
         "studio" => Ico::Moon,
+        "ouyu" => Ico::Encounter,
         // Never None: an app row without an icon would shift its label.
         _ => Ico::Dot,
     })

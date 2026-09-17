@@ -52,8 +52,13 @@ impl DesktopStyle {
 /// Omarchy draws a monochrome stroke in the bar's ink; every other family gets
 /// the 64×64 rounded tile that upstream's macOS-style catalog uses. Each app
 /// adds its `IconAsset` here, keyed by its catalog id.
-pub fn local_app_icons(_style: UpstreamStyle) -> Vec<app_icon::IconAsset> {
-    Vec::new()
+pub fn local_app_icons(style: UpstreamStyle) -> Vec<app_icon::IconAsset> {
+    let ouyu = if style == UpstreamStyle::Omarchy {
+        include_str!("../../resources/app-icons/ouyu-mono.svg")
+    } else {
+        include_str!("../../resources/app-icons/ouyu.svg")
+    };
+    vec![app_icon::IconAsset { name: "ouyu".into(), svg: ouyu.into() }]
 }
 
 /// Upstream's catalog for `style` plus our own apps, in the catalog's sorted order.
@@ -131,6 +136,7 @@ mod tests {
         // reapply walk at all when it connects.
         for (style, dark) in [(DesktopStyle::Omarchy, false), (DesktopStyle::Macos, true), (DesktopStyle::Windows, false)] {
             let sheet = load_sheet(style, dark);
+            assert!(sheet.icons.iter().any(|a| a.name == "ouyu"));
             assert_eq!(wire_sheet(&sheet), StyleSheet::load_with_appearance(style.framework(), dark));
         }
     }
@@ -147,8 +153,9 @@ mod tests {
                 assert_eq!(StyleSheet::parse(&sheet.to_json()), Some(sheet.clone()));
                 assert_eq!(UpstreamStyle::parse(&sheet.name), Some(UpstreamStyle::Macos));
                 assert_eq!(sheet.icons, sheet_icons(UpstreamStyle::Macos));
-                // Children only ever see upstream's own list (see `wire_sheet`).
-                assert_eq!(wire_sheet(&sheet).icons, app_icon::load_assets(UpstreamStyle::Macos));
+                assert!(sheet.icons.iter().any(|a| a.name == "ouyu"));
+                // Children never see our local icons (see `wire_sheet`).
+                assert!(!wire_sheet(&sheet).icons.iter().any(|a| a.name == "ouyu"));
                 desktop_style::install(vm, sheet);
                 vm.bx.captured_errors = Some(Vec::new());
                 vm.with_reload(makepad_widgets::script_mod);
