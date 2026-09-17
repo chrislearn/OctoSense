@@ -209,6 +209,30 @@ app modules are retained but untested in this milestone. Fonts and other
 framework assets remain in Cargo's dependency checkout; executable-only or
 installer distribution needs separate resource packaging.
 
+Windows (MSVC) first host run — 2026-09-17: the desktop host boots, renders the
+Omarchy desktop, and hosts the OuYu demo app (`apps/ouyu`) as a `--stdin-loop`
+child process with build progress in the tile, DXGI/HANDLE frame sharing, input
+forwarding across tabs, and clean child reaping on quit. One platform fix was
+required: the main thread's default 1 MiB stack overflowed during startup
+script evaluation; `.cargo/config.toml` now passes `/STACK:8388608` on
+windows-msvc to match the 8 MiB macOS/Linux main-thread stack. Full smoke
+parity with the macOS record has not been run.
+
+Follow-up fixes the same day, validated end-to-end on Windows with the F10
+assistant pane calling OuYu's tools:
+
+- The AI bus now answers a process client's `Register` with
+  `ServiceDown::Registered` (the port's `port_tag` round-trips, the endpoint is
+  the WM's own `w<id>`); previously the client's port never learned its
+  endpoint and dropped every Call as misaddressed. Without this, any hosted
+  process app exposing tools (OuYu, Route) timed out on pane calls.
+- The Route catalog entry named a stale binary (`makepad-app-route`; the
+  pinned checkout's bin is `route`), which made Route unlaunchable; both
+  shipped catalogs are corrected.
+- Five host tests asserted Unix-only assumptions (`cargo` vs `cargo.exe`,
+  `/` vs `\` in joined catalog paths, `/usr/bin/true` as a fixture
+  executable); the assertions are now platform-neutral.
+
 ## Daily sync automation — 2026-09-06
 
 The new `sync` command was verified with 40 script tests, including local Git

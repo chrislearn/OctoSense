@@ -1888,6 +1888,10 @@ impl App {
             Route::ToPane(json) => {
                 self.send_to_pane(json);
             }
+            Route::Registered { client, pane, ack } => {
+                self.send_to_pane(pane);
+                self.send_custom(client, ack);
+            }
             Route::ToClient(client, json) => {
                 self.send_custom(client, json);
             }

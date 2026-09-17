@@ -6,8 +6,10 @@
 //!
 //! - an up-frame from client C is stamped `from = endpoint(C)` (the WM's
 //!   own id for that client — never the sender's claim) and forwarded to
-//!   the pane; the last `Register` from each client is remembered so the
-//!   pane gets a REPLAY of every registration when it (re)connects;
+//!   the pane; a `Register` is also answered to the client with
+//!   `Registered` (the port's nonce in, its endpoint out), and the last
+//!   `Register` from each client is remembered so the pane gets a REPLAY
+//!   of every registration when it (re)connects;
 //! - a down-frame from the pane names a target endpoint: it goes to that
 //!   client's socket, or, for the WM's own `os` endpoint, is answered here;
 //! - a client that dies produces a synthetic `Unregister` for the pane;
@@ -32,6 +34,15 @@ pub enum Route {
     ToClient(ClientId, String),
     /// Send this JSON to the pane client.
     ToPane(String),
+    /// A registration: forward the (stamped) frame to the pane AND answer
+    /// the registering client with `ServiceDown::Registered`. The wire
+    /// protocol requires the ack — without it the client's port never
+    /// learns its endpoint and drops every later Call as misaddressed.
+    Registered {
+        client: ClientId,
+        pane: String,
+        ack: String,
+    },
     /// A call for the WM itself; answer with `os_reply`.
     Os(ServiceCall),
     /// A frame for an IN-PROCESS instance (a module the WM hosts itself):
@@ -228,8 +239,22 @@ impl AiBus {
         // The sender's claim is never used: the link IS the identity.
         up.from = Some(Self::endpoint_of(client));
         match &up.msg {
-            ServiceUp::Register { manifest, .. } => {
+            ServiceUp::Register { manifest, port_tag } => {
                 self.manifests.insert(client, manifest.clone());
+                // The registry's half of the handshake: the port sent a
+                // nonce (`port_tag`) and learns its endpoint from the ack.
+                let ack = HostedDown {
+                    to: None,
+                    msg: ServiceDown::Registered {
+                        port_tag: *port_tag,
+                        endpoint: self.endpoint_for(client),
+                    },
+                };
+                return Route::Registered {
+                    client,
+                    pane: up.to_json(),
+                    ack: ack.to_json(),
+                };
             }
             ServiceUp::Unregister => {
                 self.manifests.remove(&client);
@@ -297,14 +322,22 @@ mod tests {
     #[test]
     fn up_frames_are_stamped_and_replayed_and_down_frames_are_routed() {
         let mut bus = AiBus { pane_client: Some(9), ..Default::default() };
-        // A client registers: stamped with the WM's endpoint, forwarded.
+        // A client registers: stamped with the WM's endpoint, forwarded,
+        // and answered with its endpoint (the port_tag nonce round-trips).
         let up = HostedUp { from: Some(EndpointId("lie".into())), msg: ServiceUp::Register { manifest: files(), port_tag: 3 } };
         match bus.on_custom(4, &up.to_json()) {
-            Route::ToPane(json) => {
-                let parsed = HostedUp::parse(&json).unwrap();
+            Route::Registered { client, pane, ack } => {
+                assert_eq!(client, 4);
+                let parsed = HostedUp::parse(&pane).unwrap();
                 assert_eq!(parsed.from, Some(EndpointId("w4".into())), "the sender's claim is overwritten");
+                let ack = HostedDown::parse(&ack).unwrap();
+                assert_eq!(
+                    ack.msg,
+                    ServiceDown::Registered { port_tag: 3, endpoint: EndpointId("w4".into()) },
+                    "the port learns its endpoint under its own nonce"
+                );
             }
-            _ => panic!("expected ToPane"),
+            _ => panic!("expected Registered"),
         }
         assert_eq!(bus.registered_clients(), vec![4]);
         // Replay carries os first, then the client.
@@ -358,7 +391,7 @@ mod tests {
             msg: ServiceUp::Register { manifest: manifest.clone(), port_tag: 0 },
         };
         let register = match bus.on_custom(4, &register.to_json()) {
-            Route::ToPane(json) => HostedUp::parse(&json).expect("valid registration"),
+            Route::Registered { pane, .. } => HostedUp::parse(&pane).expect("valid registration"),
             _ => panic!("expected the registration to reach the pane"),
         };
 
