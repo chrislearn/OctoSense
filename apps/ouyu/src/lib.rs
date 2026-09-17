@@ -125,6 +125,12 @@ script_mod! {
                     padding: Inset{left: 18.0, right: 12.0}
                     spacing: 8.0
                     tb_action := OuyuBtnPrimarySm { visible: false width: Fit text: "发布行踪" }
+                    // 熟人页的「+」：导入 / 新建的入口，跟标题同一条线，
+                    // 别的页收起来。
+                    tb_add := OuyuAddBtn {
+                        visible: false
+                        draw_icon +: { svg: crate_resource("self:resources/icons/plus.svg") }
+                    }
                 }
             }
             // ---- 内容区 + 右列解释栏 ----
@@ -195,12 +201,12 @@ script_mod! {
                                 padding: Inset{left: 12.0, right: 12.0}
                                 spacing: 8.0
                                 rk_title := OuyuH2 { width: Fill text: "最可能遇见的地方" }
-                                rk_badge := OuyuBadgeBlue { width: Fit text: "匿名区域机会" }
                             }
                             rk_note := OuyuMuted {
+                                visible: false
                                 width: Fill
                                 margin: Inset{left: 12.0, right: 12.0, bottom: 2.0}
-                                text: "只显示可能性高低，不显示人数、身份或距离。"
+                                text: ""
                             }
                             rk_list := View {
                                 width: Fill height: Fit
@@ -727,11 +733,24 @@ script_mod! {
                                         flow: Down
                                         padding: 14.0
                                         spacing: 6.0
-                                        ms_icon := Label {
-                                            text: "☆"
-                                            draw_text +: {
-                                                color: ouyu.warm
-                                                text_style +: { font_size: 17.0 }
+                                        ms_top := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            align: Align{x: 0.0, y: 0.5}
+                                            ms_icon := Label {
+                                                width: Fill
+                                                text: "☆"
+                                                draw_text +: {
+                                                    color: ouyu.warm
+                                                    text_style +: { font_size: 17.0 }
+                                                }
+                                            }
+                                            ms_state := Label {
+                                                text: "等自然发生"
+                                                draw_text +: {
+                                                    color: ouyu.ink_4
+                                                    text_style +: { font_size: 12.5 }
+                                                }
                                             }
                                         }
                                         ms_title := Label {
@@ -748,24 +767,30 @@ script_mod! {
                                                 text_style +: { font_size: 12.5 }
                                             }
                                         }
-                                        ms_state := Label {
-                                            text: "等自然发生"
-                                            draw_text +: {
-                                                color: ouyu.ink_4
-                                                text_style +: { font_size: 12.5 }
-                                            }
-                                        }
                                     }
                                     ms1 := OuyuCard {
                                         width: Fill height: Fit
                                         flow: Down
                                         padding: 14.0
                                         spacing: 6.0
-                                        ms_icon := Label {
-                                            text: "☆"
-                                            draw_text +: {
-                                                color: ouyu.warm
-                                                text_style +: { font_size: 17.0 }
+                                        ms_top := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            align: Align{x: 0.0, y: 0.5}
+                                            ms_icon := Label {
+                                                width: Fill
+                                                text: "☆"
+                                                draw_text +: {
+                                                    color: ouyu.warm
+                                                    text_style +: { font_size: 17.0 }
+                                                }
+                                            }
+                                            ms_state := Label {
+                                                text: "等自然发生"
+                                                draw_text +: {
+                                                    color: ouyu.ink_4
+                                                    text_style +: { font_size: 12.5 }
+                                                }
                                             }
                                         }
                                         ms_title := Label {
@@ -782,24 +807,30 @@ script_mod! {
                                                 text_style +: { font_size: 12.5 }
                                             }
                                         }
-                                        ms_state := Label {
-                                            text: "等自然发生"
-                                            draw_text +: {
-                                                color: ouyu.ink_4
-                                                text_style +: { font_size: 12.5 }
-                                            }
-                                        }
                                     }
                                     ms2 := OuyuCard {
                                         width: Fill height: Fit
                                         flow: Down
                                         padding: 14.0
                                         spacing: 6.0
-                                        ms_icon := Label {
-                                            text: "☆"
-                                            draw_text +: {
-                                                color: ouyu.warm
-                                                text_style +: { font_size: 17.0 }
+                                        ms_top := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            align: Align{x: 0.0, y: 0.5}
+                                            ms_icon := Label {
+                                                width: Fill
+                                                text: "☆"
+                                                draw_text +: {
+                                                    color: ouyu.warm
+                                                    text_style +: { font_size: 17.0 }
+                                                }
+                                            }
+                                            ms_state := Label {
+                                                text: "等自然发生"
+                                                draw_text +: {
+                                                    color: ouyu.ink_4
+                                                    text_style +: { font_size: 12.5 }
+                                                }
                                             }
                                         }
                                         ms_title := Label {
@@ -816,22 +847,6 @@ script_mod! {
                                                 text_style +: { font_size: 12.5 }
                                             }
                                         }
-                                        ms_state := Label {
-                                            text: "等自然发生"
-                                            draw_text +: {
-                                                color: ouyu.ink_4
-                                                text_style +: { font_size: 12.5 }
-                                            }
-                                        }
-                                    }
-                                }
-                                ms_note := Label {
-                                    width: Fill
-                                    text: "里程碑随可见回忆变化，不保存也不扣分。"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink_4
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                     }
                                 }
                             }
@@ -1326,9 +1341,6 @@ script_mod! {
                                         text_style +: { font_size: 18.0 line_spacing: 1.35 }
                                     }
                                 }
-                                ct_import := OuyuAddBtn {
-                                    draw_icon +: { svg: crate_resource("self:resources/icons/plus.svg") }
-                                }
                             }
                             // 「+」点开的导入菜单：就地展开在头部下面，
                             // 选完一条自动收起。
@@ -1346,15 +1358,6 @@ script_mod! {
                                         text: "从文件导入"
                                         draw_icon +: { svg: crate_resource("self:resources/icons/download.svg") }
                                     }
-                                }
-                            }
-                            ct_note := Label {
-                                width: Fill
-                                text: "次数包含隐藏的回忆。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                 }
                             }
                             // 手动添加：不是每个人都愿意让应用读整本通讯录，
@@ -1827,24 +1830,6 @@ script_mod! {
                         flow: Down
                         spacing: 14.0
 
-                        mm_title := Label {
-                            width: Fill
-                            text: "留下一点，想记住的。"
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.ink
-                                text_style +: { font_size: 24.0 line_spacing: 1.35 }
-                            }
-                        }
-                        mm_sub := Label {
-                            width: Fill
-                            text: "行程不留记录，这里只有你自己记的相遇。"
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.ink_2
-                                text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                            }
-                        }
                         filt_row := View {
                             width: Fill height: Fit
                             flow: Right{wrap: true}
@@ -2320,15 +2305,6 @@ script_mod! {
                         flow: Down
                         spacing: 14.0
 
-                        ac_title := Label {
-                            width: Fill
-                            text: "我"
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.ink
-                                text_style +: { font_size: 24.0 line_spacing: 1.35 }
-                            }
-                        }
                         // 我的行踪：只放最近发布的几条进行中的；全部历史在「更多」里。
                         tr_head := View {
                             width: Fill height: Fit
@@ -3849,11 +3825,9 @@ const PHONE_WRAP_ROWS: [LiveId; 7] = [
 ];
 
 /// 每页的大标题：手机形态下统一收小一号。
-const PAGE_TITLES: [LiveId; 5] = [
+const PAGE_TITLES: [LiveId; 3] = [
     live_id!(pw_title),
     live_id!(mp_title),
-    live_id!(mm_title),
-    live_id!(ac_title),
     live_id!(sp_title),
 ];
 
@@ -4231,6 +4205,10 @@ impl OuyuView {
         if let Some(text) = action {
             btn.set_text(cx, text);
         }
+        // 熟人页的「+」也挂在顶栏上，和标题「熟人」同一条线。
+        self.view
+            .button(cx, ids!(shell.topbar.tb_bar.tb_add))
+            .set_visible(cx, !overlay && self.state.tab == 2);
     }
 
     /// 让一组芯片互斥选中（CheckBox 本身是可再点关的, 这里强制单选）。
@@ -4683,15 +4661,13 @@ impl OuyuView {
                 .set_text(cx, &format!("今天的小签：{sign}"));
         }
         self.view
-            .label(cx, ids!(page_discover.rank_card.rk_note))
-            .set_text(
-                cx,
-                if has_top {
-                    "只显示可能性高低，不显示人数、身份或距离。"
-                } else {
-                    "这一天参与的人还不够多，先不显示。"
-                },
-            );
+            .widget(cx, ids!(page_discover.rank_card.rk_note))
+            .set_visible(cx, !has_top);
+        if !has_top {
+            self.view
+                .label(cx, ids!(page_discover.rank_card.rk_note))
+                .set_text(cx, "这一天参与的人还不够多，先不显示。");
+        }
         // 阈值不足的片区里挑三个当作普通建议：这是城市建议，不是熟人机会，
         // 所以行内不显示任何分档字样。
         let more: Vec<AreaOpportunity> = ranking
@@ -6856,10 +6832,10 @@ impl OuyuView {
                 self.refresh_contacts(cx);
             }
         }
-        // 熟人页: 头部「+」展开 / 收起导入菜单
+        // 熟人页: 顶栏「+」展开 / 收起导入菜单
         if self
             .view
-            .button(cx, ids!(page_contacts.ct_card.ct_head.ct_import))
+            .button(cx, ids!(shell.topbar.tb_bar.tb_add))
             .clicked(actions)
         {
             self.import_menu = !self.import_menu;
