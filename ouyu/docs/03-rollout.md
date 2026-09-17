@@ -241,6 +241,52 @@ Reference 应用是清晰的原生 412。所以这是宿主侧的模块表面缓
 
 ---
 
+## 批次 7 · 一张色板，两套主题；输入框和熟人行
+
+前六批的颜色是散在两千多行 DSL 里的十六进制字面量。要加一个白昼主题，第一件事
+是先把它们收成角色。
+
+- **`theme.rs`：色板成为唯一出处。** `mod.ouyu_themes.dark` / `.light` 两张表，同样
+  的 ~56 个角色（面 / 线 / 墨 / 暖 / 券 / 蓝 / 语义 / 交互态 / 开关 / 地图 / 热度），
+  `install` 把选中的那套绑到 `mod.ouyu`，再拼出 `mod.prelude.ouyu`。`canvas.rs` 与
+  `lib.rs` 里写的全是 `ouyu.<角色>`，一个十六进制都不剩 —— 除了分享卡那两套固定配色
+  （卡片本身不跟界面换肤）和 `#0000`。
+  Rust 侧要跟着数据变的那 13 个角色（选中的 Tab、强度分档、开关轨道、券的可用与否）
+  由 `Pal::read` 从同一张表里读回来，不另抄一份。
+- **两个角色是两件事。** 暖色当**文字**用时（`warm`）在白昼版要压深，当**面**用时
+  （`coupon`，券卡的杏底）两套都保持杏色。蓝色同理。分开成两个角色，否则白昼版上
+  要么券卡变灰，要么暖色文字看不清。
+- **设置页加「外观」一组**，放在第一位：夜色 / 白昼两格分段。换主题走
+  `vm.with_reload` 重跑 `theme::install` + 两个 `script_mod`，再对根节点做一次
+  `Apply::ScriptReapply` —— 和 `module_host.rs::apply_style` 给托管模块换样式是同一条
+  路，所以独立窗口和宿主里的模块都能换。
+  切换记在 `pending_theme` 上，等这一拍的 action 走完再执行：reapply 会把整棵树换掉，
+  在 `handle_actions` 中途做，后面几百行里拿着的 widget 引用就全废了。
+  选择落在 `settings.theme`，`install` 在建任何 widget 之前先读它，所以冷启动不会先
+  闪一下夜色。
+  独立窗口的底色和标题栏写在 `main.rs` 的 `script_mod` 里、不在 `OuyuView` 里，那边
+  靠 `App` 比对深浅后 `request_live_edit()` 整个 rebake，`OuyuView` 收到 `LiveEdit`
+  再把数据铺回去。
+- **输入框的文字样式。** `TextInputFlat` 的每层都有 hover / focus / down / empty /
+  disabled 五档色，`OuyuInput` 原来只写了其中两三档，其余从 makepad 的默认主题继承 ——
+  聚焦时的占位文字（`color_empty_focus`）用的正是那套默认色，落在偶遇的深井上几乎
+  看不见。现在每一档都写死，另加 `draw_selection` / `draw_cursor`。
+  顺带过了一遍同类问题：`OuyuBtnPrimary` / `OuyuBtnWarm` 没关掉 `ButtonFlat` 默认的
+  `theme.beveling` 斜边，实心按钮上压着一道默认主题的灰边，补 `border_size: 0.0`。
+- **熟人行从三行压到两行。** 原来 `c_main` 是一条 Right，手机上交给 wrap 自己断，
+  断成「名字」「相遇 N 次 ＋ 回忆」「合并 清空回忆 删除」三行。改成里面两块：
+  `c_top`（名字 ＋ 次数，都带 Ellipsis）和 `c_acts`（四个 sm 档按钮）。宽屏上
+  `c_main` 仍是 Right，两块并排一行；手机上 `apply_shaping` 把它翻成 Down，正好两行。
+  新增 `OuyuBtnSm` / `OuyuBtnDangerSm`（高 28、字号 12.5），四个按钮在 320 宽下排得进
+  一行。
+- **两条新测试。** `both_palettes_define_the_same_roles` 从 `theme.rs` 源码里抠出两套
+  色板的角色名，比对齐不齐、每个解析不解析得出颜色；
+  `every_preset_evaluates_in_both_themes` 在两套主题下各重跑一遍整份 DSL，断言没有
+  脚本错误 —— 预设里写错一个角色名（`ouyu.lnk`）只是一条运行时错误，`cargo check`
+  照样过，界面上那一处变透明。
+
+---
+
 ## 贯穿全程的约束
 
 每一批合并前都要过这几条，不合格不进下一批：
