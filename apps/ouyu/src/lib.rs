@@ -1161,7 +1161,7 @@ script_mod! {
                                 spacing: 10.0
                                 draw_bg +: {
                                     color: ouyu.coupon
-                                    border_radius: 20.0
+                                    border_radius: r.card
                                 }
                                 ck_head := View {
                                     width: Fill height: Fit
@@ -2926,15 +2926,15 @@ script_mod! {
                             spacing: 6.0
                             in_d0 := RoundedView {
                                 width: 22 height: 4
-                                draw_bg +: { color: ouyu.blue border_radius: 2.0 }
+                                draw_bg +: { color: ouyu.blue border_radius: r.tick }
                             }
                             in_d1 := RoundedView {
                                 width: 22 height: 4
-                                draw_bg +: { color: ouyu.line_soft border_radius: 2.0 }
+                                draw_bg +: { color: ouyu.line_soft border_radius: r.tick }
                             }
                             in_d2 := RoundedView {
                                 width: 22 height: 4
-                                draw_bg +: { color: ouyu.line_soft border_radius: 2.0 }
+                                draw_bg +: { color: ouyu.line_soft border_radius: r.tick }
                             }
                             in_gap := View { width: Fill height: Fit }
                             in_skip := OuyuLink { text: "跳过" }

@@ -95,7 +95,7 @@ script_mod! {
             color: ouyu.card
             border_color: ouyu.line_soft
             border_size: 1.0
-            border_radius: 20.0
+            border_radius: r.card
         }
     }
 
@@ -109,7 +109,7 @@ script_mod! {
             color: ouyu.card_2
             border_color: #0000
             border_size: 0.0
-            border_radius: 16.0
+            border_radius: r.card
         }
     }
 
@@ -259,7 +259,7 @@ script_mod! {
         night_sub: #a4b2c9
         night_accent: #ffca91
         night_ring: #26375c
-        draw_bg +: { radius: 18.0 }
+        draw_bg +: { radius: r.card }
         draw_ring +: { color: #0000 border_size: 1.5 radius: 500.0 }
         draw_dot +: { radius: 500.0 }
         draw_line +: { thickness: 3.0 }
@@ -276,7 +276,7 @@ script_mod! {
         align: Align{x: 0.5, y: 0.5}
         icon_walk: Walk{ width: 16.0 height: Fit }
         draw_bg +: {
-            border_radius: 12.0
+            border_radius: r.button
             // ButtonFlat 默认带一圈 theme.beveling 的斜边，描边色取自 makepad
             // 的默认主题。实心按钮不要这圈边，否则偶遇的蓝上会压一道灰。
             border_size: 0.0
@@ -312,7 +312,7 @@ script_mod! {
         padding: Inset{left: 14.0, right: 14.0, top: 8.0, bottom: 8.0}
         draw_icon +: { preserve_viewbox: true color: ouyu.ink }
         draw_bg +: {
-            border_radius: 12.0
+            border_radius: r.button
             border_size: 1.0
             color: #0000
             color_hover: ouyu.hl
@@ -338,7 +338,7 @@ script_mod! {
         height: 28
         padding: Inset{left: 10.0, right: 10.0, top: 4.0, bottom: 4.0}
         icon_walk: Walk{ width: 13.0 height: Fit }
-        draw_bg +: { border_radius: 9.0 }
+        draw_bg +: { border_radius: r.chip }
         draw_text +: { text_style +: { font_size: 12.5 } }
     }
 
@@ -364,7 +364,7 @@ script_mod! {
         height: 28
         padding: Inset{left: 10.0, right: 10.0, top: 4.0, bottom: 4.0}
         icon_walk: Walk{ width: 13.0 height: Fit }
-        draw_bg +: { border_radius: 9.0 }
+        draw_bg +: { border_radius: r.chip }
         draw_text +: { text_style +: { font_size: 12.5 } }
     }
 
@@ -377,7 +377,7 @@ script_mod! {
         draw_icon +: { preserve_viewbox: true color: ouyu.on_warm_btn }
         padding: Inset{left: 18.0, right: 18.0, top: 10.0, bottom: 10.0}
         draw_bg +: {
-            border_radius: 12.0
+            border_radius: r.button
             border_size: 0.0
             color: ouyu.warm_btn
             color_hover: ouyu.warm_btn_hi
@@ -401,7 +401,7 @@ script_mod! {
         align: Align{x: 0.0, y: 0.5}
         label_walk +: { margin: Inset{left: 0.0} }
         draw_bg +: {
-            border_radius: 12.0
+            border_radius: r.button
             color: #0000
             color_hover: ouyu.hl_soft
             color_down: ouyu.hl
@@ -493,7 +493,7 @@ script_mod! {
         draw_icon +: { preserve_viewbox: true color: ouyu.ink_2 }
         label_walk +: { margin: Inset{left: 0.0} }
         draw_bg +: {
-            border_radius: 14.0
+            border_radius: r.button
             color: #0000
             color_hover: ouyu.hl_soft
             color_down: ouyu.hl
@@ -540,7 +540,7 @@ script_mod! {
         icon_walk: Walk{ width: 16.0 height: Fit }
         draw_icon +: { preserve_viewbox: true color: ouyu.ink_2 }
         draw_bg +: {
-            border_radius: 10.0
+            border_radius: r.chip
             border_size: 0.0
             color: #0000
             color_hover: ouyu.hl
@@ -555,7 +555,7 @@ script_mod! {
         icon_walk: Walk{ width: 15.0 height: Fit }
         draw_icon +: { color: ouyu.ink }
         draw_bg +: {
-            border_radius: 16.0
+            border_radius: r.card
             border_size: 1.0
             border_color: ouyu.line
             border_color_hover: ouyu.blue
@@ -575,7 +575,7 @@ script_mod! {
             color: ouyu.card_2
             border_color: ouyu.line
             border_size: 1.0
-            border_radius: 14.0
+            border_radius: r.button
         }
     }
 
@@ -589,7 +589,7 @@ script_mod! {
         label_walk +: { margin: Inset{left: 0.0} }
         draw_icon +: { preserve_viewbox: true color: ouyu.ink_2 }
         draw_bg +: {
-            border_radius: 10.0
+            border_radius: r.chip
             border_size: 0.0
             color: #0000
             color_hover: ouyu.hl
@@ -614,7 +614,7 @@ script_mod! {
         draw_icon +: { preserve_viewbox: true color: ouyu.blue }
         draw_bg +: {
             border_size: 0.0
-            border_radius: 6.0
+            border_radius: r.button
             color: #0000
             color_hover: #0000
             color_down: #0000
@@ -637,7 +637,7 @@ script_mod! {
         align: Align{x: 0.5, y: 0.5}
         label_walk +: { margin: Inset{left: 0.0} }
         draw_bg +: {
-            border_radius: 9.0
+            border_radius: r.chip
             color: #0000
             color_hover: ouyu.hl_soft
             color_down: ouyu.hl
@@ -677,7 +677,7 @@ script_mod! {
             color: ouyu.well
             border_color: ouyu.line
             border_size: 1.0
-            border_radius: 13.0
+            border_radius: r.button
         }
     }
 
@@ -693,7 +693,7 @@ script_mod! {
         align: Align{x: 0.5, y: 0.5}
         label_walk +: { margin: Inset{left: 0.0} }
         draw_bg +: {
-            border_radius: 12.0
+            border_radius: r.button
             color: #0000
             color_hover: ouyu.hl_soft
             color_down: ouyu.hl
@@ -806,7 +806,7 @@ script_mod! {
             padding: 0.0
             draw_bg +: {
                 border_size: 0.0
-                border_radius: 12.0
+                border_radius: r.button
                 color: #0000
                 color_hover: ouyu.wash_2
                 color_down: ouyu.wash_3
@@ -833,7 +833,7 @@ script_mod! {
         padding: Inset{left: 12.0, right: 12.0, top: 10.0, bottom: 10.0}
         empty_text: "搜片区、行政区或拼音"
         draw_bg +: {
-            border_radius: 12.0
+            border_radius: r.button
             border_size: 1.0
             color: ouyu.well
             color_hover: ouyu.well
@@ -888,7 +888,7 @@ script_mod! {
                 width: 40 height: 40
                 flow: Down
                 align: Align{x: 0.5, y: 0.5}
-                draw_bg +: { color: ouyu.face border_radius: 20.0 }
+                draw_bg +: { color: ouyu.face border_radius: r.card }
                 ps_initial := Label {
                     text: ""
                     draw_text +: { color: ouyu.blue text_style +: { font_size: 17.0 } }
@@ -931,7 +931,7 @@ script_mod! {
             padding: 0.0
             draw_bg +: {
                 border_size: 0.0
-                border_radius: 12.0
+                border_radius: r.button
                 color: #0000
                 color_hover: ouyu.wash_2
                 color_down: ouyu.wash_3
@@ -1052,7 +1052,7 @@ script_mod! {
             padding: 0.0
             draw_bg +: {
                 border_size: 0.0
-                border_radius: 12.0
+                border_radius: r.button
                 color: #0000
                 color_hover: ouyu.wash_2
                 color_down: ouyu.wash_3
@@ -1138,16 +1138,16 @@ script_mod! {
                 flow: Right
                 align: Align{x: 0.0, y: 0.5}
                 padding: Inset{left: 3.0, right: 3.0}
-                draw_bg +: { color: ouyu.track_off border_radius: 13.0 }
+                draw_bg +: { color: ouyu.track_off border_radius: r.button }
                 sw_off := mod.widgets.RoundedView {
                     width: 20 height: 20
-                    draw_bg +: { color: ouyu.knob border_radius: 10.0 }
+                    draw_bg +: { color: ouyu.knob border_radius: r.chip }
                 }
                 sw_gap := mod.widgets.View { width: Fill height: Fit }
                 sw_on := mod.widgets.RoundedView {
                     visible: false
                     width: 20 height: 20
-                    draw_bg +: { color: ouyu.knob_on border_radius: 10.0 }
+                    draw_bg +: { color: ouyu.knob_on border_radius: r.chip }
                 }
             }
         }
@@ -1158,7 +1158,7 @@ script_mod! {
             padding: 0.0
             draw_bg +: {
                 border_size: 0.0
-                border_radius: 12.0
+                border_radius: r.button
                 color: #0000
                 color_hover: ouyu.wash_2
                 color_down: ouyu.wash_3
@@ -1176,7 +1176,7 @@ script_mod! {
         flow: Down
         padding: 16.0
         spacing: 8.0
-        draw_bg +: { color: ouyu.coupon border_radius: 18.0 }
+        draw_bg +: { color: ouyu.coupon border_radius: r.card }
         cw_head := mod.widgets.View {
             width: Fill height: Fit
             flow: Right
@@ -1238,7 +1238,7 @@ script_mod! {
             color: ouyu.raise
             border_color: ouyu.line_strong
             border_size: 1.0
-            border_radius: 14.0
+            border_radius: r.button
         }
         to_text := Label {
             width: Fill
