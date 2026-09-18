@@ -184,6 +184,17 @@ script_mod! {
         bar_hi: #x16233c47
         bar_drag: #x16233c66
     }
+
+    // ---- 圆角角色表(与深浅无关)----
+    //
+    // 圆角不随深浅变,所以不进 `ouyu_themes`:它只定义一次,两套主题共用,
+    // 由结构保证 dark/light 不可能出现两份对不上的圆角。
+    mod.ouyu_radius = {
+        card: 8.0     // 卡片、券面、弹窗、首字圆底
+        button: 6.0   // 按钮、输入、通知、开关轨道
+        chip: 4.0     // 小控件、knob、分段
+        tick: 2.0     // 图表刻度条
+    }
 }
 
 /// 界面深浅。只有两个值 —— 「跟随系统」留给宿主的外观菜单，应用内不再猜。
@@ -275,6 +286,7 @@ pub fn install(vm: &mut ScriptVm) {
         mod.prelude.ouyu = {
             ..mod.prelude.widgets,
             ouyu: mod.ouyu,
+            r: mod.ouyu_radius,
         }
     });
 }
@@ -447,6 +459,90 @@ mod tests {
                     "{:?} 下 OuyuInput 没注册",
                     mode
                 );
+            }
+            set_mode(ThemeMode::Dark);
+        });
+    }
+
+    /// 从圆角角色表里抠出角色名。和 `roles()` 同一个道理：手抄一份名单迟早
+    /// 会和表对不上 —— 对不上的那天测试反而是绿的。
+    fn radius_roles() -> Vec<String> {
+        let src = include_str!("theme.rs");
+        let head = "mod.ouyu_radius = {";
+        let start = src.find(head).expect("圆角表没找到") + head.len();
+        let end = start + src[start..].find("\n    }").expect("圆角表没收尾");
+        let mut out: Vec<String> = src[start..end]
+            .lines()
+            .filter_map(|line| {
+                let line = line.split("//").next().unwrap_or("").trim();
+                let (name, value) = line.split_once(':')?;
+                let v = value.trim();
+                (v.starts_with(|c: char| c.is_ascii_digit())).then(|| name.trim().to_string())
+            })
+            .collect();
+        out.sort();
+        out
+    }
+
+    /// 圆角角色表：每个角色在**两套主题**下都要能解析成数字，且要经过预设里
+    /// 真正走的那条路径 `mod.prelude.ouyu.r`。
+    ///
+    /// 圆角不随深浅变(表只定义一次),所以这条测试同时钉住两件事:表本身没写漏,
+    /// 以及并入 prelude 的那条路没断 —— 后者断了,`r.card` 在预设里就成了一条
+    /// 运行时错误(cargo check 照样通过),界面上那一处变直角。
+    #[test]
+    fn every_radius_role_resolves_in_both_themes() {
+        let names = radius_roles();
+        assert!(names.len() >= 4, "圆角角色太少，大概没抠对: {:?}", names);
+        for want in ["card", "button", "chip", "tick"] {
+            assert!(
+                names.iter().any(|n| n == want),
+                "圆角表缺角色 {}: {:?}",
+                want,
+                names
+            );
+        }
+
+        let mut cx = Cx::new(Box::new(|_, _| {}));
+        cx.with_vm(|vm| {
+            makepad_widgets::script_mod(vm);
+            for mode in ThemeMode::ALL {
+                set_mode(mode);
+                vm.with_reload(|vm| {
+                    install(vm);
+                });
+
+                let table = script_eval!(vm, { mod.ouyu_radius })
+                    .as_object()
+                    .expect("mod.ouyu_radius 不是对象");
+                let prelude_r = script_eval!(vm, { mod.prelude.ouyu.r })
+                    .as_object()
+                    .expect("mod.prelude.ouyu.r 不是对象");
+                for name in &names {
+                    let direct = vm
+                        .bx
+                        .heap
+                        .value_path(table, &[LiveId::from_str(name)], NoTrap)
+                        .as_number();
+                    assert!(
+                        direct.is_some(),
+                        "mod.ouyu_radius.{} 解析不出数字 ({:?})",
+                        name,
+                        mode
+                    );
+
+                    let via_prelude = vm
+                        .bx
+                        .heap
+                        .value_path(prelude_r, &[LiveId::from_str(name)], NoTrap)
+                        .as_number();
+                    assert!(
+                        via_prelude.is_some(),
+                        "mod.prelude.ouyu.r.{} 解析不出数字 ({:?})",
+                        name,
+                        mode
+                    );
+                }
             }
             set_mode(ThemeMode::Dark);
         });
