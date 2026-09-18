@@ -12,10 +12,39 @@ script_mod! {
     mod.widgets.PhoneSurface = set_type_default() do mod.widgets.PhoneSurfaceBase {
         width: Fill height: Fill
         d +: {text.text_style: theme.font_regular text_bold.text_style: theme.font_bold}
-        ios_font: theme.font_regular{font_family: FontFamily{latin := FontMember{res: crate_resource("makepad_widgets:resources/Inter.ttf") weight: 400.0 asc: 0.0 desc: 0.0}}}
-        ios_bold: theme.font_bold{font_family: FontFamily{latin := FontMember{res: crate_resource("makepad_widgets:resources/Inter.ttf") weight: 600.0 asc: 0.0 desc: 0.0}}}
-        android_font: theme.font_regular{font_family: FontFamily{latin := FontMember{res: crate_resource("makepad_widgets:resources/RobotoFlex.ttf") weight: 400.0 asc: 0.0 desc: 0.0}}}
-        android_bold: theme.font_bold{font_family: FontFamily{latin := FontMember{res: crate_resource("makepad_widgets:resources/RobotoFlex.ttf") weight: 600.0 asc: 0.0 desc: 0.0}}}
+        // A phone family names its own `latin` face, which replaces the theme
+        // family whole — the CJK and emoji members the font policy put on
+        // `theme.font_*` go with it, and an app label like "偶遇 OuYu" draws
+        // tofu. Name the fallbacks here too; both faces ship in the
+        // International asset package this app declares.
+        ios_font: theme.font_regular{
+            font_family: FontFamily{
+                latin   := FontMember{res: crate_resource("makepad_widgets:resources/Inter.ttf") weight: 400.0 asc: 0.0 desc: 0.0}
+                chinese := FontMember{res: crate_resource("makepad_widgets:resources/LXGWWenKaiRegular.ttf") asc: 0.0 desc: 0.0}
+                emoji   := FontMember{res: crate_resource("makepad_widgets:resources/NotoColorEmoji.ttf") asc: 0.0 desc: 0.0}
+            }
+        }
+        ios_bold: theme.font_bold{
+            font_family: FontFamily{
+                latin   := FontMember{res: crate_resource("makepad_widgets:resources/Inter.ttf") weight: 600.0 asc: 0.0 desc: 0.0}
+                chinese := FontMember{res: crate_resource("makepad_widgets:resources/LXGWWenKaiBold.ttf") asc: 0.0 desc: 0.0}
+                emoji   := FontMember{res: crate_resource("makepad_widgets:resources/NotoColorEmoji.ttf") asc: 0.0 desc: 0.0}
+            }
+        }
+        android_font: theme.font_regular{
+            font_family: FontFamily{
+                latin   := FontMember{res: crate_resource("makepad_widgets:resources/RobotoFlex.ttf") weight: 400.0 asc: 0.0 desc: 0.0}
+                chinese := FontMember{res: crate_resource("makepad_widgets:resources/LXGWWenKaiRegular.ttf") asc: 0.0 desc: 0.0}
+                emoji   := FontMember{res: crate_resource("makepad_widgets:resources/NotoColorEmoji.ttf") asc: 0.0 desc: 0.0}
+            }
+        }
+        android_bold: theme.font_bold{
+            font_family: FontFamily{
+                latin   := FontMember{res: crate_resource("makepad_widgets:resources/RobotoFlex.ttf") weight: 600.0 asc: 0.0 desc: 0.0}
+                chinese := FontMember{res: crate_resource("makepad_widgets:resources/LXGWWenKaiBold.ttf") asc: 0.0 desc: 0.0}
+                emoji   := FontMember{res: crate_resource("makepad_widgets:resources/NotoColorEmoji.ttf") asc: 0.0 desc: 0.0}
+            }
+        }
         chrome +: {}
         key_shift +: {svg: crate_resource("self:resources/icons/key-shift.svg")}
         key_backspace +: {svg: crate_resource("self:resources/icons/key-backspace.svg")}
@@ -499,6 +528,63 @@ impl Widget for PhoneSurface {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A phone family names its own `latin` face, which replaces the theme
+    /// family whole — the CJK and emoji members the font policy puts on
+    /// `theme.font_*` do not survive into it. An app label like "偶遇 OuYu"
+    /// drew tofu on both phone styles until they named the fallbacks
+    /// themselves.
+    #[test]
+    fn phone_typefaces_keep_their_cjk_and_emoji_fallbacks() {
+        let mut cx = new_cx_with_font_set(Box::new(|_, _| {}), FontSet::International);
+        cx.init_cx_os();
+        cx.with_vm(|vm| {
+            makepad_widgets::script_mod(vm);
+            // The kit's token defaults read `mod.wm_theme.shell.*`: without
+            // the bundled theme the `text +:` blocks stop halfway and the
+            // families come out short for a reason that is not this test's.
+            let theme = crate::theme::BUNDLED_TOKYO_NIGHT_SPLASH;
+            eval_theme(vm, "wm_theme", theme);
+            eval_theme(vm, "wm_theme_shell", &crate::theme::shell_splash_block(theme));
+            crate::run_view::script_mod(vm);
+            crate::shell::script_mod(vm);
+            crate::desktop::script_mod(vm);
+            script_mod(vm);
+            let surface = PhoneSurface::script_new_with_default(vm);
+            for (role, style) in [
+                ("ios_font", &surface.ios_font), ("ios_bold", &surface.ios_bold),
+                ("android_font", &surface.android_font), ("android_bold", &surface.android_bold),
+            ] {
+                let members = style.font_family.member_ids().collect::<Vec<_>>();
+                assert_eq!(members.first(), Some(&"latin"), "{role}: {members:?}");
+                assert!(members.contains(&"chinese"), "{role}: {members:?}");
+                assert!(members.contains(&"emoji"), "{role}: {members:?}");
+            }
+            assert!(vm.take_errors().is_empty());
+        });
+    }
+
+    /// `App::script_mod`'s theme evaluation, as `shell::ui`'s kit test runs it.
+    fn eval_theme(vm: &mut ScriptVm, name: &str, code: &str) {
+        let mut body = code
+            .lines()
+            .skip_while(|l| {
+                let t = l.trim();
+                t.is_empty() || t.starts_with("//")
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        body.push_str("\ntrue\n");
+        vm.eval(ScriptMod {
+            cargo_manifest_path: env!("CARGO_MANIFEST_DIR").to_string(),
+            module_path: name.to_string(),
+            file: "theme.splash".to_string(),
+            line: 0,
+            column: 0,
+            code: body,
+            values: vec![],
+        });
+    }
 
     #[test]
     fn mobile_home_only_reserves_tiles_for_available_apps() {

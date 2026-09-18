@@ -76,16 +76,6 @@ script_mod! {
             tab_memories := OuyuTabIcon { text: "回忆" draw_icon +: { svg: crate_resource("self:resources/icons/nav-memories.svg") } }
             tab_achieve := OuyuTabIcon { text: "我" draw_icon +: { svg: crate_resource("self:resources/icons/nav-me.svg") } }
             sb_spacer := View { width: Fill height: Fill }
-            sb_note := Label {
-                width: Fill
-                text: "数据只在这台设备上。"
-                margin: Inset{left: 6.0}
-                draw_text +: {
-                    wrap: Words
-                    color: ouyu.ink_3
-                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                }
-            }
         }
 
         // ---- 内容壳：手机模式的顶栏 / 底部导航挂在这里 ----
@@ -106,16 +96,23 @@ script_mod! {
             // 所以宽屏也留着这条顶栏，不再只给手机。
             // 标题在所有页面上都居中：标题单独一层铺满整条顶栏居中对齐，
             // 主动作按钮叠在上面靠右，按钮在不在都不会把标题挤偏。
+            // 两层同高、各自居中，标题和按钮就落在同一条中线上。
             topbar := View {
                 width: Fill height: 58
                 flow: Overlay
-                tb_title := Label {
+                // 竖向居中靠这层 View，不靠标签自己的 align：DrawText 的
+                // layout 只吃 align.x，align.y 一路被丢掉，所以 height: Fill
+                // 的标签会把字画在框顶上——跟右边 36 高的按钮差半行。
+                tb_mid := View {
                     width: Fill height: Fill
                     align: Align{x: 0.5, y: 0.5}
-                    text: "偶遇 OuYu"
-                    draw_text +: {
-                        color: ouyu.warm
-                        text_style +: { font_size: 15.0 }
+                    tb_title := Label {
+                        width: Fit height: Fit
+                        text: "偶遇 OuYu"
+                        draw_text +: {
+                            color: ouyu.warm
+                            text_style +: { font_size: 15.0 }
+                        }
                     }
                 }
                 tb_bar := View {
@@ -2338,12 +2335,6 @@ script_mod! {
                                     draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
                                 }
                             }
-                            tr_note := Label {
-                                width: Fill
-                                margin: Inset{left: 12.0, right: 12.0, top: 6.0, bottom: 4.0}
-                                text: "到期后自动下线。发布过的都在「更多」里。"
-                                draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
-                            }
                         }
                         // 三个入口：券包、设置、关于。
                         hub_head := OuyuGroupHead { text: "更多" }
@@ -3852,10 +3843,29 @@ struct Shaping {
 
 /// 开场三屏的正文列宽。
 const INTRO_COL: f64 = 620.0;
+/// 右列解释栏的栏内容宽度（栏本身还要加一截贴边的内边距）。
+const ASIDE_COL: f64 = 300.0;
 /// 手机形态的上限宽度：低于此值走底部导航单列。
 const PHONE_MAX: f64 = 720.0;
 /// 桌面形态（侧栏 + 右列）的下限宽度。
 const DESKTOP_MIN: f64 = 1060.0;
+
+/// 自己吃左右留白的那些容器：正文区不留左右内边距，滚动条才贴得住窗口边，
+/// 所以这一份留白落到每个可滚动页面（以及发布页那条固定底栏）身上。
+const SIDE_PAD_VIEWS: [LiveId; 12] = [
+    live_id!(page_discover),
+    live_id!(pw_scroll),
+    live_id!(pw_bar),
+    live_id!(page_meet),
+    live_id!(page_contacts),
+    live_id!(page_memories),
+    live_id!(page_achieve),
+    live_id!(page_wallet),
+    live_id!(page_tracks),
+    live_id!(page_settings),
+    live_id!(page_share),
+    live_id!(page_memdetail),
+];
 /// 右列解释栏至少需要的宽度。
 const ASIDE_MIN: f64 = 900.0;
 
@@ -4126,7 +4136,7 @@ impl OuyuView {
             }
         }
         self.view
-            .label(cx, ids!(shell.topbar.tb_title))
+            .label(cx, ids!(shell.topbar.tb_mid.tb_title))
             .set_text(cx, TAB_TITLES[i]);
         self.update_page_visibility(cx);
         for (j, id) in ASIDES.iter().enumerate() {
@@ -4442,10 +4452,6 @@ impl OuyuView {
 
         // 手机：左侧栏收起，导航去底部。顶栏（标题 + 当页主动作）所有形态都在。
         self.view.widget(cx, ids!(sidebar)).set_visible(cx, !phone && !intro);
-        // 矮 tile 里侧栏底部塞不下说明文字。
-        self.view
-            .widget(cx, ids!(sidebar.sb_note))
-            .set_visible(cx, !s.short);
         self.view.widget(cx, ids!(shell.topbar)).set_visible(cx, !intro);
         self.view.widget(cx, ids!(shell.tabbar)).set_visible(cx, phone && !intro);
         self.view.widget(cx, ids!(main.aside)).set_visible(cx, s.aside && !intro);
@@ -4457,21 +4463,40 @@ impl OuyuView {
             };
         }
 
+        // 左右这两截留白不放在 main 上：滚动条画在滚动视图自己的右边缘，
+        // main 一旦有右内边距，整条滚动条就跟着往里挪一截，看着像浮在半空。
+        // 所以 main 只留上下，左右由每页（和右列）自己吃，滚动条贴着窗口边。
+        let side = if phone { 16.0 } else { 20.0 };
+
         // 开场三屏：宽屏上把整页收进一条 620px 的列。三句话是要被读完的，
-        // 一行铺满 1280px 读起来会跳行。
+        // 一行铺满 1280px 读起来会跳行。窄屏收不出这条列，至少留住侧边距。
         if let Some(mut v) = self.view.view(cx, ids!(page_intro)).borrow_mut() {
-            let side = ((self.last_size.x - INTRO_COL) * 0.5).max(0.0);
-            v.layout.padding = Inset { left: side, right: side, top: 0.0, bottom: 0.0 };
+            let col = ((self.last_size.x - INTRO_COL) * 0.5).max(side);
+            v.layout.padding = Inset { left: col, right: col, top: 0.0, bottom: 0.0 };
         }
 
         if let Some(mut main) = self.view.view(cx, ids!(main)).borrow_mut() {
             // 顶栏已经占了一截，正文区上边距收一点。
             main.layout.padding = if phone {
-                Inset { left: 16.0, right: 16.0, top: 6.0, bottom: 10.0 }
+                Inset { left: 0.0, right: 0.0, top: 6.0, bottom: 10.0 }
             } else {
-                Inset { left: 20.0, right: 20.0, top: 8.0, bottom: 16.0 }
+                Inset { left: 0.0, right: 0.0, top: 8.0, bottom: 16.0 }
             };
-            main.layout.spacing = if s.aside { 16.0 } else { 0.0 };
+            // 正文和右列之间的空档改由正文自己的右内边距顶出来。
+            main.layout.spacing = 0.0;
+        }
+        for id in SIDE_PAD_VIEWS {
+            if let Some(mut v) = self.view.view(cx, &[id]).borrow_mut() {
+                v.layout.padding.left = side;
+                v.layout.padding.right = side;
+            }
+        }
+        // 右列：左边紧挨正文的右内边距，右边自己留一截贴住窗口。
+        // 宽度补上这一截，栏内容还是 300。
+        if let Some(mut aside) = self.view.view(cx, ids!(main.aside)).borrow_mut() {
+            aside.layout.padding.left = 0.0;
+            aside.layout.padding.right = side;
+            aside.walk.width = Size::Fixed(ASIDE_COL + side);
         }
 
         // 带 Fill 子项的行：手机上换行，宽屏保持单行。
@@ -5789,6 +5814,8 @@ impl OuyuView {
     ) -> Vec<usize> {
         for (i, id) in rows.iter().enumerate() {
             let base = [card[0], card[1], *id];
+            // 行里的两行装在 tr_col 里（见 canvas.rs 的 OuyuTrackRow）。
+            let col = [card[0], card[1], *id, live_id!(tr_col)];
             let Some((_, text, gone)) = items.get(i) else {
                 self.view.widget(cx, &base).set_visible(cx, false);
                 continue;
@@ -5796,7 +5823,7 @@ impl OuyuView {
             self.view.widget(cx, &base).set_visible(cx, true);
             let mut text_w = self
                 .view
-                .widget(cx, &[base[0], base[1], base[2], live_id!(tr_top), live_id!(tr_text)]);
+                .widget(cx, &[col[0], col[1], col[2], col[3], live_id!(tr_top), live_id!(tr_text)]);
             text_w.set_text(cx, text);
             if *gone {
                 script_apply_eval!(cx, text_w, { draw_text +: { color: #(self.pal.ink_3) } });
@@ -5804,13 +5831,13 @@ impl OuyuView {
                 script_apply_eval!(cx, text_w, { draw_text +: { color: #(self.pal.ink) } });
             }
             self.view
-                .widget(cx, &join(&base, live_id!(tr_state)))
+                .widget(cx, &join(&col, live_id!(tr_state)))
                 .set_text(cx, if *gone { "已到期" } else { "进行中 · 到时段结束" });
             self.view
-                .widget(cx, &[base[0], base[1], base[2], live_id!(tr_top), live_id!(tr_edit)])
+                .widget(cx, &[col[0], col[1], col[2], col[3], live_id!(tr_top), live_id!(tr_edit)])
                 .set_visible(cx, !gone);
             self.view
-                .widget(cx, &[base[0], base[1], base[2], live_id!(tr_top), live_id!(tr_del)])
+                .widget(cx, &[col[0], col[1], col[2], col[3], live_id!(tr_top), live_id!(tr_del)])
                 .set_visible(cx, !gone);
         }
         items.iter().take(rows.len()).map(|r| r.0).collect()
@@ -5850,9 +5877,6 @@ impl OuyuView {
         self.view
             .widget(cx, ids!(page_achieve.tr_card.tr_empty))
             .set_visible(cx, items.is_empty());
-        self.view
-            .widget(cx, ids!(page_achieve.tr_card.tr_note))
-            .set_visible(cx, !items.is_empty());
         // 三个入口。券那一格直接显示「几张可用」，不用点进去才知道有没有。
         let avail = self.state.rewards_in(today, RewardState::Available).len();
         self.set_row(
@@ -7074,9 +7098,8 @@ impl OuyuView {
         ];
         for (card, rows, ids) in lists {
             for (i, id) in rows.iter().enumerate() {
-                let base = [card[0], card[1], *id];
                 let Some(pid) = ids.get(i).copied() else { continue };
-                let top = [base[0], base[1], base[2], live_id!(tr_top)];
+                let top = [card[0], card[1], *id, live_id!(tr_col), live_id!(tr_top)];
                 if self.view.button(cx, &join(&top, live_id!(tr_edit))).clicked(actions) {
                     track_edit = Some(pid);
                 }

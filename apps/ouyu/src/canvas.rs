@@ -1046,26 +1046,35 @@ script_mod! {
     // 结束的行踪没有意义，删掉它也只是在删自己的回看记录。
     mod.widgets.OuyuTrackRow = mod.widgets.View{
         width: Fill height: Fit
-        flow: Down
-        padding: Inset{left: 12.0, right: 12.0, top: 10.0, bottom: 10.0}
-        spacing: 2.0
-        tr_top := mod.widgets.View {
+        // 两行堆在 tr_col 里而不是直接堆在行上：预设自己写的
+        // flow: Down 到不了实例（tr0 := OuyuTrackRow { }），行会蹦回横排，
+        // 状态那一行被挤成零宽、每个字一行，就成了两条行踪中间那块空白。
+        // 子节点自己的 flow 是稳的，所以把竖排放在这一层。
+        tr_col := mod.widgets.View {
             width: Fill height: Fit
-            flow: Right
-            align: Align{x: 0.0, y: 0.5}
-            spacing: 8.0
-            tr_text := Label {
+            flow: Down
+            spacing: 2.0
+            padding: Inset{left: 12.0, right: 12.0, top: 10.0, bottom: 10.0}
+            tr_top := mod.widgets.View {
+                width: Fill height: Fit
+                flow: Right
+                align: Align{x: 0.0, y: 0.5}
+                spacing: 8.0
+                tr_text := Label {
+                    width: Fill
+                    max_lines: 1
+                    text_overflow: Ellipsis
+                    text: ""
+                    draw_text +: { color: ouyu.ink text_style +: { font_size: 15.0 } }
+                }
+                tr_edit := mod.widgets.OuyuBtnSm { width: Fit text: "修改" }
+                tr_del := mod.widgets.OuyuBtnDangerSm { width: Fit text: "删除" }
+            }
+            tr_state := Label {
                 width: Fill
                 text: ""
-                draw_text +: { wrap: Ellipsis color: ouyu.ink text_style +: { font_size: 15.0 } }
+                draw_text +: { color: ouyu.ink_3 text_style +: { font_size: 12.0 } }
             }
-            tr_edit := mod.widgets.OuyuBtnSm { width: Fit text: "修改" }
-            tr_del := mod.widgets.OuyuBtnDangerSm { width: Fit text: "删除" }
-        }
-        tr_state := Label {
-            width: Fill
-            text: ""
-            draw_text +: { wrap: Ellipsis color: ouyu.ink_3 text_style +: { font_size: 12.0 } }
         }
     }
 
