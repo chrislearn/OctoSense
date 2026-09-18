@@ -81,2705 +81,2625 @@ script_mod! {
         // ---- 内容壳：手机模式的顶栏 / 底部导航挂在这里 ----
         shell := RoundedView {
             width: Fill height: Fill
-            flow: Down
+            // 外层是 Overlay：导入菜单浮层要能叠在内容之上、又不占布局空间。
+            // 顶栏 / 内容 / 底部导航收进 shell_body，在那里仍按 Down 依次排布。
+            flow: Overlay
             draw_bg +: {
                 color: ouyu.bg
                 border_color: ouyu.line_soft
                 border_size: 0.0
                 border_radius: 0.0
             }
+            shell_body := View {
+                width: Fill height: Fill
+                flow: Down
 
-            // ---- 顶栏：当页标题 + 当页主动作 ----
-            //
-            // 右边那个按钮跟着 Tab 走：发现页是「发布行踪」，相遇页是
-            // 「确认相遇」，别的页没有主动作就收起来。它是这两件事唯一的入口，
-            // 所以宽屏也留着这条顶栏，不再只给手机。
-            // 标题在所有页面上都居中：标题单独一层铺满整条顶栏居中对齐，
-            // 主动作按钮叠在上面靠右，按钮在不在都不会把标题挤偏。
-            // 两层同高、各自居中，标题和按钮就落在同一条中线上。
-            topbar := View {
-                width: Fill height: 58
-                flow: Overlay
-                // 竖向居中靠这层 View，不靠标签自己的 align：DrawText 的
-                // layout 只吃 align.x，align.y 一路被丢掉，所以 height: Fill
-                // 的标签会把字画在框顶上——跟右边 36 高的按钮差半行。
-                tb_mid := View {
-                    width: Fill height: Fill
-                    align: Align{x: 0.5, y: 0.5}
-                    tb_title := Label {
-                        width: Fit height: Fit
-                        text: "偶遇 OuYu"
-                        draw_text +: {
-                            color: ouyu.warm
-                            text_style +: { font_size: 15.0 }
+                // ---- 顶栏：当页标题 + 当页主动作 ----
+                //
+                // 右边那个按钮跟着 Tab 走：发现页是「发布行踪」，相遇页是
+                // 「确认相遇」，别的页没有主动作就收起来。它是这两件事唯一的入口，
+                // 所以宽屏也留着这条顶栏，不再只给手机。
+                // 标题在所有页面上都居中：标题单独一层铺满整条顶栏居中对齐，
+                // 主动作按钮叠在上面靠右，按钮在不在都不会把标题挤偏。
+                // 两层同高、各自居中，标题和按钮就落在同一条中线上。
+                topbar := View {
+                    width: Fill height: 58
+                    flow: Overlay
+                    // 竖向居中靠这层 View，不靠标签自己的 align：DrawText 的
+                    // layout 只吃 align.x，align.y 一路被丢掉，所以 height: Fill
+                    // 的标签会把字画在框顶上——跟右边 36 高的按钮差半行。
+                    tb_mid := View {
+                        width: Fill height: Fill
+                        align: Align{x: 0.5, y: 0.5}
+                        tb_title := Label {
+                            width: Fit height: Fit
+                            text: "偶遇 OuYu"
+                            draw_text +: {
+                                color: ouyu.warm
+                                text_style +: { font_size: 15.0 }
+                            }
+                        }
+                    }
+                    tb_bar := View {
+                        width: Fill height: Fill
+                        flow: Right
+                        align: Align{x: 1.0, y: 0.5}
+                        padding: Inset{left: 18.0, right: 12.0}
+                        spacing: 8.0
+                        tb_action := OuyuBtnPrimarySm { visible: false width: Fit text: "发布行踪" }
+                        // 熟人页的「+」：导入 / 新建的入口，跟标题同一条线，
+                        // 别的页收起来。
+                        tb_add := OuyuAddBtn {
+                            visible: false
+                            draw_icon +: { svg: crate_resource("self:resources/icons/plus.svg") }
                         }
                     }
                 }
-                tb_bar := View {
+                // ---- 内容区 + 右列解释栏 ----
+                main := View {
                     width: Fill height: Fill
                     flow: Right
-                    align: Align{x: 1.0, y: 0.5}
-                    padding: Inset{left: 18.0, right: 12.0}
-                    spacing: 8.0
-                    tb_action := OuyuBtnPrimarySm { visible: false width: Fit text: "发布行踪" }
-                    // 熟人页的「+」：导入 / 新建的入口，跟标题同一条线，
-                    // 别的页收起来。
-                    tb_add := OuyuAddBtn {
-                        visible: false
-                        draw_icon +: { svg: crate_resource("self:resources/icons/plus.svg") }
-                    }
-                }
-            }
-            // ---- 内容区 + 右列解释栏 ----
-            main := View {
-                width: Fill height: Fill
-                flow: Right
-                spacing: 16.0
-                padding: Inset{left: 20.0, right: 20.0, top: 20.0, bottom: 16.0}
+                    spacing: 16.0
+                    padding: Inset{left: 20.0, right: 20.0, top: 20.0, bottom: 16.0}
 
-                content := View {
-                    width: Fill height: Fill
-                    flow: Overlay
-
-                    pages := View {
+                    content := View {
                         width: Fill height: Fill
-                        flow: Down
+                        flow: Overlay
 
-                    // ---- 发现页（首页：什么时候出门 + 匿名机会）----
-                    page_discover := OuyuScrollY {
-                        width: Fill height: Fill
-                        flow: Down
-                        spacing: 16.0
-
-                        // 时间选择：今天 / 明天 / 本周 + 一周日期条。
-                        // 进发现页第一眼要回答的问题是「什么时候出门」，
-                        // 排序跟着它走（docs/02 第二节）。
-                        time_card := OuyuCard2 {
-                            width: Fill height: Fit
+                        pages := View {
+                            width: Fill height: Fill
                             flow: Down
-                            padding: 14.0
-                            spacing: 12.0
-                            tc_head := View {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                spacing: 8.0
-                                tc_title := OuyuH3 { width: Fill text: "什么时候出门？" }
-                            }
-                            seg_track := OuyuSegTrack {
-                                sg0 := OuyuSeg { text: "今天" }
-                                sg1 := OuyuSeg { text: "明天" }
-                                sg2 := OuyuSeg { text: "本周" }
-                            }
-                            day_strip := View {
-                                width: Fill height: Fit
-                                flow: Right
-                                spacing: 3.0
-                                d0 := OuyuDay { text: "今天" draw_icon +: { svg: crate_resource("self:resources/icons/dot.svg") } }
-                                d1 := OuyuDay { text: "明天" draw_icon +: { svg: crate_resource("self:resources/icons/dot.svg") } }
-                                d2 := OuyuDay { text: "后天" draw_icon +: { svg: crate_resource("self:resources/icons/dot.svg") } }
-                                d3 := OuyuDay { text: "周四" draw_icon +: { svg: crate_resource("self:resources/icons/dot.svg") } }
-                                d4 := OuyuDay { text: "周五" draw_icon +: { svg: crate_resource("self:resources/icons/dot.svg") } }
-                                d5 := OuyuDay { text: "周六" draw_icon +: { svg: crate_resource("self:resources/icons/dot.svg") } }
-                                d6 := OuyuDay { text: "周日" draw_icon +: { svg: crate_resource("self:resources/icons/dot.svg") } }
-                            }
-                        }
 
-                        // 排行：这一天最可能遇见的地方。分档，不是人数。
-                        rank_card := OuyuCard {
-                            width: Fill height: Fit
+                        // ---- 发现页（首页：什么时候出门 + 匿名机会）----
+                        page_discover := OuyuScrollY {
+                            width: Fill height: Fill
                             flow: Down
-                            padding: Inset{left: 6.0, right: 6.0, top: 16.0, bottom: 14.0}
-                            spacing: 8.0
-                            rk_head := View {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                padding: Inset{left: 12.0, right: 12.0}
-                                spacing: 8.0
-                                rk_title := OuyuH2 { width: Fill text: "最可能遇见的地方" }
-                            }
-                            rk_note := OuyuMuted {
-                                visible: false
-                                width: Fill
-                                margin: Inset{left: 12.0, right: 12.0, bottom: 2.0}
-                                text: ""
-                            }
-                            rk_list := View {
+                            spacing: 16.0
+
+                            // 时间选择：今天 / 明天 / 本周 + 一周日期条。
+                            // 进发现页第一眼要回答的问题是「什么时候出门」，
+                            // 排序跟着它走（docs/02 第二节）。
+                            time_card := OuyuCard2 {
                                 width: Fill height: Fit
                                 flow: Down
-                                spacing: 4.0
-                                rk0 := OuyuAreaRow { }
-                                rk1 := OuyuAreaRow { }
-                                rk2 := OuyuAreaRow { }
-                                rk3 := OuyuAreaRow { }
-                                rk4 := OuyuAreaRow { }
-                                rk5 := OuyuAreaRow { }
-                            }
-                            rk_empty := OuyuEmpty {
-                                visible: false
-                                em_icon := OuyuIcon {
-                                    icon_walk: Walk{ width: 28.0 height: Fit }
-                                    draw_icon +: { svg: crate_resource("self:resources/icons/nav-discover.svg") color: ouyu.ink_ghost }
-                                }
-                                em_text := Label {
-                                    width: Fit
-                                    text: "这一天还没有足够的机会"
-                                    draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
-                                }
-                            }
-                            rk_more_head := OuyuGroupHead {
-                                margin: Inset{left: 12.0, right: 12.0, top: 8.0, bottom: 2.0}
-                                text: "其它片区"
-                            }
-                            rk_more := View {
-                                width: Fill height: Fit
-                                flow: Down
-                                spacing: 4.0
-                                rm0 := OuyuAreaRow { }
-                                rm1 := OuyuAreaRow { }
-                                rm2 := OuyuAreaRow { }
-                            }
-                            sign_card := OuyuCard2 {
-                                visible: false
-                                width: Fill height: Fit
-                                flow: Down
-                                margin: Inset{left: 12.0, right: 12.0, top: 8.0}
                                 padding: 14.0
-                                spacing: 6.0
-                                sign_title := OuyuWarmText { text: "城市小签" }
-                                sign_text := OuyuBody { width: Fill text: "今天的小签：去一家没进过的书店，只翻三页。" }
-                                sign_note := OuyuMuted { width: Fill text: "与他人行程无关。" }
-                            }
-                        }
-                    }
-
-                    // ---- 发布向导（三步：什么时候 / 哪一带 / 想做什么）----
-                    //
-                    // 发布是一个动作，不是首页上常驻的表单：从顶栏的「发布行踪」
-                    // 进来，退出即丢草稿（docs/02 第二节）。行踪可以有多条，
-                    // 修改某一条从「我 → 我的行踪」进来。
-                    // 底栏不进滚动区：第 2 步的片区列表有十几行，按钮若跟着内容
-                    // 走，人得先滚一屏才能点「下一步」。
-                    page_publish := View {
-                        visible: false
-                        width: Fill height: Fill
-                        flow: Down
-                        spacing: 12.0
-
-                        pw_scroll := OuyuScrollY {
-                        width: Fill height: Fill
-                        flow: Down
-                        spacing: 16.0
-
-                        pw_top := View {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            spacing: 8.0
-                            pw_back := OuyuIconBtn {
-                                draw_icon +: { svg: crate_resource("self:resources/icons/chevron-left.svg") }
-                            }
-                            pw_title := OuyuH1 { width: Fill text: "写一下你的行踪" }
-                            pw_step := OuyuMuted { width: Fit text: "1 / 3" }
-                        }
-                        pw_sub := OuyuMuted {
-                            width: Fill
-                            text: "别人只看到一行模糊文字，没有昵称、头像和位置。"
-                        }
-
-                        // 第 1 步：时间
-                        pw_s1 := View {
-                            width: Fill height: Fit
-                            flow: Down
-                            spacing: 14.0
-                            s1_card := OuyuCard {
-                                width: Fill height: Fit
-                                flow: Down
-                                spacing: 10.0
-                                s1_q1 := OuyuH3 { text: "哪一天？" }
-                                s1_days := View {
-                                    width: Fill height: Fit
-                                    flow: Right{wrap: true}
-                                    wrap_spacing: 8.0
-                                    spacing: 8.0
-                                    pd0 := OuyuChip { text: "今天" }
-                                    pd1 := OuyuChip { text: "今天" }
-                                    pd2 := OuyuChip { text: "今天" }
-                                    pd3 := OuyuChip { text: "今天" }
-                                    pd4 := OuyuChip { text: "今天" }
-                                    pd5 := OuyuChip { text: "今天" }
-                                    pd6 := OuyuChip { text: "今天" }
-                                }
-                                s1_q2 := OuyuH3 { margin: Inset{top: 6.0} text: "大概什么时候？" }
-                                s1_slots := View {
-                                    width: Fill height: Fit
-                                    flow: Right{wrap: true}
-                                    wrap_spacing: 8.0
-                                    spacing: 8.0
-                                    ps0 := OuyuChip { text: "上午" }
-                                    ps1 := OuyuChip { text: "下午" }
-                                    ps2 := OuyuChip { text: "晚间" }
-                                }
-                                s1_note := OuyuMuted {
-                                    width: Fill
-                                    text: "只到上午 / 下午 / 晚间，不给具体钟点。"
-                                }
-                            }
-                        }
-
-                        // 第 2 步：片区（搜索 + 最近去过 + 筛选 + 列表）
-                        pw_s2 := View {
-                            visible: false
-                            width: Fill height: Fit
-                            flow: Down
-                            spacing: 10.0
-                            s2_bar := View {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                spacing: 8.0
-                                s2_search := OuyuInput { }
-                                s2_filter := OuyuBtn {
-                                    width: Fit
-                                    text: "筛选"
-                                    draw_icon +: { svg: crate_resource("self:resources/icons/filter.svg") }
-                                }
-                            }
-                            s2_filters := View {
-                                visible: false
-                                width: Fill height: Fit
-                                flow: Down
-                                spacing: 8.0
-                                s2_kind_head := OuyuGroupHead { text: "片区类型" }
-                                s2_kinds := View {
-                                    width: Fill height: Fit
-                                    flow: Right{wrap: true}
-                                    wrap_spacing: 6.0
-                                    spacing: 6.0
-                                    pk0 := OuyuChip { text: "全部" }
-                                    pk1 := OuyuChip { text: "商圈" }
-                                    pk2 := OuyuChip { text: "公园" }
-                                    pk3 := OuyuChip { text: "滨水" }
-                                    pk4 := OuyuChip { text: "文化" }
-                                    pk5 := OuyuChip { text: "园区" }
-                                    pk6 := OuyuChip { text: "校园" }
-                                    pk7 := OuyuChip { text: "枢纽" }
-                                    pk8 := OuyuChip { text: "生活" }
-                                }
-                                s2_dist_head := OuyuGroupHead { text: "行政区" }
-                                s2_dists := View {
-                                    width: Fill height: Fit
-                                    flow: Right{wrap: true}
-                                    wrap_spacing: 6.0
-                                    spacing: 6.0
-                                    pg0 := OuyuChip { text: "全部" }
-                                    pg1 := OuyuChip { text: "朝阳区" }
-                                    pg2 := OuyuChip { text: "海淀区" }
-                                    pg3 := OuyuChip { text: "东城区" }
-                                    pg4 := OuyuChip { text: "西城区" }
-                                    pg5 := OuyuChip { text: "丰台区" }
-                                    pg6 := OuyuChip { text: "石景山区" }
-                                    pg7 := OuyuChip { text: "通州区" }
-                                    pg8 := OuyuChip { text: "昌平区" }
-                                    pg9 := OuyuChip { text: "大兴区" }
-                                    pg10 := OuyuChip { text: "顺义区" }
-                                    pg11 := OuyuChip { text: "房山区" }
-                                    pg12 := OuyuChip { text: "门头沟区" }
-                                    pg13 := OuyuChip { text: "怀柔区" }
-                                    pg14 := OuyuChip { text: "密云区" }
-                                    pg15 := OuyuChip { text: "平谷区" }
-                                    pg16 := OuyuChip { text: "延庆区" }
-                                }
-                            }
-                            s2_recent_head := OuyuGroupHead { text: "最近去过" }
-                            s2_recent := View {
-                                width: Fill height: Fit
-                                flow: Down
-                                spacing: 4.0
-                                pr0 := OuyuAreaRow { }
-                                pr1 := OuyuAreaRow { }
-                                pr2 := OuyuAreaRow { }
-                                pr3 := OuyuAreaRow { }
-                                pr4 := OuyuAreaRow { }
-                            }
-                            s2_list_head := OuyuGroupHead { text: "全部片区" }
-                            s2_list := View {
-                                width: Fill height: Fit
-                                flow: Down
-                                spacing: 4.0
-                                pa0 := OuyuAreaRow { }
-                                pa1 := OuyuAreaRow { }
-                                pa2 := OuyuAreaRow { }
-                                pa3 := OuyuAreaRow { }
-                                pa4 := OuyuAreaRow { }
-                                pa5 := OuyuAreaRow { }
-                                pa6 := OuyuAreaRow { }
-                                pa7 := OuyuAreaRow { }
-                                pa8 := OuyuAreaRow { }
-                                pa9 := OuyuAreaRow { }
-                                pa10 := OuyuAreaRow { }
-                                pa11 := OuyuAreaRow { }
-                                pa12 := OuyuAreaRow { }
-                                pa13 := OuyuAreaRow { }
-                                pa14 := OuyuAreaRow { }
-                                pa15 := OuyuAreaRow { }
-                                pa16 := OuyuAreaRow { }
-                                pa17 := OuyuAreaRow { }
-                            }
-                            s2_empty := OuyuEmpty {
-                                visible: false
-                                em_icon := OuyuIcon {
-                                    icon_walk: Walk{ width: 28.0 height: Fit }
-                                    draw_icon +: { svg: crate_resource("self:resources/icons/search.svg") color: ouyu.ink_ghost }
-                                }
-                                em_text := Label {
-                                    width: Fit
-                                    text: "没有匹配的片区"
-                                    draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
-                                }
-                            }
-                            s2_more := OuyuMuted { width: Fill text: "" }
-                        }
-
-                        // 第 3 步：意愿 + 预览
-                        pw_s3 := View {
-                            visible: false
-                            width: Fill height: Fit
-                            flow: Down
-                            spacing: 14.0
-                            s3_card := OuyuCard {
-                                width: Fill height: Fit
-                                flow: Down
-                                spacing: 10.0
-                                s3_q := OuyuH3 { text: "想做点什么？" }
-                                s3_intents := View {
-                                    width: Fill height: Fit
-                                    flow: Right{wrap: true}
-                                    wrap_spacing: 8.0
-                                    spacing: 8.0
-                                    pi0 := OuyuChip { text: "随意走走" }
-                                    pi1 := OuyuChip { text: "顺路办事" }
-                                    pi2 := OuyuChip { text: "就想出门" }
-                                }
-                            }
-                            s3_prev_head := OuyuGroupHead { text: "别人看到的就是这一行" }
-                            s3_card2 := OuyuCard2 {
-                                width: Fill height: Fit
-                                flow: Down
-                                padding: 16.0
-                                spacing: 8.0
-                                s3_text := OuyuH2 { width: Fill text: "今天下午 · 三里屯一带 · 随意走走" }
-                                s3_note := OuyuMuted {
-                                    width: Fill
-                                    text: "随时可撤回。"
-                                }
-                            }
-                        }
-
-                        }
-
-                        pw_bar := View {
-                            width: Fill height: Fit
-                            flow: Right{wrap: true}
-                            wrap_spacing: 8.0
-                            spacing: 10.0
-                            align: Align{x: 0.0, y: 0.5}
-                            pw_prev := OuyuBtn { visible: false width: Fit text: "上一步" }
-                            pw_next := OuyuBtnPrimary { width: Fit text: "下一步" }
-                            pw_cancel := OuyuLink { width: Fit text: "放弃" }
-                        }
-                    }
-
-                    // ---- 相遇页（首屏成就 + 现场互认）----
-                    //
-                    // 首屏是曲线 / 里程碑 / 分享卡；点顶栏「确认相遇」后进入互认，
-                    // 四个用户可见的态，一次只露一个：① 选人 → ② 定位门槛
-                    // → ③ 等待 → ④ 结果。六条结局（成功 / 同地不成立 / 无库存
-                    // / 超时 / 信息不一致 / 未授权）都停在同一张结果屏上。
-                    page_meet := OuyuScrollY {
-                        visible: false
-                        width: Fill height: Fill
-                        flow: Down
-                        spacing: 16.0
-
-                        mp_title := Label {
-                            width: Fill
-                            text: "这次，真的遇见了。"
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.ink
-                                text_style +: { font_size: 24.0 line_spacing: 1.35 }
-                            }
-                        }
-                        mp_sub := Label {
-                            width: Fill
-                            text: "先在线下认出彼此，再各自确认。"
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.ink_2
-                                text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                            }
-                        }
-
-                        // ---- 首屏：成就内容（曲线 / 里程碑 / 分享卡）----
-                        //
-                        // 相遇页平时就停在这里。互认流程从顶栏「确认相遇」进，
-                        // 走完或退出再回到这一屏。
-                        meet_home := View {
-                            width: Fill height: Fit
-                            flow: Down
-                            spacing: 14.0
-                            // 频率曲线：4 / 8 周切换 + 自绘折线 + 可展开数据表。
-                            curve_card := OuyuCard {
-                                width: Fill height: Fit
-                                flow: Down
-                                padding: 18.0
-                                spacing: 10.0
-                                curve_head := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    spacing: 8.0
-                                    curve_title := Label {
-                                        width: Fill
-                                        text: "相遇频率曲线"
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: ouyu.ink
-                                            text_style +: { font_size: 15.0 line_spacing: 1.35 }
-                                        }
-                                    }
-                                    wk4 := OuyuChip { text: "4 周" }
-                                    wk8 := OuyuChip { text: "8 周" }
-                                }
-                                curve_sub := Label {
-                                    width: Fill
-                                    text: "最近 8 周，记住 0 次重逢"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                    }
-                                }
-                                curve_chart := OuyuChart { width: Fill height: 200 }
-                                curve_empty := Label {
-                                    visible: false
-                                    width: Fill
-                                    text: "下一次偶然，值得期待"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.warm
-                                        text_style +: { font_size: 15.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                curve_caption := Label {
-                                    width: Fill
-                                    text: "按周汇总，本周还没过完。"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink_4
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                    }
-                                }
-                                wk_toggle := OuyuBtn { text: "每周次数" }
-                                wk_table := View {
-                                    visible: false
-                                    width: Fill height: Fit
-                                    flow: Down
-                                    spacing: 6.0
-                                    wk_r0 := View {
-                                        width: Fill height: Fit
-                                        flow: Right
-                                        wk_d := Label {
-                                            width: Fill
-                                            text: ""
-                                            draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
-                                        }
-                                        wk_c := Label {
-                                            text: ""
-                                            draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
-                                        }
-                                    }
-                                    wk_r1 := View {
-                                        width: Fill height: Fit
-                                        flow: Right
-                                        wk_d := Label {
-                                            width: Fill
-                                            text: ""
-                                            draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
-                                        }
-                                        wk_c := Label {
-                                            text: ""
-                                            draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
-                                        }
-                                    }
-                                    wk_r2 := View {
-                                        width: Fill height: Fit
-                                        flow: Right
-                                        wk_d := Label {
-                                            width: Fill
-                                            text: ""
-                                            draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
-                                        }
-                                        wk_c := Label {
-                                            text: ""
-                                            draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
-                                        }
-                                    }
-                                    wk_r3 := View {
-                                        width: Fill height: Fit
-                                        flow: Right
-                                        wk_d := Label {
-                                            width: Fill
-                                            text: ""
-                                            draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
-                                        }
-                                        wk_c := Label {
-                                            text: ""
-                                            draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
-                                        }
-                                    }
-                                    wk_r4 := View {
-                                        width: Fill height: Fit
-                                        flow: Right
-                                        wk_d := Label {
-                                            width: Fill
-                                            text: ""
-                                            draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
-                                        }
-                                        wk_c := Label {
-                                            text: ""
-                                            draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
-                                        }
-                                    }
-                                    wk_r5 := View {
-                                        width: Fill height: Fit
-                                        flow: Right
-                                        wk_d := Label {
-                                            width: Fill
-                                            text: ""
-                                            draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
-                                        }
-                                        wk_c := Label {
-                                            text: ""
-                                            draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
-                                        }
-                                    }
-                                    wk_r6 := View {
-                                        width: Fill height: Fit
-                                        flow: Right
-                                        wk_d := Label {
-                                            width: Fill
-                                            text: ""
-                                            draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
-                                        }
-                                        wk_c := Label {
-                                            text: ""
-                                            draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
-                                        }
-                                    }
-                                    wk_r7 := View {
-                                        width: Fill height: Fit
-                                        flow: Right
-                                        wk_d := Label {
-                                            width: Fill
-                                            text: ""
-                                            draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
-                                        }
-                                        wk_c := Label {
-                                            text: ""
-                                            draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
-                                        }
-                                    }
-                                }
-                            }
-                            // 里程碑：点亮 / 等自然发生，不用凑次数，无排名。
-                            ms_card := OuyuCard {
-                                width: Fill height: Fit
-                                flow: Down
-                                padding: 18.0
-                                spacing: 10.0
-                                ms_head := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    ms_title := Label {
-                                        width: Fill
-                                        text: "我的小小里程碑"
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: ouyu.ink
-                                            text_style +: { font_size: 15.0 line_spacing: 1.35 }
-                                        }
-                                    }
-                                    ms_badge := Label {
-                                        text: "不用凑次数"
-                                        draw_text +: {
-                                            color: ouyu.warm
-                                            text_style +: { font_size: 11.0 }
-                                        }
-                                    }
-                                }
-                                ms_row := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    spacing: 12.0
-                                    ms0 := OuyuCard {
-                                        width: Fill height: Fit
-                                        flow: Down
-                                        padding: 14.0
-                                        spacing: 6.0
-                                        ms_top := View {
-                                            width: Fill height: Fit
-                                            flow: Right
-                                            align: Align{x: 0.0, y: 0.5}
-                                            ms_icon := Label {
-                                                width: Fill
-                                                text: "☆"
-                                                draw_text +: {
-                                                    color: ouyu.warm
-                                                    text_style +: { font_size: 17.0 }
-                                                }
-                                            }
-                                            ms_state := Label {
-                                                text: "等自然发生"
-                                                draw_text +: {
-                                                    color: ouyu.ink_4
-                                                    text_style +: { font_size: 12.5 }
-                                                }
-                                            }
-                                        }
-                                        ms_title := Label {
-                                            text: "第一次刚刚好"
-                                            draw_text +: {
-                                                color: ouyu.ink
-                                                text_style +: { font_size: 13.0 }
-                                            }
-                                        }
-                                        ms_desc := Label {
-                                            text: "记住一次重逢"
-                                            draw_text +: {
-                                                color: ouyu.ink_2
-                                                text_style +: { font_size: 12.5 }
-                                            }
-                                        }
-                                    }
-                                    ms1 := OuyuCard {
-                                        width: Fill height: Fit
-                                        flow: Down
-                                        padding: 14.0
-                                        spacing: 6.0
-                                        ms_top := View {
-                                            width: Fill height: Fit
-                                            flow: Right
-                                            align: Align{x: 0.0, y: 0.5}
-                                            ms_icon := Label {
-                                                width: Fill
-                                                text: "☆"
-                                                draw_text +: {
-                                                    color: ouyu.warm
-                                                    text_style +: { font_size: 17.0 }
-                                                }
-                                            }
-                                            ms_state := Label {
-                                                text: "等自然发生"
-                                                draw_text +: {
-                                                    color: ouyu.ink_4
-                                                    text_style +: { font_size: 12.5 }
-                                                }
-                                            }
-                                        }
-                                        ms_title := Label {
-                                            text: "生活有回响"
-                                            draw_text +: {
-                                                color: ouyu.ink
-                                                text_style +: { font_size: 13.0 }
-                                            }
-                                        }
-                                        ms_desc := Label {
-                                            text: "记住三次相遇"
-                                            draw_text +: {
-                                                color: ouyu.ink_2
-                                                text_style +: { font_size: 12.5 }
-                                            }
-                                        }
-                                    }
-                                    ms2 := OuyuCard {
-                                        width: Fill height: Fit
-                                        flow: Down
-                                        padding: 14.0
-                                        spacing: 6.0
-                                        ms_top := View {
-                                            width: Fill height: Fit
-                                            flow: Right
-                                            align: Align{x: 0.0, y: 0.5}
-                                            ms_icon := Label {
-                                                width: Fill
-                                                text: "☆"
-                                                draw_text +: {
-                                                    color: ouyu.warm
-                                                    text_style +: { font_size: 17.0 }
-                                                }
-                                            }
-                                            ms_state := Label {
-                                                text: "等自然发生"
-                                                draw_text +: {
-                                                    color: ouyu.ink_4
-                                                    text_style +: { font_size: 12.5 }
-                                                }
-                                            }
-                                        }
-                                        ms_title := Label {
-                                            text: "把日常过成故事"
-                                            draw_text +: {
-                                                color: ouyu.ink
-                                                text_style +: { font_size: 13.0 }
-                                            }
-                                        }
-                                        ms_desc := Label {
-                                            text: "七个有相遇的日子"
-                                            draw_text +: {
-                                                color: ouyu.ink_2
-                                                text_style +: { font_size: 12.5 }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            // 分享入口。
-                            share_card := OuyuCard {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                padding: 18.0
                                 spacing: 12.0
-                                share_text := View {
+                                tc_head := View {
+                                    width: Fill height: Fit
+                                    flow: Right
+                                    align: Align{x: 0.0, y: 0.5}
+                                    spacing: 8.0
+                                    tc_title := OuyuH3 { width: Fill text: "什么时候出门？" }
+                                }
+                                seg_track := OuyuSegTrack {
+                                    sg0 := OuyuSeg { text: "今天" }
+                                    sg1 := OuyuSeg { text: "明天" }
+                                    sg2 := OuyuSeg { text: "本周" }
+                                }
+                                day_strip := View {
+                                    width: Fill height: Fit
+                                    flow: Right
+                                    spacing: 3.0
+                                    d0 := OuyuDay { text: "今天" draw_icon +: { svg: crate_resource("self:resources/icons/dot.svg") } }
+                                    d1 := OuyuDay { text: "明天" draw_icon +: { svg: crate_resource("self:resources/icons/dot.svg") } }
+                                    d2 := OuyuDay { text: "后天" draw_icon +: { svg: crate_resource("self:resources/icons/dot.svg") } }
+                                    d3 := OuyuDay { text: "周四" draw_icon +: { svg: crate_resource("self:resources/icons/dot.svg") } }
+                                    d4 := OuyuDay { text: "周五" draw_icon +: { svg: crate_resource("self:resources/icons/dot.svg") } }
+                                    d5 := OuyuDay { text: "周六" draw_icon +: { svg: crate_resource("self:resources/icons/dot.svg") } }
+                                    d6 := OuyuDay { text: "周日" draw_icon +: { svg: crate_resource("self:resources/icons/dot.svg") } }
+                                }
+                            }
+
+                            // 排行：这一天最可能遇见的地方。分档，不是人数。
+                            rank_card := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: Inset{left: 6.0, right: 6.0, top: 16.0, bottom: 14.0}
+                                spacing: 8.0
+                                rk_head := View {
+                                    width: Fill height: Fit
+                                    flow: Right
+                                    align: Align{x: 0.0, y: 0.5}
+                                    padding: Inset{left: 12.0, right: 12.0}
+                                    spacing: 8.0
+                                    rk_title := OuyuH2 { width: Fill text: "最可能遇见的地方" }
+                                }
+                                rk_note := OuyuMuted {
+                                    visible: false
+                                    width: Fill
+                                    margin: Inset{left: 12.0, right: 12.0, bottom: 2.0}
+                                    text: ""
+                                }
+                                rk_list := View {
                                     width: Fill height: Fit
                                     flow: Down
-                                    spacing: 6.0
-                                    share_t := Label {
-                                        width: Fill
-                                        text: "把生活里的偶然，分享给朋友。"
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: ouyu.ink
-                                            text_style +: { font_size: 15.0 line_spacing: 1.35 }
-                                        }
-                                    }
-                                    share_b := Label {
-                                        width: Fill
-                                        text: "分享卡只有你的汇总，没有别人的身份。"
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: ouyu.ink_2
-                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                        }
-                                    }
+                                    spacing: 4.0
+                                    rk0 := OuyuAreaRow { }
+                                    rk1 := OuyuAreaRow { }
+                                    rk2 := OuyuAreaRow { }
+                                    rk3 := OuyuAreaRow { }
+                                    rk4 := OuyuAreaRow { }
+                                    rk5 := OuyuAreaRow { }
                                 }
-                                sh_go := OuyuBtnPrimary { text: "生成分享卡" draw_icon +: { svg: crate_resource("self:resources/icons/share.svg") } }
-                            }
-                        }
-
-                        // ---- ① 选人 ----
-                        meet_pick := View {
-                            visible: false
-                            width: Fill height: Fit
-                            flow: Down
-                            spacing: 10.0
-                            pick_back := OuyuLink {
-                                width: Fit
-                                text: "返回"
-                                draw_icon +: { svg: crate_resource("self:resources/icons/chevron-left.svg") }
-                            }
-                            pick_card := OuyuCard {
-                                width: Fill height: Fit
-                                flow: Down
-                                padding: Inset{left: 6.0, right: 6.0, top: 14.0, bottom: 14.0}
-                                spacing: 4.0
-                                pc_label := Label {
-                                    width: Fill
-                                    margin: Inset{left: 12.0, right: 12.0, bottom: 4.0}
-                                    text: "在场的是谁？"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                mr0 := OuyuPersonRow { }
-                                mr1 := OuyuPersonRow { }
-                                mr2 := OuyuPersonRow { }
-                                mr3 := OuyuPersonRow { }
-                                mr4 := OuyuPersonRow { }
-                                mr5 := OuyuPersonRow { }
-                                pc_empty := Label {
+                                rk_empty := OuyuEmpty {
                                     visible: false
-                                    width: Fill
-                                    margin: Inset{left: 12.0, right: 12.0}
-                                    text: "还没有熟人，先到「熟人」页导入。"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                    em_icon := OuyuIcon {
+                                        icon_walk: Walk{ width: 28.0 height: Fit }
+                                        draw_icon +: { svg: crate_resource("self:resources/icons/nav-discover.svg") color: ouyu.ink_ghost }
+                                    }
+                                    em_text := Label {
+                                        width: Fit
+                                        text: "这一天还没有足够的机会"
+                                        draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
                                     }
                                 }
-                            }
-                            pick_go := OuyuBtnPrimary {
-                                width: Fill
-                                text: "确认相遇"
-                                draw_icon +: { svg: crate_resource("self:resources/icons/chevron-right.svg") }
-                            }
-                            // 不确认也能留一笔：做成不起眼的文字链接，不跟主按钮抢。
-                            pick_plain := OuyuLink {
-                                width: Fill
-                                text: "本次不确认，只记一笔"
-                            }
-                            pick_done := Label {
-                                visible: false
-                                width: Fill
-                                text: "已记住这次相遇"
-                                draw_text +: {
-                                    color: ouyu.good
-                                    text_style +: { font_size: 12.5 }
+                                rk_more_head := OuyuGroupHead {
+                                    margin: Inset{left: 12.0, right: 12.0, top: 8.0, bottom: 2.0}
+                                    text: "其它片区"
                                 }
-                            }
-                        }
-
-                        // ---- ② 定位门槛（硬门槛：不授权就不建会话）----
-                        meet_gate := View {
-                            visible: false
-                            width: Fill height: Fit
-                            flow: Down
-                            spacing: 12.0
-                            gate_card := OuyuCard {
-                                width: Fill height: Fit
-                                flow: Down
-                                padding: 18.0
-                                spacing: 10.0
-                                gt_icon := OuyuIconWarm {
-                                    icon_walk: Walk{ width: 26.0 height: Fit }
-                                    draw_icon +: { svg: crate_resource("self:resources/icons/location.svg") }
-                                }
-                                gt_title := Label {
-                                    width: Fill
-                                    text: "需要定位一次，确认你们在同一个地方"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink
-                                        text_style +: { font_size: 18.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                gt_why := Label {
-                                    width: Fill
-                                    text: "相遇礼只发给真的在同一处碰上的两个人。"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                gt_how := Label {
-                                    width: Fill
-                                    text: "只在你点确认的那一刻读一次。"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                gt_where := Label {
-                                    width: Fill
-                                    text: "只用来比对是否同地，比对完即丢弃，不上传不留存。"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                gt_row := View {
+                                rk_more := View {
                                     width: Fill height: Fit
-                                    flow: Right{wrap: true}
-                                    wrap_spacing: 8.0
-                                    spacing: 8.0
-                                    gate_allow := OuyuBtnPrimary { text: "开启定位并确认" }
-                                    gate_deny := OuyuBtn { text: "暂不开启" }
+                                    flow: Down
+                                    spacing: 4.0
+                                    rm0 := OuyuAreaRow { }
+                                    rm1 := OuyuAreaRow { }
+                                    rm2 := OuyuAreaRow { }
                                 }
-                                gt_denied := Label {
-                                    visible: false
-                                    width: Fill
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.warm
-                                        text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                gt_alt := View {
-                                    visible: false
-                                    width: Fill height: Fit
-                                    flow: Right{wrap: true}
-                                    wrap_spacing: 8.0
-                                    spacing: 8.0
-                                    gate_plain := OuyuBtn { text: "只记一笔回忆" }
-                                }
-                                gate_cancel := OuyuLink { width: Fit text: "返回" }
-                            }
-                        }
-
-                        // ---- ③ 等待对方确认 ----
-                        meet_wait := View {
-                            visible: false
-                            width: Fill height: Fit
-                            flow: Down
-                            spacing: 12.0
-                            wait_card := OuyuCard {
-                                width: Fill height: Fit
-                                flow: Down
-                                align: Align{x: 0.5, y: 0.0}
-                                padding: 18.0
-                                spacing: 12.0
-                                wt_ring := OuyuRing { }
-                                wt_title := Label {
-                                    width: Fill
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink
-                                        text_style +: { font_size: 17.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                wt_count := Label {
-                                    width: Fill
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.warm
-                                        text_style +: { font_size: 15.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                wt_note := Label {
-                                    width: Fill
-                                    text: "没有已读和在线状态。"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                    }
-                                }
-                                wt_more := OuyuLink { width: Fit text: "对方没有偶遇？" }
-                                wt_fold := View {
+                                sign_card := OuyuCard2 {
                                     visible: false
                                     width: Fill height: Fit
                                     flow: Down
+                                    margin: Inset{left: 12.0, right: 12.0, top: 8.0}
+                                    padding: 14.0
                                     spacing: 6.0
-                                    wf_tip := Label {
-                                        width: Fill
-                                        text: "让对方输入这串码，或打开链接："
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: ouyu.ink_2
-                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                        }
-                                    }
-                                    wf_code := Label {
-                                        width: Fill
-                                        text: ""
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: ouyu.ink
-                                            text_style +: { font_size: 26.0 line_spacing: 1.35 }
-                                        }
-                                    }
-                                    wf_url := Label {
-                                        width: Fill
-                                        text: ""
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: ouyu.blue
-                                            text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                        }
-                                    }
+                                    sign_title := OuyuWarmText { text: "城市小签" }
+                                    sign_text := OuyuBody { width: Fill text: "今天的小签：去一家没进过的书店，只翻三页。" }
+                                    sign_note := OuyuMuted { width: Fill text: "与他人行程无关。" }
                                 }
-                                wt_cancel := OuyuLink { width: Fit text: "取消本次确认" }
                             }
                         }
 
-                        // ---- ④ 结果（成功与五条异常共用）----
-                        meet_result := View {
-                            visible: false
-                            width: Fill height: Fit
-                            flow: Down
-                            spacing: 12.0
-                            res_card := OuyuCard {
-                                width: Fill height: Fit
-                                flow: Down
-                                padding: 18.0
-                                spacing: 8.0
-                                rs_mark := View {
-                                    width: Fit height: Fit
-                                    rs_ok := View {
-                                        width: Fit height: Fit
-                                        rs_ok_icon := OuyuIcon {
-                                            icon_walk: Walk{ width: 40.0 height: Fit }
-                                            draw_icon +: { svg: crate_resource("self:resources/icons/check-circle.svg") color: ouyu.good }
-                                        }
-                                    }
-                                    rs_no := View {
-                                        visible: false
-                                        width: Fit height: Fit
-                                        rs_no_icon := OuyuIcon {
-                                            icon_walk: Walk{ width: 40.0 height: Fit }
-                                            draw_icon +: { svg: crate_resource("self:resources/icons/alert-circle.svg") color: ouyu.warm }
-                                        }
-                                    }
-                                }
-                                rs_title := Label {
-                                    width: Fill
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink
-                                        text_style +: { font_size: 18.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                rs_sub := Label {
-                                    width: Fill
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                    }
-                                }
-                            }
-                            coupon_card := RoundedView {
-                                visible: false
-                                width: Fill height: Fit
-                                flow: Down
-                                padding: 18.0
-                                spacing: 10.0
-                                draw_bg +: {
-                                    color: ouyu.coupon
-                                    border_radius: r.card
-                                }
-                                ck_head := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    spacing: 8.0
-                                    ck_venue := Label {
-                                        width: Fill
-                                        text: ""
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: ouyu.on_warm
-                                            text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                        }
-                                    }
-                                    ck_badge := Label {
-                                        text: "相遇礼"
-                                        draw_text +: {
-                                            color: ouyu.on_warm
-                                            text_style +: { font_size: 11.0 }
-                                        }
-                                    }
-                                }
-                                ck_offer := Label {
-                                    width: Fill
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.on_warm_hi
-                                        text_style +: { font_size: 24.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                ck_terms := Label {
-                                    width: Fill
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.on_warm
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                    }
-                                }
-                                ck_meta := View {
-                                    width: Fill height: Fit
-                                    flow: Right{wrap: true}
-                                    wrap_spacing: 6.0
-                                    spacing: 12.0
-                                    ck_token := Label {
-                                        text: ""
-                                        draw_text +: {
-                                            color: ouyu.on_warm_hi
-                                            text_style +: { font_size: 13.0 }
-                                        }
-                                    }
-                                    ck_expiry := Label {
-                                        text: ""
-                                        draw_text +: {
-                                            color: ouyu.on_warm
-                                            text_style +: { font_size: 13.0 }
-                                        }
-                                    }
-                                }
-                                ck_status := Label {
-                                    width: Fill
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.on_warm_hi
-                                        text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                ck_row := View {
-                                    width: Fill height: Fit
-                                    flow: Right{wrap: true}
-                                    wrap_spacing: 8.0
-                                    spacing: 8.0
-                                    ck_redeem := OuyuBtnWarm { text: "到店核销" }
-                                }
-                            }
-                            shops_card := OuyuCard {
-                                visible: false
-                                width: Fill height: Fit
-                                flow: Down
-                                padding: 18.0
-                                spacing: 2.0
-                                sv_head := Label {
-                                    width: Fill
-                                    text: "可用门店"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                sv0 := OuyuShopRow { }
-                                sv1 := OuyuShopRow { }
-                                sv2 := OuyuShopRow { }
-                                sv_note := Label {
-                                    width: Fill
-                                    text: "只给大致远近，不给米数。"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink_3
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                    }
-                                }
-                            }
-                            choice_card := OuyuCard {
-                                visible: false
-                                width: Fill height: Fit
-                                flow: Down
-                                padding: 18.0
-                                spacing: 10.0
-                                mc_label := Label {
-                                    width: Fill
-                                    text: "这次回忆怎么留？"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                choice_row := View {
-                                    width: Fill height: Fit
-                                    flow: Right{wrap: true}
-                                    wrap_spacing: 8.0
-                                    spacing: 8.0
-                                    ch_save := OuyuChip { text: "保存" }
-                                    ch_hidden := OuyuChip { text: "隐藏" }
-                                    ch_skip := OuyuChip { text: "不保存" }
-                                }
-                                ch_note := Label {
-                                    width: Fill
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                    }
-                                }
-                            }
-                            res_row := View {
-                                width: Fill height: Fit
-                                flow: Right{wrap: true}
-                                wrap_spacing: 8.0
-                                spacing: 8.0
-                                rs_finish := OuyuBtnPrimary { text: "完成" }
-                                rs_retry := OuyuBtn { visible: false text: "再试一次" }
-                                rs_plain := OuyuBtn { visible: false text: "只记一笔回忆" }
-                            }
-                        }
-                    }
-
-                    // ---- 熟人页 ----
-                    page_contacts := OuyuScrollY {
-                        visible: false
-                        width: Fill height: Fill
-                        flow: Down
-                        spacing: 14.0
-                        ct_card := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: 18.0
-                            spacing: 12.0
-                            ct_head := View {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                ct_head_text := Label {
-                                    width: Fill
-                                    text: "我的熟人 · 3 位"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink
-                                        text_style +: { font_size: 18.0 line_spacing: 1.35 }
-                                    }
-                                }
-                            }
-                            // 「+」点开的导入菜单：就地展开在头部下面，
-                            // 选完一条自动收起。
-                            ct_menu_row := View {
-                                visible: false
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 1.0, y: 0.0}
-                                ct_menu := OuyuMenu {
-                                    im_local := OuyuMenuItem {
-                                        text: "从本机导入"
-                                        draw_icon +: { svg: crate_resource("self:resources/icons/nav-contacts.svg") }
-                                    }
-                                    im_file := OuyuMenuItem {
-                                        text: "从文件导入"
-                                        draw_icon +: { svg: crate_resource("self:resources/icons/download.svg") }
-                                    }
-                                }
-                            }
-                            // 手动添加：不是每个人都愿意让应用读整本通讯录，
-                            // 也不是每个熟人都在通讯录里。
-                            ct_add := View {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                spacing: 8.0
-                                ca_input := OuyuInput {
-                                    empty_text: "写一个称呼，比如「老陈」"
-                                }
-                                ca_btn := OuyuBtn { text: "添加" }
-                            }
-                            ca_err := Label {
-                                visible: false
-                                width: Fill
-                                text: ""
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.bad
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                }
-                            }
-                            // 合并模式下的说明条。
-                            ct_merge_bar := View {
-                                visible: false
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                spacing: 8.0
-                                cm_text := Label {
-                                    width: Fill
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.warm
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                    }
-                                }
-                                cm_cancel := OuyuBtn { text: "取消合并" }
-                            }
-                            cl0 := OuyuGroupHead { visible: false text: "" }
-                            ct0 := View {
-                                width: Fill height: Fit
-                                flow: Down
-                                spacing: 8.0
-                                // 一个熟人两行封顶：名字和次数一行，四个动作
-                                // 一行。宽屏上 c_main 仍是一条 Right，两半并排
-                                // 成一行；手机上 apply_shaping 把它翻成 Down，
-                                // 于是恰好两行 —— 而不是让四个按钮自己乱换行。
-                                c_main := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    spacing: 10.0
-                                    c_top := View {
-                                        width: Fill height: Fit
-                                        flow: Right
-                                        align: Align{x: 0.0, y: 0.5}
-                                        spacing: 8.0
-                                        c_name := Label {
-                                            width: Fit
-                                            draw_text +: {
-                                                text_overflow: TextOverflow.Ellipsis
-                                                max_lines: 1
-                                                color: ouyu.ink
-                                                text_style +: { font_size: 14.0 }
-                                            }
-                                        }
-                                        c_count := Label {
-                                            width: Fill
-                                            draw_text +: {
-                                                text_overflow: TextOverflow.Ellipsis
-                                                max_lines: 1
-                                                color: ouyu.ink_2
-                                                text_style +: { font_size: 12.5 }
-                                            }
-                                        }
-                                    }
-                                    c_acts := View {
-                                        width: Fit height: Fit
-                                        flow: Right
-                                        align: Align{x: 0.0, y: 0.5}
-                                        spacing: 6.0
-                                        c_view := OuyuBtnSm { text: "回忆" }
-                                        c_merge := OuyuBtnSm { text: "合并" }
-                                        c_delmem := OuyuBtnSm { text: "清空回忆" }
-                                        c_del := OuyuBtnDangerSm { text: "删除" }
-                                    }
-                                }
-                                c_confirm := View {
-                                    visible: false
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    spacing: 8.0
-                                    c_also := OuyuChip { visible: false text: "同时删除回忆" }
-                                    c_ctext := Label {
-                                        width: Fill
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: ouyu.bad
-                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                        }
-                                    }
-                                    c_yes := OuyuBtnDanger { text: "确认删除" }
-                                    c_no := OuyuBtn { text: "取消" }
-                                }
-                            }
-                            cl1 := OuyuGroupHead { visible: false text: "" }
-                            ct1 := View {
-                                width: Fill height: Fit
-                                flow: Down
-                                spacing: 8.0
-                                // 一个熟人两行封顶：名字和次数一行，四个动作
-                                // 一行。宽屏上 c_main 仍是一条 Right，两半并排
-                                // 成一行；手机上 apply_shaping 把它翻成 Down，
-                                // 于是恰好两行 —— 而不是让四个按钮自己乱换行。
-                                c_main := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    spacing: 10.0
-                                    c_top := View {
-                                        width: Fill height: Fit
-                                        flow: Right
-                                        align: Align{x: 0.0, y: 0.5}
-                                        spacing: 8.0
-                                        c_name := Label {
-                                            width: Fit
-                                            draw_text +: {
-                                                text_overflow: TextOverflow.Ellipsis
-                                                max_lines: 1
-                                                color: ouyu.ink
-                                                text_style +: { font_size: 14.0 }
-                                            }
-                                        }
-                                        c_count := Label {
-                                            width: Fill
-                                            draw_text +: {
-                                                text_overflow: TextOverflow.Ellipsis
-                                                max_lines: 1
-                                                color: ouyu.ink_2
-                                                text_style +: { font_size: 12.5 }
-                                            }
-                                        }
-                                    }
-                                    c_acts := View {
-                                        width: Fit height: Fit
-                                        flow: Right
-                                        align: Align{x: 0.0, y: 0.5}
-                                        spacing: 6.0
-                                        c_view := OuyuBtnSm { text: "回忆" }
-                                        c_merge := OuyuBtnSm { text: "合并" }
-                                        c_delmem := OuyuBtnSm { text: "清空回忆" }
-                                        c_del := OuyuBtnDangerSm { text: "删除" }
-                                    }
-                                }
-                                c_confirm := View {
-                                    visible: false
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    spacing: 8.0
-                                    c_also := OuyuChip { visible: false text: "同时删除回忆" }
-                                    c_ctext := Label {
-                                        width: Fill
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: ouyu.bad
-                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                        }
-                                    }
-                                    c_yes := OuyuBtnDanger { text: "确认删除" }
-                                    c_no := OuyuBtn { text: "取消" }
-                                }
-                            }
-                            cl2 := OuyuGroupHead { visible: false text: "" }
-                            ct2 := View {
-                                width: Fill height: Fit
-                                flow: Down
-                                spacing: 8.0
-                                // 一个熟人两行封顶：名字和次数一行，四个动作
-                                // 一行。宽屏上 c_main 仍是一条 Right，两半并排
-                                // 成一行；手机上 apply_shaping 把它翻成 Down，
-                                // 于是恰好两行 —— 而不是让四个按钮自己乱换行。
-                                c_main := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    spacing: 10.0
-                                    c_top := View {
-                                        width: Fill height: Fit
-                                        flow: Right
-                                        align: Align{x: 0.0, y: 0.5}
-                                        spacing: 8.0
-                                        c_name := Label {
-                                            width: Fit
-                                            draw_text +: {
-                                                text_overflow: TextOverflow.Ellipsis
-                                                max_lines: 1
-                                                color: ouyu.ink
-                                                text_style +: { font_size: 14.0 }
-                                            }
-                                        }
-                                        c_count := Label {
-                                            width: Fill
-                                            draw_text +: {
-                                                text_overflow: TextOverflow.Ellipsis
-                                                max_lines: 1
-                                                color: ouyu.ink_2
-                                                text_style +: { font_size: 12.5 }
-                                            }
-                                        }
-                                    }
-                                    c_acts := View {
-                                        width: Fit height: Fit
-                                        flow: Right
-                                        align: Align{x: 0.0, y: 0.5}
-                                        spacing: 6.0
-                                        c_view := OuyuBtnSm { text: "回忆" }
-                                        c_merge := OuyuBtnSm { text: "合并" }
-                                        c_delmem := OuyuBtnSm { text: "清空回忆" }
-                                        c_del := OuyuBtnDangerSm { text: "删除" }
-                                    }
-                                }
-                                c_confirm := View {
-                                    visible: false
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    spacing: 8.0
-                                    c_also := OuyuChip { visible: false text: "同时删除回忆" }
-                                    c_ctext := Label {
-                                        width: Fill
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: ouyu.bad
-                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                        }
-                                    }
-                                    c_yes := OuyuBtnDanger { text: "确认删除" }
-                                    c_no := OuyuBtn { text: "取消" }
-                                }
-                            }
-                            cl3 := OuyuGroupHead { visible: false text: "" }
-                            ct3 := View {
-                                width: Fill height: Fit
-                                flow: Down
-                                spacing: 8.0
-                                // 一个熟人两行封顶：名字和次数一行，四个动作
-                                // 一行。宽屏上 c_main 仍是一条 Right，两半并排
-                                // 成一行；手机上 apply_shaping 把它翻成 Down，
-                                // 于是恰好两行 —— 而不是让四个按钮自己乱换行。
-                                c_main := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    spacing: 10.0
-                                    c_top := View {
-                                        width: Fill height: Fit
-                                        flow: Right
-                                        align: Align{x: 0.0, y: 0.5}
-                                        spacing: 8.0
-                                        c_name := Label {
-                                            width: Fit
-                                            draw_text +: {
-                                                text_overflow: TextOverflow.Ellipsis
-                                                max_lines: 1
-                                                color: ouyu.ink
-                                                text_style +: { font_size: 14.0 }
-                                            }
-                                        }
-                                        c_count := Label {
-                                            width: Fill
-                                            draw_text +: {
-                                                text_overflow: TextOverflow.Ellipsis
-                                                max_lines: 1
-                                                color: ouyu.ink_2
-                                                text_style +: { font_size: 12.5 }
-                                            }
-                                        }
-                                    }
-                                    c_acts := View {
-                                        width: Fit height: Fit
-                                        flow: Right
-                                        align: Align{x: 0.0, y: 0.5}
-                                        spacing: 6.0
-                                        c_view := OuyuBtnSm { text: "回忆" }
-                                        c_merge := OuyuBtnSm { text: "合并" }
-                                        c_delmem := OuyuBtnSm { text: "清空回忆" }
-                                        c_del := OuyuBtnDangerSm { text: "删除" }
-                                    }
-                                }
-                                c_confirm := View {
-                                    visible: false
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    spacing: 8.0
-                                    c_also := OuyuChip { visible: false text: "同时删除回忆" }
-                                    c_ctext := Label {
-                                        width: Fill
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: ouyu.bad
-                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                        }
-                                    }
-                                    c_yes := OuyuBtnDanger { text: "确认删除" }
-                                    c_no := OuyuBtn { text: "取消" }
-                                }
-                            }
-                            cl4 := OuyuGroupHead { visible: false text: "" }
-                            ct4 := View {
-                                width: Fill height: Fit
-                                flow: Down
-                                spacing: 8.0
-                                // 一个熟人两行封顶：名字和次数一行，四个动作
-                                // 一行。宽屏上 c_main 仍是一条 Right，两半并排
-                                // 成一行；手机上 apply_shaping 把它翻成 Down，
-                                // 于是恰好两行 —— 而不是让四个按钮自己乱换行。
-                                c_main := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    spacing: 10.0
-                                    c_top := View {
-                                        width: Fill height: Fit
-                                        flow: Right
-                                        align: Align{x: 0.0, y: 0.5}
-                                        spacing: 8.0
-                                        c_name := Label {
-                                            width: Fit
-                                            draw_text +: {
-                                                text_overflow: TextOverflow.Ellipsis
-                                                max_lines: 1
-                                                color: ouyu.ink
-                                                text_style +: { font_size: 14.0 }
-                                            }
-                                        }
-                                        c_count := Label {
-                                            width: Fill
-                                            draw_text +: {
-                                                text_overflow: TextOverflow.Ellipsis
-                                                max_lines: 1
-                                                color: ouyu.ink_2
-                                                text_style +: { font_size: 12.5 }
-                                            }
-                                        }
-                                    }
-                                    c_acts := View {
-                                        width: Fit height: Fit
-                                        flow: Right
-                                        align: Align{x: 0.0, y: 0.5}
-                                        spacing: 6.0
-                                        c_view := OuyuBtnSm { text: "回忆" }
-                                        c_merge := OuyuBtnSm { text: "合并" }
-                                        c_delmem := OuyuBtnSm { text: "清空回忆" }
-                                        c_del := OuyuBtnDangerSm { text: "删除" }
-                                    }
-                                }
-                                c_confirm := View {
-                                    visible: false
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    spacing: 8.0
-                                    c_also := OuyuChip { visible: false text: "同时删除回忆" }
-                                    c_ctext := Label {
-                                        width: Fill
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: ouyu.bad
-                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                        }
-                                    }
-                                    c_yes := OuyuBtnDanger { text: "确认删除" }
-                                    c_no := OuyuBtn { text: "取消" }
-                                }
-                            }
-                            cl5 := OuyuGroupHead { visible: false text: "" }
-                            ct5 := View {
-                                width: Fill height: Fit
-                                flow: Down
-                                spacing: 8.0
-                                // 一个熟人两行封顶：名字和次数一行，四个动作
-                                // 一行。宽屏上 c_main 仍是一条 Right，两半并排
-                                // 成一行；手机上 apply_shaping 把它翻成 Down，
-                                // 于是恰好两行 —— 而不是让四个按钮自己乱换行。
-                                c_main := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    spacing: 10.0
-                                    c_top := View {
-                                        width: Fill height: Fit
-                                        flow: Right
-                                        align: Align{x: 0.0, y: 0.5}
-                                        spacing: 8.0
-                                        c_name := Label {
-                                            width: Fit
-                                            draw_text +: {
-                                                text_overflow: TextOverflow.Ellipsis
-                                                max_lines: 1
-                                                color: ouyu.ink
-                                                text_style +: { font_size: 14.0 }
-                                            }
-                                        }
-                                        c_count := Label {
-                                            width: Fill
-                                            draw_text +: {
-                                                text_overflow: TextOverflow.Ellipsis
-                                                max_lines: 1
-                                                color: ouyu.ink_2
-                                                text_style +: { font_size: 12.5 }
-                                            }
-                                        }
-                                    }
-                                    c_acts := View {
-                                        width: Fit height: Fit
-                                        flow: Right
-                                        align: Align{x: 0.0, y: 0.5}
-                                        spacing: 6.0
-                                        c_view := OuyuBtnSm { text: "回忆" }
-                                        c_merge := OuyuBtnSm { text: "合并" }
-                                        c_delmem := OuyuBtnSm { text: "清空回忆" }
-                                        c_del := OuyuBtnDangerSm { text: "删除" }
-                                    }
-                                }
-                                c_confirm := View {
-                                    visible: false
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    spacing: 8.0
-                                    c_also := OuyuChip { visible: false text: "同时删除回忆" }
-                                    c_ctext := Label {
-                                        width: Fill
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: ouyu.bad
-                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                        }
-                                    }
-                                    c_yes := OuyuBtnDanger { text: "确认删除" }
-                                    c_no := OuyuBtn { text: "取消" }
-                                }
-                            }
-                            ct_empty := OuyuEmpty {
-                                visible: false
-                                em_icon := OuyuIcon {
-                                    icon_walk: Walk{ width: 28.0 height: Fit }
-                                    draw_icon +: { svg: crate_resource("self:resources/icons/nav-contacts.svg") color: ouyu.ink_ghost }
-                                }
-                                em_text := Label {
-                                    width: Fit
-                                    text: "还没有熟人"
-                                    draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
-                                }
-                            }
-                        }
-                    }
-
-                    // ---- 回忆页 ----
-                    page_memories := OuyuScrollY {
-                        visible: false
-                        width: Fill height: Fill
-                        flow: Down
-                        spacing: 14.0
-
-                        filt_row := View {
-                            width: Fill height: Fit
-                            flow: Right{wrap: true}
-                            wrap_spacing: 8.0
-                            spacing: 8.0
-                            filt_all := OuyuChip { text: "全部" }
-                            filt0 := OuyuChip { text: "" }
-                            filt1 := OuyuChip { text: "" }
-                            filt2 := OuyuChip { text: "" }
-                            filt3 := OuyuChip { text: "" }
-                            filt4 := OuyuChip { text: "" }
-                            filt5 := OuyuChip { text: "" }
-                        }
-                        mm_bar := View {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            spacing: 8.0
-                            mm_search := OuyuInput {
-                                empty_text: "搜称呼或备注"
-                            }
-                        }
-                        // 搜索中显示：说清楚为什么有些东西搜不到。
-                        mm_hidden_note := Label {
-                            visible: false
-                            width: Fill
-                            text: "隐藏的回忆不参与搜索。"
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.ink_3
-                                text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                            }
-                        }
-                        sec_mem := Label {
-                            text: "回忆"
-                            draw_text +: {
-                                color: ouyu.ink_2
-                                text_style +: { font_size: 13.0 }
-                            }
-                        }
-                        mh0 := OuyuGroupHead { visible: false text: "" }
-                        mem0 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 14.0
-                            spacing: 10.0
-                            m_date := Label {
-                                width: 104
-                                draw_text +: {
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 }
-                                }
-                            }
-                            m_text := Label {
-                                width: Fill
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            m_open := OuyuBtn { text: "打开" }
-                        }
-                        mh1 := OuyuGroupHead { visible: false text: "" }
-                        mem1 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 14.0
-                            spacing: 10.0
-                            m_date := Label {
-                                width: 104
-                                draw_text +: {
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 }
-                                }
-                            }
-                            m_text := Label {
-                                width: Fill
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            m_open := OuyuBtn { text: "打开" }
-                        }
-                        mh2 := OuyuGroupHead { visible: false text: "" }
-                        mem2 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 14.0
-                            spacing: 10.0
-                            m_date := Label {
-                                width: 104
-                                draw_text +: {
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 }
-                                }
-                            }
-                            m_text := Label {
-                                width: Fill
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            m_open := OuyuBtn { text: "打开" }
-                        }
-                        mh3 := OuyuGroupHead { visible: false text: "" }
-                        mem3 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 14.0
-                            spacing: 10.0
-                            m_date := Label {
-                                width: 104
-                                draw_text +: {
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 }
-                                }
-                            }
-                            m_text := Label {
-                                width: Fill
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            m_open := OuyuBtn { text: "打开" }
-                        }
-                        mh4 := OuyuGroupHead { visible: false text: "" }
-                        mem4 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 14.0
-                            spacing: 10.0
-                            m_date := Label {
-                                width: 104
-                                draw_text +: {
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 }
-                                }
-                            }
-                            m_text := Label {
-                                width: Fill
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            m_open := OuyuBtn { text: "打开" }
-                        }
-                        mh5 := OuyuGroupHead { visible: false text: "" }
-                        mem5 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 14.0
-                            spacing: 10.0
-                            m_date := Label {
-                                width: 104
-                                draw_text +: {
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 }
-                                }
-                            }
-                            m_text := Label {
-                                width: Fill
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            m_open := OuyuBtn { text: "打开" }
-                        }
-                        mh6 := OuyuGroupHead { visible: false text: "" }
-                        mem6 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 14.0
-                            spacing: 10.0
-                            m_date := Label {
-                                width: 104
-                                draw_text +: {
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 }
-                                }
-                            }
-                            m_text := Label {
-                                width: Fill
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            m_open := OuyuBtn { text: "打开" }
-                        }
-                        mh7 := OuyuGroupHead { visible: false text: "" }
-                        mem7 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 14.0
-                            spacing: 10.0
-                            m_date := Label {
-                                width: 104
-                                draw_text +: {
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 }
-                                }
-                            }
-                            m_text := Label {
-                                width: Fill
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            m_open := OuyuBtn { text: "打开" }
-                        }
-                        mem_empty := OuyuEmpty {
-                            visible: false
-                            em_icon := OuyuIcon {
-                                icon_walk: Walk{ width: 28.0 height: Fit }
-                                draw_icon +: { svg: crate_resource("self:resources/icons/nav-memories.svg") color: ouyu.ink_ghost }
-                            }
-                            em_text := Label {
-                                width: Fit
-                                text: "这里暂时留白"
-                                draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
-                            }
-                        }
-                        sec_hid := Label {
-                            width: Fill
-                            text: "已隐藏"
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.ink_2
-                                text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                            }
-                        }
-                        hh0 := OuyuGroupHead { visible: false text: "" }
-                        hid0 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 14.0
-                            spacing: 10.0
-                            m_date := Label {
-                                width: 104
-                                draw_text +: {
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 }
-                                }
-                            }
-                            m_text := Label {
-                                width: Fill
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            m_open := OuyuBtn { text: "打开" }
-                        }
-                        hh1 := OuyuGroupHead { visible: false text: "" }
-                        hid1 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 14.0
-                            spacing: 10.0
-                            m_date := Label {
-                                width: 104
-                                draw_text +: {
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 }
-                                }
-                            }
-                            m_text := Label {
-                                width: Fill
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            m_open := OuyuBtn { text: "打开" }
-                        }
-                        hh2 := OuyuGroupHead { visible: false text: "" }
-                        hid2 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 14.0
-                            spacing: 10.0
-                            m_date := Label {
-                                width: 104
-                                draw_text +: {
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 }
-                                }
-                            }
-                            m_text := Label {
-                                width: Fill
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            m_open := OuyuBtn { text: "打开" }
-                        }
-                        hh3 := OuyuGroupHead { visible: false text: "" }
-                        hid3 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 14.0
-                            spacing: 10.0
-                            m_date := Label {
-                                width: 104
-                                draw_text +: {
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 }
-                                }
-                            }
-                            m_text := Label {
-                                width: Fill
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            m_open := OuyuBtn { text: "打开" }
-                        }
-                        hh4 := OuyuGroupHead { visible: false text: "" }
-                        hid4 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 14.0
-                            spacing: 10.0
-                            m_date := Label {
-                                width: 104
-                                draw_text +: {
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 }
-                                }
-                            }
-                            m_text := Label {
-                                width: Fill
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            m_open := OuyuBtn { text: "打开" }
-                        }
-                        hh5 := OuyuGroupHead { visible: false text: "" }
-                        hid5 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 14.0
-                            spacing: 10.0
-                            m_date := Label {
-                                width: 104
-                                draw_text +: {
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 }
-                                }
-                            }
-                            m_text := Label {
-                                width: Fill
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            m_open := OuyuBtn { text: "打开" }
-                        }
-                        hh6 := OuyuGroupHead { visible: false text: "" }
-                        hid6 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 14.0
-                            spacing: 10.0
-                            m_date := Label {
-                                width: 104
-                                draw_text +: {
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 }
-                                }
-                            }
-                            m_text := Label {
-                                width: Fill
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            m_open := OuyuBtn { text: "打开" }
-                        }
-                        hh7 := OuyuGroupHead { visible: false text: "" }
-                        hid7 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 14.0
-                            spacing: 10.0
-                            m_date := Label {
-                                width: 104
-                                draw_text +: {
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 }
-                                }
-                            }
-                            m_text := Label {
-                                width: Fill
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            m_open := OuyuBtn { text: "打开" }
-                        }
-                        hid_empty := Label {
-                            visible: false
-                            width: Fill
-                            text: "没有隐藏的回忆。"
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.ink_2
-                                text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                            }
-                        }
-                        mm_note := Label {
-                            width: Fill
-                            text: "隐藏的仍会保存并计次，可随时恢复；隐藏不是加密。"
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.ink_3
-                                text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                            }
-                        }
-                    }
-
-                    // ---- 「我」页：我的行踪 + 三个入口（券包 / 设置 / 关于）----
-                    //
-                    // 成就曲线、里程碑和分享卡在相遇页首屏；本机统计那张卡没有了。
-                    page_achieve := OuyuScrollY {
-                        visible: false
-                        width: Fill height: Fill
-                        flow: Down
-                        spacing: 14.0
-
-                        // 我的行踪：只放最近发布的几条进行中的；全部历史在「更多」里。
-                        tr_head := View {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            margin: Inset{top: 6.0, bottom: 2.0}
-                            tr_head_text := OuyuGroupHead { width: Fill margin: 0.0 text: "我的行踪" }
-                            tr_more := OuyuLink {
-                                width: Fit
-                                text: "更多"
-                                draw_icon +: { svg: crate_resource("self:resources/icons/chevron-right.svg") }
-                            }
-                        }
-                        tr_card := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 6.0}
-                            spacing: 0.0
-                            tr0 := OuyuTrackRow { }
-                            tr1 := OuyuTrackRow { }
-                            tr2 := OuyuTrackRow { }
-                            tr_empty := OuyuEmpty {
-                                visible: false
-                                em_icon := OuyuIcon {
-                                    icon_walk: Walk{ width: 28.0 height: Fit }
-                                    draw_icon +: { svg: crate_resource("self:resources/icons/location.svg") color: ouyu.ink_ghost }
-                                }
-                                em_text := Label {
-                                    width: Fit
-                                    text: "现在没有进行中的行踪"
-                                    draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
-                                }
-                            }
-                        }
-                        // 三个入口：券包、设置、关于。
-                        hub_head := OuyuGroupHead { text: "更多" }
-                        hub_card := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 6.0}
-                            spacing: 0.0
-                            row_wallet := OuyuSetRow { }
-                            row_settings := OuyuSetRow { }
-                            row_about := OuyuSetRow { }
-                        }
-                    }
-
-                    // ---- 我的券（「我」页进入的覆盖页）----
-                    page_wallet := OuyuScrollY {
-                        visible: false
-                        width: Fill height: Fill
-                        flow: Down
-                        spacing: 14.0
-
-                        wl_back := OuyuLink {
-                            width: Fit
-                            text: "返回「我」"
-                            draw_icon +: { svg: crate_resource("self:resources/icons/chevron-left.svg") }
-                        }
-                        wl_title := Label {
-                            width: Fill
-                            text: "我的券"
-                            draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 24.0 line_spacing: 1.35 } }
-                        }
-                        wl_sub := Label {
-                            width: Fill
-                            text: "商户赞助，确认相遇后发放，7 天内使用。"
-                            draw_text +: { wrap: Words color: ouyu.ink_2 text_style +: { font_size: 14.0 line_spacing: 1.35 } }
-                        }
-                        // 02 B 节要求把这件事直接写在券包上，而不是藏进隐私政策。
-                        wl_note := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.0}
-                            padding: 14.0
-                            spacing: 10.0
-                            wl_note_icon := OuyuIcon {
-                                icon_walk: Walk{ width: 16.0 height: Fit }
-                                draw_icon +: { svg: crate_resource("self:resources/icons/lock.svg") color: ouyu.good }
-                            }
-                            wl_note_text := Label {
-                                width: Fill
-                                text: "券面只有商户和核销码，没有和谁、在哪、哪天。"
-                                draw_text +: { wrap: Words color: ouyu.ink_2 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
-                            }
-                        }
-                        wl_state := OuyuEmpty {
-                            visible: false
-                            em_icon := OuyuIcon {
-                                icon_walk: Walk{ width: 28.0 height: Fit }
-                                draw_icon +: { svg: crate_resource("self:resources/icons/coupon.svg") color: ouyu.ink_ghost }
-                            }
-                            em_text := Label {
-                                width: Fit
-                                text: "还没有相遇礼"
-                                draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
-                            }
-                        }
-                        wl_avail := View {
-                            visible: false
-                            width: Fill height: Fit
-                            flow: Down
-                            spacing: 10.0
-                            wl_avail_head := OuyuGroupHead { text: "可用" }
-                            wa0 := OuyuCouponCard { visible: false }
-                            wa1 := OuyuCouponCard { visible: false }
-                            wa2 := OuyuCouponCard { visible: false }
-                            wa3 := OuyuCouponCard { visible: false }
-                        }
-                        wl_used := View {
-                            visible: false
-                            width: Fill height: Fit
-                            flow: Down
-                            spacing: 10.0
-                            wl_used_head := OuyuGroupHead { text: "已核销" }
-                            wu0 := OuyuCouponCard { visible: false }
-                            wu1 := OuyuCouponCard { visible: false }
-                            wu2 := OuyuCouponCard { visible: false }
-                            wu3 := OuyuCouponCard { visible: false }
-                        }
-                        wl_gone := View {
-                            visible: false
-                            width: Fill height: Fit
-                            flow: Down
-                            spacing: 10.0
-                            wl_gone_head := OuyuGroupHead { text: "已过期" }
-                            wg0 := OuyuCouponCard { visible: false }
-                            wg1 := OuyuCouponCard { visible: false }
-                            wg2 := OuyuCouponCard { visible: false }
-                            wg3 := OuyuCouponCard { visible: false }
-                        }
-                    }
-
-                    // ---- 我的行踪（「我」页「更多」进入的覆盖页）----
-                    page_tracks := OuyuScrollY {
-                        visible: false
-                        width: Fill height: Fill
-                        flow: Down
-                        spacing: 14.0
-
-                        tk_back := OuyuLink {
-                            width: Fit
-                            text: "返回「我」"
-                            draw_icon +: { svg: crate_resource("self:resources/icons/chevron-left.svg") }
-                        }
-                        tk_title := Label {
-                            width: Fill
-                            text: "我的行踪"
-                            draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 24.0 line_spacing: 1.35 } }
-                        }
-                        tk_card := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 6.0}
-                            spacing: 0.0
-                            tk0 := OuyuTrackRow { }
-                            tk1 := OuyuTrackRow { }
-                            tk2 := OuyuTrackRow { }
-                            tk3 := OuyuTrackRow { }
-                            tk4 := OuyuTrackRow { }
-                            tk5 := OuyuTrackRow { }
-                            tk6 := OuyuTrackRow { }
-                            tk7 := OuyuTrackRow { }
-                            tk8 := OuyuTrackRow { }
-                            tk9 := OuyuTrackRow { }
-                            tk10 := OuyuTrackRow { }
-                            tk11 := OuyuTrackRow { }
-                            tk12 := OuyuTrackRow { }
-                            tk13 := OuyuTrackRow { }
-                            tk14 := OuyuTrackRow { }
-                            tk15 := OuyuTrackRow { }
-                            tk16 := OuyuTrackRow { }
-                            tk17 := OuyuTrackRow { }
-                            tk18 := OuyuTrackRow { }
-                            tk19 := OuyuTrackRow { }
-                            tk20 := OuyuTrackRow { }
-                            tk21 := OuyuTrackRow { }
-                            tk22 := OuyuTrackRow { }
-                            tk23 := OuyuTrackRow { }
-                            tk_empty := OuyuEmpty {
-                                visible: false
-                                em_icon := OuyuIcon {
-                                    icon_walk: Walk{ width: 28.0 height: Fit }
-                                    draw_icon +: { svg: crate_resource("self:resources/icons/location.svg") color: ouyu.ink_ghost }
-                                }
-                                em_text := Label {
-                                    width: Fit
-                                    text: "还没有发布过行踪"
-                                    draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
-                                }
-                            }
-                        }
-                    }
-
-                    // ---- 设置（「我」页进入的覆盖页）----
-                    page_settings := OuyuScrollY {
-                        visible: false
-                        width: Fill height: Fill
-                        flow: Down
-                        spacing: 14.0
-
-                        se_back := OuyuLink {
-                            width: Fit
-                            text: "返回「我」"
-                            draw_icon +: { svg: crate_resource("self:resources/icons/chevron-left.svg") }
-                        }
-                        se_title := Label {
-                            width: Fill
-                            text: "设置"
-                            draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 24.0 line_spacing: 1.35 } }
-                        }
-
-                        // ---- 外观 ----
+                        // ---- 发布向导（三步：什么时候 / 哪一带 / 想做什么）----
                         //
-                        // 放在第一组：它改的是整屏的样子，读设置的人一眼就该
-                        // 看见有得选，而不是翻到最后才发现。
-                        ap_head := OuyuGroupHead { text: "外观" }
-                        ap_card := OuyuCard {
-                            width: Fill height: Fit
+                        // 发布是一个动作，不是首页上常驻的表单：从顶栏的「发布行踪」
+                        // 进来，退出即丢草稿（docs/02 第二节）。行踪可以有多条，
+                        // 修改某一条从「我 → 我的行踪」进来。
+                        // 底栏不进滚动区：第 2 步的片区列表有十几行，按钮若跟着内容
+                        // 走，人得先滚一屏才能点「下一步」。
+                        page_publish := View {
+                            visible: false
+                            width: Fill height: Fill
                             flow: Down
-                            padding: 14.0
-                            spacing: 10.0
-                            ap_name := Label {
-                                width: Fill
-                                text: "界面深浅"
-                                draw_text +: { color: ouyu.ink text_style +: { font_size: 15.0 } }
-                            }
-                            ap_seg := OuyuSegTrack {
-                                ap_dark := OuyuSeg { text: "夜色" }
-                                ap_light := OuyuSeg { text: "白昼" }
-                            }
-                            ap_note := Label {
-                                width: Fill
-                                text: "只改这台设备上的偶遇，不动系统设置。"
-                                draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
-                            }
-                        }
+                            spacing: 12.0
 
-                        // ---- 定位权限 ----
-                        loc_head := OuyuGroupHead { text: "定位" }
-                        loc_card := OuyuCard {
-                            width: Fill height: Fit
+                            pw_scroll := OuyuScrollY {
+                            width: Fill height: Fill
                             flow: Down
-                            padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 6.0}
-                            spacing: 0.0
-                            row_loc := OuyuSetRow { }
-                        }
+                            spacing: 16.0
 
-                        // ---- 通知 ----
-                        ntf_head := OuyuGroupHead { text: "通知" }
-                        ntf_card := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 10.0}
-                            spacing: 0.0
-                            row_ntf_publish := OuyuSwitchRow { }
-                            row_ntf_reward := OuyuSwitchRow { }
-                            ntf_note := Label {
-                                width: Fill
-                                margin: Inset{left: 12.0, right: 12.0, top: 6.0}
-                                text: "不做「附近有熟人」这类提醒，那等于实时位置广播。"
-                                draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
-                            }
-                        }
-
-                        // ---- 数据与隐私 ----
-                        data_head := OuyuGroupHead { text: "数据与隐私" }
-                        data_card := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 10.0}
-                            spacing: 0.0
-                            row_export := OuyuSetRow { }
-                            row_clear := OuyuSetRow { }
-                            // 清除不可撤销，所以不走 5 秒 toast，走二次确认。
-                            clear_confirm := View {
-                                visible: false
+                            pw_top := View {
                                 width: Fill height: Fit
-                                flow: Down
-                                margin: Inset{left: 12.0, right: 12.0, top: 4.0}
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
                                 spacing: 8.0
-                                cf_text := Label {
-                                    width: Fill
-                                    text: "将清掉本机全部数据，无法撤销。要先导出吗？"
-                                    draw_text +: { wrap: Words color: ouyu.bad text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                pw_back := OuyuIconBtn {
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/chevron-left.svg") }
                                 }
-                                cf_row := View {
-                                    width: Fill height: Fit
-                                    flow: Right{wrap: true}
-                                    wrap_spacing: 8.0
-                                    spacing: 8.0
-                                    cf_cancel := OuyuBtn { text: "再想想" }
-                                    cf_ok := OuyuBtnDanger { text: "确认清除" }
-                                }
+                                pw_title := OuyuH1 { width: Fill text: "写一下你的行踪" }
+                                pw_step := OuyuMuted { width: Fit text: "1 / 3" }
                             }
-                            data_note := Label {
+                            pw_sub := OuyuMuted {
                                 width: Fill
-                                margin: Inset{left: 12.0, right: 12.0, top: 6.0}
-                                text: "所有数据只在本机；导出文件不含坐标和地点。"
-                                draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                text: "别人只看到一行模糊文字，没有昵称、头像和位置。"
                             }
-                        }
 
-                        // ---- 关于 ----
-                        about_head := OuyuGroupHead { text: "关于" }
-                        about_card := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: 18.0
-                            spacing: 8.0
-                            ab_name := Label {
-                                width: Fill
-                                text: "偶遇 OuYu v0.4"
-                                draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 15.0 line_spacing: 1.35 } }
-                            }
-                            ab_p1 := Label {
-                                width: Fill
-                                text: "偶遇只做一件事：让本来就可能发生的相遇更容易发生一点，然后退开。"
-                                draw_text +: { wrap: Words color: ouyu.ink_2 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
-                            }
-                            ab_p2 := Label {
-                                width: Fill
-                                text: "不做：谁在附近、人数与距离、实时位置、把隐藏回忆算进统计。"
-                                draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
-                            }
-                            // 跳过引导的人在这里能重看那三句话（02 七.1）。
-                            ab_intro := OuyuBtn { text: "重看开场" }
-                        }
-                    }
-
-                    // ---- 分享卡预览页（成就页「生成分享卡 →」进入；不是侧栏 Tab）----
-                    page_share := OuyuScrollY {
-                        visible: false
-                        width: Fill height: Fill
-                        flow: Down
-                        spacing: 14.0
-
-                        sp_title := Label {
-                            width: Fill
-                            text: "让朋友看见，你生活里的光。"
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.ink
-                                text_style +: { font_size: 24.0 line_spacing: 1.35 }
-                            }
-                        }
-                        sp_sub := Label {
-                            width: Fill
-                            text: "先预览，再决定发不发。"
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.ink_2
-                                text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                            }
-                        }
-                        sp_row := View {
-                            width: Fill height: Fit
-                            flow: Right
-                            spacing: 14.0
-                            sp_left := OuyuCard {
+                            // 第 1 步：时间
+                            pw_s1 := View {
                                 width: Fill height: Fit
-                                flow: Down
-                                padding: 18.0
-                                spacing: 10.0
-                                sp_head := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    sp_ht := Label {
-                                        width: Fill
-                                        text: "分享卡预览"
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: ouyu.ink
-                                            text_style +: { font_size: 15.0 line_spacing: 1.35 }
-                                        }
-                                    }
-                                    sp_badge := Label {
-                                        text: "仅用可见回忆"
-                                        draw_text +: {
-                                            color: ouyu.warm
-                                            text_style +: { font_size: 11.0 }
-                                        }
-                                    }
-                                }
-                                sp_center := View {
-                                    width: Fill height: Fit
-                                    align: Align{x: 0.5, y: 0.0}
-                                    sh_card := OuyuShareCard { width: 300 height: 400 }
-                                }
-                                sp_btns := View {
-                                    width: Fill height: Fit
-                                    flow: Right{wrap: true}
-                                    wrap_spacing: 8.0
-                                    spacing: 10.0
-                                    sh_save := OuyuBtnPrimary { text: "保存图片" }
-                                    sh_back := OuyuBtn { text: "返回" }
-                                }
-                                sh_saved := Label {
-                                    visible: false
-                                    width: Fill
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.warm
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                    }
-                                }
-                                sp_note := Label {
-                                    width: Fill
-                                    text: "保存后可在任意社交媒体自行发布。"
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink_4
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                    }
-                                }
-                            }
-                            sp_right := View {
-                                width: 300 height: Fit
                                 flow: Down
                                 spacing: 14.0
-                                sp_style := OuyuCard {
+                                s1_card := OuyuCard {
                                     width: Fill height: Fit
                                     flow: Down
-                                    padding: 16.0
-                                    spacing: 8.0
-                                    sps_t := Label {
-                                        text: "样式"
-                                        draw_text +: {
-                                            color: ouyu.ink
-                                            text_style +: { font_size: 14.0 }
-                                        }
-                                    }
-                                    sps_row := View {
+                                    spacing: 10.0
+                                    s1_q1 := OuyuH3 { text: "哪一天？" }
+                                    s1_days := View {
                                         width: Fill height: Fit
                                         flow: Right{wrap: true}
                                         wrap_spacing: 8.0
                                         spacing: 8.0
-                                        sh_warm := OuyuChip { text: "暖杏" }
-                                        sh_night := OuyuChip { text: "夜蓝" }
+                                        pd0 := OuyuChip { text: "今天" }
+                                        pd1 := OuyuChip { text: "今天" }
+                                        pd2 := OuyuChip { text: "今天" }
+                                        pd3 := OuyuChip { text: "今天" }
+                                        pd4 := OuyuChip { text: "今天" }
+                                        pd5 := OuyuChip { text: "今天" }
+                                        pd6 := OuyuChip { text: "今天" }
+                                    }
+                                    s1_q2 := OuyuH3 { margin: Inset{top: 6.0} text: "大概什么时候？" }
+                                    s1_slots := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 8.0
+                                        spacing: 8.0
+                                        ps0 := OuyuChip { text: "上午" }
+                                        ps1 := OuyuChip { text: "下午" }
+                                        ps2 := OuyuChip { text: "晚间" }
+                                    }
+                                    s1_note := OuyuMuted {
+                                        width: Fill
+                                        text: "只到上午 / 下午 / 晚间，不给具体钟点。"
                                     }
                                 }
-                                sp_what := OuyuCard {
+                            }
+
+                            // 第 2 步：片区（搜索 + 最近去过 + 筛选 + 列表）
+                            pw_s2 := View {
+                                visible: false
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 10.0
+                                s2_bar := View {
+                                    width: Fill height: Fit
+                                    flow: Right
+                                    align: Align{x: 0.0, y: 0.5}
+                                    spacing: 8.0
+                                    s2_search := OuyuInput { }
+                                    s2_filter := OuyuBtn {
+                                        width: Fit
+                                        text: "筛选"
+                                        draw_icon +: { svg: crate_resource("self:resources/icons/filter.svg") }
+                                    }
+                                }
+                                s2_filters := View {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 8.0
+                                    s2_kind_head := OuyuGroupHead { text: "片区类型" }
+                                    s2_kinds := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 6.0
+                                        spacing: 6.0
+                                        pk0 := OuyuChip { text: "全部" }
+                                        pk1 := OuyuChip { text: "商圈" }
+                                        pk2 := OuyuChip { text: "公园" }
+                                        pk3 := OuyuChip { text: "滨水" }
+                                        pk4 := OuyuChip { text: "文化" }
+                                        pk5 := OuyuChip { text: "园区" }
+                                        pk6 := OuyuChip { text: "校园" }
+                                        pk7 := OuyuChip { text: "枢纽" }
+                                        pk8 := OuyuChip { text: "生活" }
+                                    }
+                                    s2_dist_head := OuyuGroupHead { text: "行政区" }
+                                    s2_dists := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 6.0
+                                        spacing: 6.0
+                                        pg0 := OuyuChip { text: "全部" }
+                                        pg1 := OuyuChip { text: "朝阳区" }
+                                        pg2 := OuyuChip { text: "海淀区" }
+                                        pg3 := OuyuChip { text: "东城区" }
+                                        pg4 := OuyuChip { text: "西城区" }
+                                        pg5 := OuyuChip { text: "丰台区" }
+                                        pg6 := OuyuChip { text: "石景山区" }
+                                        pg7 := OuyuChip { text: "通州区" }
+                                        pg8 := OuyuChip { text: "昌平区" }
+                                        pg9 := OuyuChip { text: "大兴区" }
+                                        pg10 := OuyuChip { text: "顺义区" }
+                                        pg11 := OuyuChip { text: "房山区" }
+                                        pg12 := OuyuChip { text: "门头沟区" }
+                                        pg13 := OuyuChip { text: "怀柔区" }
+                                        pg14 := OuyuChip { text: "密云区" }
+                                        pg15 := OuyuChip { text: "平谷区" }
+                                        pg16 := OuyuChip { text: "延庆区" }
+                                    }
+                                }
+                                s2_recent_head := OuyuGroupHead { text: "最近去过" }
+                                s2_recent := View {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 4.0
+                                    pr0 := OuyuAreaRow { }
+                                    pr1 := OuyuAreaRow { }
+                                    pr2 := OuyuAreaRow { }
+                                    pr3 := OuyuAreaRow { }
+                                    pr4 := OuyuAreaRow { }
+                                }
+                                s2_list_head := OuyuGroupHead { text: "全部片区" }
+                                s2_list := View {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 4.0
+                                    pa0 := OuyuAreaRow { }
+                                    pa1 := OuyuAreaRow { }
+                                    pa2 := OuyuAreaRow { }
+                                    pa3 := OuyuAreaRow { }
+                                    pa4 := OuyuAreaRow { }
+                                    pa5 := OuyuAreaRow { }
+                                    pa6 := OuyuAreaRow { }
+                                    pa7 := OuyuAreaRow { }
+                                    pa8 := OuyuAreaRow { }
+                                    pa9 := OuyuAreaRow { }
+                                    pa10 := OuyuAreaRow { }
+                                    pa11 := OuyuAreaRow { }
+                                    pa12 := OuyuAreaRow { }
+                                    pa13 := OuyuAreaRow { }
+                                    pa14 := OuyuAreaRow { }
+                                    pa15 := OuyuAreaRow { }
+                                    pa16 := OuyuAreaRow { }
+                                    pa17 := OuyuAreaRow { }
+                                }
+                                s2_empty := OuyuEmpty {
+                                    visible: false
+                                    em_icon := OuyuIcon {
+                                        icon_walk: Walk{ width: 28.0 height: Fit }
+                                        draw_icon +: { svg: crate_resource("self:resources/icons/search.svg") color: ouyu.ink_ghost }
+                                    }
+                                    em_text := Label {
+                                        width: Fit
+                                        text: "没有匹配的片区"
+                                        draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
+                                    }
+                                }
+                                s2_more := OuyuMuted { width: Fill text: "" }
+                            }
+
+                            // 第 3 步：意愿 + 预览
+                            pw_s3 := View {
+                                visible: false
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 14.0
+                                s3_card := OuyuCard {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 10.0
+                                    s3_q := OuyuH3 { text: "想做点什么？" }
+                                    s3_intents := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 8.0
+                                        spacing: 8.0
+                                        pi0 := OuyuChip { text: "随意走走" }
+                                        pi1 := OuyuChip { text: "顺路办事" }
+                                        pi2 := OuyuChip { text: "就想出门" }
+                                    }
+                                }
+                                s3_prev_head := OuyuGroupHead { text: "别人看到的就是这一行" }
+                                s3_card2 := OuyuCard2 {
                                     width: Fill height: Fit
                                     flow: Down
                                     padding: 16.0
                                     spacing: 8.0
-                                    spw_t := Label {
-                                        text: "内容"
-                                        draw_text +: {
-                                            color: ouyu.ink
-                                            text_style +: { font_size: 14.0 }
-                                        }
-                                    }
-                                    spw_b := Label {
+                                    s3_text := OuyuH2 { width: Fill text: "今天下午 · 三里屯一带 · 随意走走" }
+                                    s3_note := OuyuMuted {
                                         width: Fill
-                                        text: "汇总次数、成就文案、署名。"
+                                        text: "随时可撤回。"
+                                    }
+                                }
+                            }
+
+                            }
+
+                            pw_bar := View {
+                                width: Fill height: Fit
+                                flow: Right{wrap: true}
+                                wrap_spacing: 8.0
+                                spacing: 10.0
+                                align: Align{x: 0.0, y: 0.5}
+                                pw_prev := OuyuBtn { visible: false width: Fit text: "上一步" }
+                                pw_next := OuyuBtnPrimary { width: Fit text: "下一步" }
+                                pw_cancel := OuyuLink { width: Fit text: "放弃" }
+                            }
+                        }
+
+                        // ---- 相遇页（首屏成就 + 现场互认）----
+                        //
+                        // 首屏是曲线 / 里程碑 / 分享卡；点顶栏「确认相遇」后进入互认，
+                        // 四个用户可见的态，一次只露一个：① 选人 → ② 定位门槛
+                        // → ③ 等待 → ④ 结果。六条结局（成功 / 同地不成立 / 无库存
+                        // / 超时 / 信息不一致 / 未授权）都停在同一张结果屏上。
+                        page_meet := OuyuScrollY {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 16.0
+
+                            mp_title := Label {
+                                width: Fill
+                                text: "这次，真的遇见了。"
+                                draw_text +: {
+                                    wrap: Words
+                                    color: ouyu.ink
+                                    text_style +: { font_size: 24.0 line_spacing: 1.35 }
+                                }
+                            }
+                            mp_sub := Label {
+                                width: Fill
+                                text: "先在线下认出彼此，再各自确认。"
+                                draw_text +: {
+                                    wrap: Words
+                                    color: ouyu.ink_2
+                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                }
+                            }
+
+                            // ---- 首屏：成就内容（曲线 / 里程碑 / 分享卡）----
+                            //
+                            // 相遇页平时就停在这里。互认流程从顶栏「确认相遇」进，
+                            // 走完或退出再回到这一屏。
+                            meet_home := View {
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 14.0
+                                // 频率曲线：4 / 8 周切换 + 自绘折线 + 可展开数据表。
+                                curve_card := OuyuCard {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    padding: 18.0
+                                    spacing: 10.0
+                                    curve_head := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 8.0
+                                        curve_title := Label {
+                                            width: Fill
+                                            text: "相遇频率曲线"
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.ink
+                                                text_style +: { font_size: 15.0 line_spacing: 1.35 }
+                                            }
+                                        }
+                                        wk4 := OuyuChip { text: "4 周" }
+                                        wk8 := OuyuChip { text: "8 周" }
+                                    }
+                                    curve_sub := Label {
+                                        width: Fill
+                                        text: "最近 8 周，记住 0 次重逢"
                                         draw_text +: {
                                             wrap: Words
                                             color: ouyu.ink_2
                                             text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                         }
                                     }
-                                    sh_curve := OuyuChip { text: "包含每周曲线" }
-                                    sh_curve_hint := Label {
+                                    curve_chart := OuyuChart { width: Fill height: 200 }
+                                    curve_empty := Label {
                                         visible: false
                                         width: Fill
-                                        text: "会额外透露你的相遇频率"
+                                        text: "下一次偶然，值得期待"
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.warm
+                                            text_style +: { font_size: 15.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    curve_caption := Label {
+                                        width: Fill
+                                        text: "按周汇总，本周还没过完。"
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink_4
+                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    wk_toggle := OuyuBtn { text: "每周次数" }
+                                    wk_table := View {
+                                        visible: false
+                                        width: Fill height: Fit
+                                        flow: Down
+                                        spacing: 6.0
+                                        wk_r0 := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            wk_d := Label {
+                                                width: Fill
+                                                text: ""
+                                                draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
+                                            }
+                                            wk_c := Label {
+                                                text: ""
+                                                draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
+                                            }
+                                        }
+                                        wk_r1 := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            wk_d := Label {
+                                                width: Fill
+                                                text: ""
+                                                draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
+                                            }
+                                            wk_c := Label {
+                                                text: ""
+                                                draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
+                                            }
+                                        }
+                                        wk_r2 := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            wk_d := Label {
+                                                width: Fill
+                                                text: ""
+                                                draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
+                                            }
+                                            wk_c := Label {
+                                                text: ""
+                                                draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
+                                            }
+                                        }
+                                        wk_r3 := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            wk_d := Label {
+                                                width: Fill
+                                                text: ""
+                                                draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
+                                            }
+                                            wk_c := Label {
+                                                text: ""
+                                                draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
+                                            }
+                                        }
+                                        wk_r4 := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            wk_d := Label {
+                                                width: Fill
+                                                text: ""
+                                                draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
+                                            }
+                                            wk_c := Label {
+                                                text: ""
+                                                draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
+                                            }
+                                        }
+                                        wk_r5 := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            wk_d := Label {
+                                                width: Fill
+                                                text: ""
+                                                draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
+                                            }
+                                            wk_c := Label {
+                                                text: ""
+                                                draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
+                                            }
+                                        }
+                                        wk_r6 := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            wk_d := Label {
+                                                width: Fill
+                                                text: ""
+                                                draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
+                                            }
+                                            wk_c := Label {
+                                                text: ""
+                                                draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
+                                            }
+                                        }
+                                        wk_r7 := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            wk_d := Label {
+                                                width: Fill
+                                                text: ""
+                                                draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 12.5 } }
+                                            }
+                                            wk_c := Label {
+                                                text: ""
+                                                draw_text +: { color: ouyu.warm text_style +: { font_size: 12.5 } }
+                                            }
+                                        }
+                                    }
+                                }
+                                // 里程碑：点亮 / 等自然发生，不用凑次数，无排名。
+                                ms_card := OuyuCard {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    padding: 18.0
+                                    spacing: 10.0
+                                    ms_head := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        ms_title := Label {
+                                            width: Fill
+                                            text: "我的小小里程碑"
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.ink
+                                                text_style +: { font_size: 15.0 line_spacing: 1.35 }
+                                            }
+                                        }
+                                        ms_badge := Label {
+                                            text: "不用凑次数"
+                                            draw_text +: {
+                                                color: ouyu.warm
+                                                text_style +: { font_size: 11.0 }
+                                            }
+                                        }
+                                    }
+                                    ms_row := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        spacing: 12.0
+                                        ms0 := OuyuCard {
+                                            width: Fill height: Fit
+                                            flow: Down
+                                            padding: 14.0
+                                            spacing: 6.0
+                                            ms_top := View {
+                                                width: Fill height: Fit
+                                                flow: Right
+                                                align: Align{x: 0.0, y: 0.5}
+                                                ms_icon := Label {
+                                                    width: Fill
+                                                    text: "☆"
+                                                    draw_text +: {
+                                                        color: ouyu.warm
+                                                        text_style +: { font_size: 17.0 }
+                                                    }
+                                                }
+                                                ms_state := Label {
+                                                    text: "等自然发生"
+                                                    draw_text +: {
+                                                        color: ouyu.ink_4
+                                                        text_style +: { font_size: 12.5 }
+                                                    }
+                                                }
+                                            }
+                                            ms_title := Label {
+                                                text: "第一次刚刚好"
+                                                draw_text +: {
+                                                    color: ouyu.ink
+                                                    text_style +: { font_size: 13.0 }
+                                                }
+                                            }
+                                            ms_desc := Label {
+                                                text: "记住一次重逢"
+                                                draw_text +: {
+                                                    color: ouyu.ink_2
+                                                    text_style +: { font_size: 12.5 }
+                                                }
+                                            }
+                                        }
+                                        ms1 := OuyuCard {
+                                            width: Fill height: Fit
+                                            flow: Down
+                                            padding: 14.0
+                                            spacing: 6.0
+                                            ms_top := View {
+                                                width: Fill height: Fit
+                                                flow: Right
+                                                align: Align{x: 0.0, y: 0.5}
+                                                ms_icon := Label {
+                                                    width: Fill
+                                                    text: "☆"
+                                                    draw_text +: {
+                                                        color: ouyu.warm
+                                                        text_style +: { font_size: 17.0 }
+                                                    }
+                                                }
+                                                ms_state := Label {
+                                                    text: "等自然发生"
+                                                    draw_text +: {
+                                                        color: ouyu.ink_4
+                                                        text_style +: { font_size: 12.5 }
+                                                    }
+                                                }
+                                            }
+                                            ms_title := Label {
+                                                text: "生活有回响"
+                                                draw_text +: {
+                                                    color: ouyu.ink
+                                                    text_style +: { font_size: 13.0 }
+                                                }
+                                            }
+                                            ms_desc := Label {
+                                                text: "记住三次相遇"
+                                                draw_text +: {
+                                                    color: ouyu.ink_2
+                                                    text_style +: { font_size: 12.5 }
+                                                }
+                                            }
+                                        }
+                                        ms2 := OuyuCard {
+                                            width: Fill height: Fit
+                                            flow: Down
+                                            padding: 14.0
+                                            spacing: 6.0
+                                            ms_top := View {
+                                                width: Fill height: Fit
+                                                flow: Right
+                                                align: Align{x: 0.0, y: 0.5}
+                                                ms_icon := Label {
+                                                    width: Fill
+                                                    text: "☆"
+                                                    draw_text +: {
+                                                        color: ouyu.warm
+                                                        text_style +: { font_size: 17.0 }
+                                                    }
+                                                }
+                                                ms_state := Label {
+                                                    text: "等自然发生"
+                                                    draw_text +: {
+                                                        color: ouyu.ink_4
+                                                        text_style +: { font_size: 12.5 }
+                                                    }
+                                                }
+                                            }
+                                            ms_title := Label {
+                                                text: "把日常过成故事"
+                                                draw_text +: {
+                                                    color: ouyu.ink
+                                                    text_style +: { font_size: 13.0 }
+                                                }
+                                            }
+                                            ms_desc := Label {
+                                                text: "七个有相遇的日子"
+                                                draw_text +: {
+                                                    color: ouyu.ink_2
+                                                    text_style +: { font_size: 12.5 }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                // 分享入口。
+                                share_card := OuyuCard {
+                                    width: Fill height: Fit
+                                    flow: Right
+                                    align: Align{x: 0.0, y: 0.5}
+                                    padding: 18.0
+                                    spacing: 12.0
+                                    share_text := View {
+                                        width: Fill height: Fit
+                                        flow: Down
+                                        spacing: 6.0
+                                        share_t := Label {
+                                            width: Fill
+                                            text: "把生活里的偶然，分享给朋友。"
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.ink
+                                                text_style +: { font_size: 15.0 line_spacing: 1.35 }
+                                            }
+                                        }
+                                        share_b := Label {
+                                            width: Fill
+                                            text: "分享卡只有你的汇总，没有别人的身份。"
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.ink_2
+                                                text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                            }
+                                        }
+                                    }
+                                    sh_go := OuyuBtnPrimary { text: "生成分享卡" draw_icon +: { svg: crate_resource("self:resources/icons/share.svg") } }
+                                }
+                            }
+
+                            // ---- ① 选人 ----
+                            meet_pick := View {
+                                visible: false
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 10.0
+                                pick_back := OuyuLink {
+                                    width: Fit
+                                    text: "返回"
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/chevron-left.svg") }
+                                }
+                                pick_card := OuyuCard {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    padding: Inset{left: 6.0, right: 6.0, top: 14.0, bottom: 14.0}
+                                    spacing: 4.0
+                                    pc_label := Label {
+                                        width: Fill
+                                        margin: Inset{left: 12.0, right: 12.0, bottom: 4.0}
+                                        text: "在场的是谁？"
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink_2
+                                            text_style +: { font_size: 13.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    mr0 := OuyuPersonRow { }
+                                    mr1 := OuyuPersonRow { }
+                                    mr2 := OuyuPersonRow { }
+                                    mr3 := OuyuPersonRow { }
+                                    mr4 := OuyuPersonRow { }
+                                    mr5 := OuyuPersonRow { }
+                                    pc_empty := Label {
+                                        visible: false
+                                        width: Fill
+                                        margin: Inset{left: 12.0, right: 12.0}
+                                        text: "还没有熟人，先到「熟人」页导入。"
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink_2
+                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                        }
+                                    }
+                                }
+                                pick_go := OuyuBtnPrimary {
+                                    width: Fill
+                                    text: "确认相遇"
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/chevron-right.svg") }
+                                }
+                                // 不确认也能留一笔：做成不起眼的文字链接，不跟主按钮抢。
+                                pick_plain := OuyuLink {
+                                    width: Fill
+                                    text: "本次不确认，只记一笔"
+                                }
+                                pick_done := Label {
+                                    visible: false
+                                    width: Fill
+                                    text: "已记住这次相遇"
+                                    draw_text +: {
+                                        color: ouyu.good
+                                        text_style +: { font_size: 12.5 }
+                                    }
+                                }
+                            }
+
+                            // ---- ② 定位门槛（硬门槛：不授权就不建会话）----
+                            meet_gate := View {
+                                visible: false
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 12.0
+                                gate_card := OuyuCard {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    padding: 18.0
+                                    spacing: 10.0
+                                    gt_icon := OuyuIconWarm {
+                                        icon_walk: Walk{ width: 26.0 height: Fit }
+                                        draw_icon +: { svg: crate_resource("self:resources/icons/location.svg") }
+                                    }
+                                    gt_title := Label {
+                                        width: Fill
+                                        text: "需要定位一次，确认你们在同一个地方"
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink
+                                            text_style +: { font_size: 18.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    gt_why := Label {
+                                        width: Fill
+                                        text: "相遇礼只发给真的在同一处碰上的两个人。"
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink_2
+                                            text_style +: { font_size: 13.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    gt_how := Label {
+                                        width: Fill
+                                        text: "只在你点确认的那一刻读一次。"
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink_2
+                                            text_style +: { font_size: 13.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    gt_where := Label {
+                                        width: Fill
+                                        text: "只用来比对是否同地，比对完即丢弃，不上传不留存。"
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink_2
+                                            text_style +: { font_size: 13.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    gt_row := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 8.0
+                                        spacing: 8.0
+                                        gate_allow := OuyuBtnPrimary { text: "开启定位并确认" }
+                                        gate_deny := OuyuBtn { text: "暂不开启" }
+                                    }
+                                    gt_denied := Label {
+                                        visible: false
+                                        width: Fill
+                                        text: ""
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.warm
+                                            text_style +: { font_size: 13.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    gt_alt := View {
+                                        visible: false
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 8.0
+                                        spacing: 8.0
+                                        gate_plain := OuyuBtn { text: "只记一笔回忆" }
+                                    }
+                                    gate_cancel := OuyuLink { width: Fit text: "返回" }
+                                }
+                            }
+
+                            // ---- ③ 等待对方确认 ----
+                            meet_wait := View {
+                                visible: false
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 12.0
+                                wait_card := OuyuCard {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    align: Align{x: 0.5, y: 0.0}
+                                    padding: 18.0
+                                    spacing: 12.0
+                                    wt_ring := OuyuRing { }
+                                    wt_title := Label {
+                                        width: Fill
+                                        text: ""
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink
+                                            text_style +: { font_size: 17.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    wt_count := Label {
+                                        width: Fill
+                                        text: ""
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.warm
+                                            text_style +: { font_size: 15.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    wt_note := Label {
+                                        width: Fill
+                                        text: "没有已读和在线状态。"
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink_2
+                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    wt_more := OuyuLink { width: Fit text: "对方没有偶遇？" }
+                                    wt_fold := View {
+                                        visible: false
+                                        width: Fill height: Fit
+                                        flow: Down
+                                        spacing: 6.0
+                                        wf_tip := Label {
+                                            width: Fill
+                                            text: "让对方输入这串码，或打开链接："
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.ink_2
+                                                text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                            }
+                                        }
+                                        wf_code := Label {
+                                            width: Fill
+                                            text: ""
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.ink
+                                                text_style +: { font_size: 26.0 line_spacing: 1.35 }
+                                            }
+                                        }
+                                        wf_url := Label {
+                                            width: Fill
+                                            text: ""
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.blue
+                                                text_style +: { font_size: 13.0 line_spacing: 1.35 }
+                                            }
+                                        }
+                                    }
+                                    wt_cancel := OuyuLink { width: Fit text: "取消本次确认" }
+                                }
+                            }
+
+                            // ---- ④ 结果（成功与五条异常共用）----
+                            meet_result := View {
+                                visible: false
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 12.0
+                                res_card := OuyuCard {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    padding: 18.0
+                                    spacing: 8.0
+                                    rs_mark := View {
+                                        width: Fit height: Fit
+                                        rs_ok := View {
+                                            width: Fit height: Fit
+                                            rs_ok_icon := OuyuIcon {
+                                                icon_walk: Walk{ width: 40.0 height: Fit }
+                                                draw_icon +: { svg: crate_resource("self:resources/icons/check-circle.svg") color: ouyu.good }
+                                            }
+                                        }
+                                        rs_no := View {
+                                            visible: false
+                                            width: Fit height: Fit
+                                            rs_no_icon := OuyuIcon {
+                                                icon_walk: Walk{ width: 40.0 height: Fit }
+                                                draw_icon +: { svg: crate_resource("self:resources/icons/alert-circle.svg") color: ouyu.warm }
+                                            }
+                                        }
+                                    }
+                                    rs_title := Label {
+                                        width: Fill
+                                        text: ""
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink
+                                            text_style +: { font_size: 18.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    rs_sub := Label {
+                                        width: Fill
+                                        text: ""
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink_2
+                                            text_style +: { font_size: 13.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                }
+                                coupon_card := RoundedView {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    padding: 18.0
+                                    spacing: 10.0
+                                    draw_bg +: {
+                                        color: ouyu.coupon
+                                        border_radius: r.card
+                                    }
+                                    ck_head := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 8.0
+                                        ck_venue := Label {
+                                            width: Fill
+                                            text: ""
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.on_warm
+                                                text_style +: { font_size: 13.0 line_spacing: 1.35 }
+                                            }
+                                        }
+                                        ck_badge := Label {
+                                            text: "相遇礼"
+                                            draw_text +: {
+                                                color: ouyu.on_warm
+                                                text_style +: { font_size: 11.0 }
+                                            }
+                                        }
+                                    }
+                                    ck_offer := Label {
+                                        width: Fill
+                                        text: ""
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.on_warm_hi
+                                            text_style +: { font_size: 24.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    ck_terms := Label {
+                                        width: Fill
+                                        text: ""
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.on_warm
+                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    ck_meta := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 6.0
+                                        spacing: 12.0
+                                        ck_token := Label {
+                                            text: ""
+                                            draw_text +: {
+                                                color: ouyu.on_warm_hi
+                                                text_style +: { font_size: 13.0 }
+                                            }
+                                        }
+                                        ck_expiry := Label {
+                                            text: ""
+                                            draw_text +: {
+                                                color: ouyu.on_warm
+                                                text_style +: { font_size: 13.0 }
+                                            }
+                                        }
+                                    }
+                                    ck_status := Label {
+                                        width: Fill
+                                        text: ""
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.on_warm_hi
+                                            text_style +: { font_size: 13.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    ck_row := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 8.0
+                                        spacing: 8.0
+                                        ck_redeem := OuyuBtnWarm { text: "到店核销" }
+                                    }
+                                }
+                                shops_card := OuyuCard {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    padding: 18.0
+                                    spacing: 2.0
+                                    sv_head := Label {
+                                        width: Fill
+                                        text: "可用门店"
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink_2
+                                            text_style +: { font_size: 13.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    sv0 := OuyuShopRow { }
+                                    sv1 := OuyuShopRow { }
+                                    sv2 := OuyuShopRow { }
+                                    sv_note := Label {
+                                        width: Fill
+                                        text: "只给大致远近，不给米数。"
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink_3
+                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                        }
+                                    }
+                                }
+                                choice_card := OuyuCard {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    padding: 18.0
+                                    spacing: 10.0
+                                    mc_label := Label {
+                                        width: Fill
+                                        text: "这次回忆怎么留？"
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink_2
+                                            text_style +: { font_size: 13.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    choice_row := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 8.0
+                                        spacing: 8.0
+                                        ch_save := OuyuChip { text: "保存" }
+                                        ch_hidden := OuyuChip { text: "隐藏" }
+                                        ch_skip := OuyuChip { text: "不保存" }
+                                    }
+                                    ch_note := Label {
+                                        width: Fill
+                                        text: ""
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink_2
+                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                        }
+                                    }
+                                }
+                                res_row := View {
+                                    width: Fill height: Fit
+                                    flow: Right{wrap: true}
+                                    wrap_spacing: 8.0
+                                    spacing: 8.0
+                                    rs_finish := OuyuBtnPrimary { text: "完成" }
+                                    rs_retry := OuyuBtn { visible: false text: "再试一次" }
+                                    rs_plain := OuyuBtn { visible: false text: "只记一笔回忆" }
+                                }
+                            }
+                        }
+
+                        // ---- 熟人页 ----
+                        page_contacts := OuyuScrollY {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 14.0
+                            ct_card := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 18.0
+                                spacing: 12.0
+                                ct_head := View {
+                                    width: Fill height: Fit
+                                    flow: Right
+                                    align: Align{x: 0.0, y: 0.5}
+                                    ct_head_text := Label {
+                                        width: Fill
+                                        text: "我的熟人 · 3 位"
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink
+                                            text_style +: { font_size: 18.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                }
+                                // 手动添加：不是每个人都愿意让应用读整本通讯录，
+                                // 也不是每个熟人都在通讯录里。
+                                ct_add := View {
+                                    width: Fill height: Fit
+                                    flow: Right
+                                    align: Align{x: 0.0, y: 0.5}
+                                    spacing: 8.0
+                                    ca_input := OuyuInput {
+                                        empty_text: "写一个称呼，比如「老陈」"
+                                    }
+                                    ca_btn := OuyuBtn { text: "添加" }
+                                }
+                                ca_err := Label {
+                                    visible: false
+                                    width: Fill
+                                    text: ""
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.bad
+                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                    }
+                                }
+                                // 合并模式下的说明条。
+                                ct_merge_bar := View {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    flow: Right
+                                    align: Align{x: 0.0, y: 0.5}
+                                    spacing: 8.0
+                                    cm_text := Label {
+                                        width: Fill
+                                        text: ""
                                         draw_text +: {
                                             wrap: Words
                                             color: ouyu.warm
                                             text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                         }
                                     }
-                                    spw_note := Label {
+                                    cm_cancel := OuyuBtn { text: "取消合并" }
+                                }
+                                cl0 := OuyuGroupHead { visible: false text: "" }
+                                ct0 := View {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 8.0
+                                    // 一个熟人两行封顶：名字和次数一行，四个动作
+                                    // 一行。宽屏上 c_main 仍是一条 Right，两半并排
+                                    // 成一行；手机上 apply_shaping 把它翻成 Down，
+                                    // 于是恰好两行 —— 而不是让四个按钮自己乱换行。
+                                    c_main := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 10.0
+                                        c_top := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            align: Align{x: 0.0, y: 0.5}
+                                            spacing: 8.0
+                                            c_name := Label {
+                                                width: Fit
+                                                draw_text +: {
+                                                    text_overflow: TextOverflow.Ellipsis
+                                                    max_lines: 1
+                                                    color: ouyu.ink
+                                                    text_style +: { font_size: 14.0 }
+                                                }
+                                            }
+                                            c_count := Label {
+                                                width: Fill
+                                                draw_text +: {
+                                                    text_overflow: TextOverflow.Ellipsis
+                                                    max_lines: 1
+                                                    color: ouyu.ink_2
+                                                    text_style +: { font_size: 12.5 }
+                                                }
+                                            }
+                                        }
+                                        c_acts := View {
+                                            width: Fit height: Fit
+                                            flow: Right
+                                            align: Align{x: 0.0, y: 0.5}
+                                            spacing: 6.0
+                                            c_view := OuyuBtnSm { text: "回忆" }
+                                            c_merge := OuyuBtnSm { text: "合并" }
+                                            c_delmem := OuyuBtnSm { text: "清空回忆" }
+                                            c_del := OuyuBtnDangerSm { text: "删除" }
+                                        }
+                                    }
+                                    c_confirm := View {
+                                        visible: false
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 8.0
+                                        c_also := OuyuChip { visible: false text: "同时删除回忆" }
+                                        c_ctext := Label {
+                                            width: Fill
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.bad
+                                                text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                            }
+                                        }
+                                        c_yes := OuyuBtnDanger { text: "确认删除" }
+                                        c_no := OuyuBtn { text: "取消" }
+                                    }
+                                }
+                                cl1 := OuyuGroupHead { visible: false text: "" }
+                                ct1 := View {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 8.0
+                                    // 一个熟人两行封顶：名字和次数一行，四个动作
+                                    // 一行。宽屏上 c_main 仍是一条 Right，两半并排
+                                    // 成一行；手机上 apply_shaping 把它翻成 Down，
+                                    // 于是恰好两行 —— 而不是让四个按钮自己乱换行。
+                                    c_main := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 10.0
+                                        c_top := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            align: Align{x: 0.0, y: 0.5}
+                                            spacing: 8.0
+                                            c_name := Label {
+                                                width: Fit
+                                                draw_text +: {
+                                                    text_overflow: TextOverflow.Ellipsis
+                                                    max_lines: 1
+                                                    color: ouyu.ink
+                                                    text_style +: { font_size: 14.0 }
+                                                }
+                                            }
+                                            c_count := Label {
+                                                width: Fill
+                                                draw_text +: {
+                                                    text_overflow: TextOverflow.Ellipsis
+                                                    max_lines: 1
+                                                    color: ouyu.ink_2
+                                                    text_style +: { font_size: 12.5 }
+                                                }
+                                            }
+                                        }
+                                        c_acts := View {
+                                            width: Fit height: Fit
+                                            flow: Right
+                                            align: Align{x: 0.0, y: 0.5}
+                                            spacing: 6.0
+                                            c_view := OuyuBtnSm { text: "回忆" }
+                                            c_merge := OuyuBtnSm { text: "合并" }
+                                            c_delmem := OuyuBtnSm { text: "清空回忆" }
+                                            c_del := OuyuBtnDangerSm { text: "删除" }
+                                        }
+                                    }
+                                    c_confirm := View {
+                                        visible: false
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 8.0
+                                        c_also := OuyuChip { visible: false text: "同时删除回忆" }
+                                        c_ctext := Label {
+                                            width: Fill
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.bad
+                                                text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                            }
+                                        }
+                                        c_yes := OuyuBtnDanger { text: "确认删除" }
+                                        c_no := OuyuBtn { text: "取消" }
+                                    }
+                                }
+                                cl2 := OuyuGroupHead { visible: false text: "" }
+                                ct2 := View {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 8.0
+                                    // 一个熟人两行封顶：名字和次数一行，四个动作
+                                    // 一行。宽屏上 c_main 仍是一条 Right，两半并排
+                                    // 成一行；手机上 apply_shaping 把它翻成 Down，
+                                    // 于是恰好两行 —— 而不是让四个按钮自己乱换行。
+                                    c_main := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 10.0
+                                        c_top := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            align: Align{x: 0.0, y: 0.5}
+                                            spacing: 8.0
+                                            c_name := Label {
+                                                width: Fit
+                                                draw_text +: {
+                                                    text_overflow: TextOverflow.Ellipsis
+                                                    max_lines: 1
+                                                    color: ouyu.ink
+                                                    text_style +: { font_size: 14.0 }
+                                                }
+                                            }
+                                            c_count := Label {
+                                                width: Fill
+                                                draw_text +: {
+                                                    text_overflow: TextOverflow.Ellipsis
+                                                    max_lines: 1
+                                                    color: ouyu.ink_2
+                                                    text_style +: { font_size: 12.5 }
+                                                }
+                                            }
+                                        }
+                                        c_acts := View {
+                                            width: Fit height: Fit
+                                            flow: Right
+                                            align: Align{x: 0.0, y: 0.5}
+                                            spacing: 6.0
+                                            c_view := OuyuBtnSm { text: "回忆" }
+                                            c_merge := OuyuBtnSm { text: "合并" }
+                                            c_delmem := OuyuBtnSm { text: "清空回忆" }
+                                            c_del := OuyuBtnDangerSm { text: "删除" }
+                                        }
+                                    }
+                                    c_confirm := View {
+                                        visible: false
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 8.0
+                                        c_also := OuyuChip { visible: false text: "同时删除回忆" }
+                                        c_ctext := Label {
+                                            width: Fill
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.bad
+                                                text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                            }
+                                        }
+                                        c_yes := OuyuBtnDanger { text: "确认删除" }
+                                        c_no := OuyuBtn { text: "取消" }
+                                    }
+                                }
+                                cl3 := OuyuGroupHead { visible: false text: "" }
+                                ct3 := View {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 8.0
+                                    // 一个熟人两行封顶：名字和次数一行，四个动作
+                                    // 一行。宽屏上 c_main 仍是一条 Right，两半并排
+                                    // 成一行；手机上 apply_shaping 把它翻成 Down，
+                                    // 于是恰好两行 —— 而不是让四个按钮自己乱换行。
+                                    c_main := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 10.0
+                                        c_top := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            align: Align{x: 0.0, y: 0.5}
+                                            spacing: 8.0
+                                            c_name := Label {
+                                                width: Fit
+                                                draw_text +: {
+                                                    text_overflow: TextOverflow.Ellipsis
+                                                    max_lines: 1
+                                                    color: ouyu.ink
+                                                    text_style +: { font_size: 14.0 }
+                                                }
+                                            }
+                                            c_count := Label {
+                                                width: Fill
+                                                draw_text +: {
+                                                    text_overflow: TextOverflow.Ellipsis
+                                                    max_lines: 1
+                                                    color: ouyu.ink_2
+                                                    text_style +: { font_size: 12.5 }
+                                                }
+                                            }
+                                        }
+                                        c_acts := View {
+                                            width: Fit height: Fit
+                                            flow: Right
+                                            align: Align{x: 0.0, y: 0.5}
+                                            spacing: 6.0
+                                            c_view := OuyuBtnSm { text: "回忆" }
+                                            c_merge := OuyuBtnSm { text: "合并" }
+                                            c_delmem := OuyuBtnSm { text: "清空回忆" }
+                                            c_del := OuyuBtnDangerSm { text: "删除" }
+                                        }
+                                    }
+                                    c_confirm := View {
+                                        visible: false
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 8.0
+                                        c_also := OuyuChip { visible: false text: "同时删除回忆" }
+                                        c_ctext := Label {
+                                            width: Fill
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.bad
+                                                text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                            }
+                                        }
+                                        c_yes := OuyuBtnDanger { text: "确认删除" }
+                                        c_no := OuyuBtn { text: "取消" }
+                                    }
+                                }
+                                cl4 := OuyuGroupHead { visible: false text: "" }
+                                ct4 := View {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 8.0
+                                    // 一个熟人两行封顶：名字和次数一行，四个动作
+                                    // 一行。宽屏上 c_main 仍是一条 Right，两半并排
+                                    // 成一行；手机上 apply_shaping 把它翻成 Down，
+                                    // 于是恰好两行 —— 而不是让四个按钮自己乱换行。
+                                    c_main := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 10.0
+                                        c_top := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            align: Align{x: 0.0, y: 0.5}
+                                            spacing: 8.0
+                                            c_name := Label {
+                                                width: Fit
+                                                draw_text +: {
+                                                    text_overflow: TextOverflow.Ellipsis
+                                                    max_lines: 1
+                                                    color: ouyu.ink
+                                                    text_style +: { font_size: 14.0 }
+                                                }
+                                            }
+                                            c_count := Label {
+                                                width: Fill
+                                                draw_text +: {
+                                                    text_overflow: TextOverflow.Ellipsis
+                                                    max_lines: 1
+                                                    color: ouyu.ink_2
+                                                    text_style +: { font_size: 12.5 }
+                                                }
+                                            }
+                                        }
+                                        c_acts := View {
+                                            width: Fit height: Fit
+                                            flow: Right
+                                            align: Align{x: 0.0, y: 0.5}
+                                            spacing: 6.0
+                                            c_view := OuyuBtnSm { text: "回忆" }
+                                            c_merge := OuyuBtnSm { text: "合并" }
+                                            c_delmem := OuyuBtnSm { text: "清空回忆" }
+                                            c_del := OuyuBtnDangerSm { text: "删除" }
+                                        }
+                                    }
+                                    c_confirm := View {
+                                        visible: false
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 8.0
+                                        c_also := OuyuChip { visible: false text: "同时删除回忆" }
+                                        c_ctext := Label {
+                                            width: Fill
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.bad
+                                                text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                            }
+                                        }
+                                        c_yes := OuyuBtnDanger { text: "确认删除" }
+                                        c_no := OuyuBtn { text: "取消" }
+                                    }
+                                }
+                                cl5 := OuyuGroupHead { visible: false text: "" }
+                                ct5 := View {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 8.0
+                                    // 一个熟人两行封顶：名字和次数一行，四个动作
+                                    // 一行。宽屏上 c_main 仍是一条 Right，两半并排
+                                    // 成一行；手机上 apply_shaping 把它翻成 Down，
+                                    // 于是恰好两行 —— 而不是让四个按钮自己乱换行。
+                                    c_main := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 10.0
+                                        c_top := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            align: Align{x: 0.0, y: 0.5}
+                                            spacing: 8.0
+                                            c_name := Label {
+                                                width: Fit
+                                                draw_text +: {
+                                                    text_overflow: TextOverflow.Ellipsis
+                                                    max_lines: 1
+                                                    color: ouyu.ink
+                                                    text_style +: { font_size: 14.0 }
+                                                }
+                                            }
+                                            c_count := Label {
+                                                width: Fill
+                                                draw_text +: {
+                                                    text_overflow: TextOverflow.Ellipsis
+                                                    max_lines: 1
+                                                    color: ouyu.ink_2
+                                                    text_style +: { font_size: 12.5 }
+                                                }
+                                            }
+                                        }
+                                        c_acts := View {
+                                            width: Fit height: Fit
+                                            flow: Right
+                                            align: Align{x: 0.0, y: 0.5}
+                                            spacing: 6.0
+                                            c_view := OuyuBtnSm { text: "回忆" }
+                                            c_merge := OuyuBtnSm { text: "合并" }
+                                            c_delmem := OuyuBtnSm { text: "清空回忆" }
+                                            c_del := OuyuBtnDangerSm { text: "删除" }
+                                        }
+                                    }
+                                    c_confirm := View {
+                                        visible: false
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 8.0
+                                        c_also := OuyuChip { visible: false text: "同时删除回忆" }
+                                        c_ctext := Label {
+                                            width: Fill
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.bad
+                                                text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                            }
+                                        }
+                                        c_yes := OuyuBtnDanger { text: "确认删除" }
+                                        c_no := OuyuBtn { text: "取消" }
+                                    }
+                                }
+                                ct_empty := OuyuEmpty {
+                                    visible: false
+                                    em_icon := OuyuIcon {
+                                        icon_walk: Walk{ width: 28.0 height: Fit }
+                                        draw_icon +: { svg: crate_resource("self:resources/icons/nav-contacts.svg") color: ouyu.ink_ghost }
+                                    }
+                                    em_text := Label {
+                                        width: Fit
+                                        text: "还没有熟人"
+                                        draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ---- 回忆页 ----
+                        page_memories := OuyuScrollY {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 14.0
+
+                            filt_row := View {
+                                width: Fill height: Fit
+                                flow: Right{wrap: true}
+                                wrap_spacing: 8.0
+                                spacing: 8.0
+                                filt_all := OuyuChip { text: "全部" }
+                                filt0 := OuyuChip { text: "" }
+                                filt1 := OuyuChip { text: "" }
+                                filt2 := OuyuChip { text: "" }
+                                filt3 := OuyuChip { text: "" }
+                                filt4 := OuyuChip { text: "" }
+                                filt5 := OuyuChip { text: "" }
+                            }
+                            mm_bar := View {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                spacing: 8.0
+                                mm_search := OuyuInput {
+                                    empty_text: "搜称呼或备注"
+                                }
+                            }
+                            // 搜索中显示：说清楚为什么有些东西搜不到。
+                            mm_hidden_note := Label {
+                                visible: false
+                                width: Fill
+                                text: "隐藏的回忆不参与搜索。"
+                                draw_text +: {
+                                    wrap: Words
+                                    color: ouyu.ink_3
+                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                }
+                            }
+                            sec_mem := Label {
+                                text: "回忆"
+                                draw_text +: {
+                                    color: ouyu.ink_2
+                                    text_style +: { font_size: 13.0 }
+                                }
+                            }
+                            mh0 := OuyuGroupHead { visible: false text: "" }
+                            mem0 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 14.0
+                                spacing: 10.0
+                                m_date := Label {
+                                    width: 104
+                                    draw_text +: {
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 }
+                                    }
+                                }
+                                m_text := Label {
+                                    width: Fill
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                m_open := OuyuBtn { text: "打开" }
+                            }
+                            mh1 := OuyuGroupHead { visible: false text: "" }
+                            mem1 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 14.0
+                                spacing: 10.0
+                                m_date := Label {
+                                    width: 104
+                                    draw_text +: {
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 }
+                                    }
+                                }
+                                m_text := Label {
+                                    width: Fill
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                m_open := OuyuBtn { text: "打开" }
+                            }
+                            mh2 := OuyuGroupHead { visible: false text: "" }
+                            mem2 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 14.0
+                                spacing: 10.0
+                                m_date := Label {
+                                    width: 104
+                                    draw_text +: {
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 }
+                                    }
+                                }
+                                m_text := Label {
+                                    width: Fill
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                m_open := OuyuBtn { text: "打开" }
+                            }
+                            mh3 := OuyuGroupHead { visible: false text: "" }
+                            mem3 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 14.0
+                                spacing: 10.0
+                                m_date := Label {
+                                    width: 104
+                                    draw_text +: {
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 }
+                                    }
+                                }
+                                m_text := Label {
+                                    width: Fill
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                m_open := OuyuBtn { text: "打开" }
+                            }
+                            mh4 := OuyuGroupHead { visible: false text: "" }
+                            mem4 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 14.0
+                                spacing: 10.0
+                                m_date := Label {
+                                    width: 104
+                                    draw_text +: {
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 }
+                                    }
+                                }
+                                m_text := Label {
+                                    width: Fill
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                m_open := OuyuBtn { text: "打开" }
+                            }
+                            mh5 := OuyuGroupHead { visible: false text: "" }
+                            mem5 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 14.0
+                                spacing: 10.0
+                                m_date := Label {
+                                    width: 104
+                                    draw_text +: {
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 }
+                                    }
+                                }
+                                m_text := Label {
+                                    width: Fill
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                m_open := OuyuBtn { text: "打开" }
+                            }
+                            mh6 := OuyuGroupHead { visible: false text: "" }
+                            mem6 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 14.0
+                                spacing: 10.0
+                                m_date := Label {
+                                    width: 104
+                                    draw_text +: {
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 }
+                                    }
+                                }
+                                m_text := Label {
+                                    width: Fill
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                m_open := OuyuBtn { text: "打开" }
+                            }
+                            mh7 := OuyuGroupHead { visible: false text: "" }
+                            mem7 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 14.0
+                                spacing: 10.0
+                                m_date := Label {
+                                    width: 104
+                                    draw_text +: {
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 }
+                                    }
+                                }
+                                m_text := Label {
+                                    width: Fill
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                m_open := OuyuBtn { text: "打开" }
+                            }
+                            mem_empty := OuyuEmpty {
+                                visible: false
+                                em_icon := OuyuIcon {
+                                    icon_walk: Walk{ width: 28.0 height: Fit }
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/nav-memories.svg") color: ouyu.ink_ghost }
+                                }
+                                em_text := Label {
+                                    width: Fit
+                                    text: "这里暂时留白"
+                                    draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
+                                }
+                            }
+                            sec_hid := Label {
+                                width: Fill
+                                text: "已隐藏"
+                                draw_text +: {
+                                    wrap: Words
+                                    color: ouyu.ink_2
+                                    text_style +: { font_size: 13.0 line_spacing: 1.35 }
+                                }
+                            }
+                            hh0 := OuyuGroupHead { visible: false text: "" }
+                            hid0 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 14.0
+                                spacing: 10.0
+                                m_date := Label {
+                                    width: 104
+                                    draw_text +: {
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 }
+                                    }
+                                }
+                                m_text := Label {
+                                    width: Fill
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                m_open := OuyuBtn { text: "打开" }
+                            }
+                            hh1 := OuyuGroupHead { visible: false text: "" }
+                            hid1 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 14.0
+                                spacing: 10.0
+                                m_date := Label {
+                                    width: 104
+                                    draw_text +: {
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 }
+                                    }
+                                }
+                                m_text := Label {
+                                    width: Fill
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                m_open := OuyuBtn { text: "打开" }
+                            }
+                            hh2 := OuyuGroupHead { visible: false text: "" }
+                            hid2 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 14.0
+                                spacing: 10.0
+                                m_date := Label {
+                                    width: 104
+                                    draw_text +: {
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 }
+                                    }
+                                }
+                                m_text := Label {
+                                    width: Fill
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                m_open := OuyuBtn { text: "打开" }
+                            }
+                            hh3 := OuyuGroupHead { visible: false text: "" }
+                            hid3 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 14.0
+                                spacing: 10.0
+                                m_date := Label {
+                                    width: 104
+                                    draw_text +: {
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 }
+                                    }
+                                }
+                                m_text := Label {
+                                    width: Fill
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                m_open := OuyuBtn { text: "打开" }
+                            }
+                            hh4 := OuyuGroupHead { visible: false text: "" }
+                            hid4 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 14.0
+                                spacing: 10.0
+                                m_date := Label {
+                                    width: 104
+                                    draw_text +: {
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 }
+                                    }
+                                }
+                                m_text := Label {
+                                    width: Fill
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                m_open := OuyuBtn { text: "打开" }
+                            }
+                            hh5 := OuyuGroupHead { visible: false text: "" }
+                            hid5 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 14.0
+                                spacing: 10.0
+                                m_date := Label {
+                                    width: 104
+                                    draw_text +: {
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 }
+                                    }
+                                }
+                                m_text := Label {
+                                    width: Fill
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                m_open := OuyuBtn { text: "打开" }
+                            }
+                            hh6 := OuyuGroupHead { visible: false text: "" }
+                            hid6 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 14.0
+                                spacing: 10.0
+                                m_date := Label {
+                                    width: 104
+                                    draw_text +: {
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 }
+                                    }
+                                }
+                                m_text := Label {
+                                    width: Fill
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                m_open := OuyuBtn { text: "打开" }
+                            }
+                            hh7 := OuyuGroupHead { visible: false text: "" }
+                            hid7 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 14.0
+                                spacing: 10.0
+                                m_date := Label {
+                                    width: 104
+                                    draw_text +: {
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 }
+                                    }
+                                }
+                                m_text := Label {
+                                    width: Fill
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                m_open := OuyuBtn { text: "打开" }
+                            }
+                            hid_empty := Label {
+                                visible: false
+                                width: Fill
+                                text: "没有隐藏的回忆。"
+                                draw_text +: {
+                                    wrap: Words
+                                    color: ouyu.ink_2
+                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                }
+                            }
+                            mm_note := Label {
+                                width: Fill
+                                text: "隐藏的仍会保存并计次，可随时恢复；隐藏不是加密。"
+                                draw_text +: {
+                                    wrap: Words
+                                    color: ouyu.ink_3
+                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                }
+                            }
+                        }
+
+                        // ---- 「我」页：我的行踪 + 三个入口（券包 / 设置 / 关于）----
+                        //
+                        // 成就曲线、里程碑和分享卡在相遇页首屏；本机统计那张卡没有了。
+                        page_achieve := OuyuScrollY {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 14.0
+
+                            // 我的行踪：只放最近发布的几条进行中的；全部历史在「更多」里。
+                            tr_head := View {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                margin: Inset{top: 6.0, bottom: 2.0}
+                                tr_head_text := OuyuGroupHead { width: Fill margin: 0.0 text: "我的行踪" }
+                                tr_more := OuyuLink {
+                                    width: Fit
+                                    text: "更多"
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/chevron-right.svg") }
+                                }
+                            }
+                            tr_card := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 6.0}
+                                spacing: 0.0
+                                tr0 := OuyuTrackRow { }
+                                tr1 := OuyuTrackRow { }
+                                tr2 := OuyuTrackRow { }
+                                tr_empty := OuyuEmpty {
+                                    visible: false
+                                    em_icon := OuyuIcon {
+                                        icon_walk: Walk{ width: 28.0 height: Fit }
+                                        draw_icon +: { svg: crate_resource("self:resources/icons/location.svg") color: ouyu.ink_ghost }
+                                    }
+                                    em_text := Label {
+                                        width: Fit
+                                        text: "现在没有进行中的行踪"
+                                        draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
+                                    }
+                                }
+                            }
+                            // 三个入口：券包、设置、关于。
+                            hub_head := OuyuGroupHead { text: "更多" }
+                            hub_card := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 6.0}
+                                spacing: 0.0
+                                row_wallet := OuyuSetRow { }
+                                row_settings := OuyuSetRow { }
+                                row_about := OuyuSetRow { }
+                            }
+                        }
+
+                        // ---- 我的券（「我」页进入的覆盖页）----
+                        page_wallet := OuyuScrollY {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 14.0
+
+                            wl_back := OuyuLink {
+                                width: Fit
+                                text: "返回「我」"
+                                draw_icon +: { svg: crate_resource("self:resources/icons/chevron-left.svg") }
+                            }
+                            wl_title := Label {
+                                width: Fill
+                                text: "我的券"
+                                draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 24.0 line_spacing: 1.35 } }
+                            }
+                            wl_sub := Label {
+                                width: Fill
+                                text: "商户赞助，确认相遇后发放，7 天内使用。"
+                                draw_text +: { wrap: Words color: ouyu.ink_2 text_style +: { font_size: 14.0 line_spacing: 1.35 } }
+                            }
+                            // 02 B 节要求把这件事直接写在券包上，而不是藏进隐私政策。
+                            wl_note := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.0}
+                                padding: 14.0
+                                spacing: 10.0
+                                wl_note_icon := OuyuIcon {
+                                    icon_walk: Walk{ width: 16.0 height: Fit }
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/lock.svg") color: ouyu.good }
+                                }
+                                wl_note_text := Label {
+                                    width: Fill
+                                    text: "券面只有商户和核销码，没有和谁、在哪、哪天。"
+                                    draw_text +: { wrap: Words color: ouyu.ink_2 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                }
+                            }
+                            wl_state := OuyuEmpty {
+                                visible: false
+                                em_icon := OuyuIcon {
+                                    icon_walk: Walk{ width: 28.0 height: Fit }
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/coupon.svg") color: ouyu.ink_ghost }
+                                }
+                                em_text := Label {
+                                    width: Fit
+                                    text: "还没有相遇礼"
+                                    draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
+                                }
+                            }
+                            wl_avail := View {
+                                visible: false
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 10.0
+                                wl_avail_head := OuyuGroupHead { text: "可用" }
+                                wa0 := OuyuCouponCard { visible: false }
+                                wa1 := OuyuCouponCard { visible: false }
+                                wa2 := OuyuCouponCard { visible: false }
+                                wa3 := OuyuCouponCard { visible: false }
+                            }
+                            wl_used := View {
+                                visible: false
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 10.0
+                                wl_used_head := OuyuGroupHead { text: "已核销" }
+                                wu0 := OuyuCouponCard { visible: false }
+                                wu1 := OuyuCouponCard { visible: false }
+                                wu2 := OuyuCouponCard { visible: false }
+                                wu3 := OuyuCouponCard { visible: false }
+                            }
+                            wl_gone := View {
+                                visible: false
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 10.0
+                                wl_gone_head := OuyuGroupHead { text: "已过期" }
+                                wg0 := OuyuCouponCard { visible: false }
+                                wg1 := OuyuCouponCard { visible: false }
+                                wg2 := OuyuCouponCard { visible: false }
+                                wg3 := OuyuCouponCard { visible: false }
+                            }
+                        }
+
+                        // ---- 我的行踪（「我」页「更多」进入的覆盖页）----
+                        page_tracks := OuyuScrollY {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 14.0
+
+                            tk_back := OuyuLink {
+                                width: Fit
+                                text: "返回「我」"
+                                draw_icon +: { svg: crate_resource("self:resources/icons/chevron-left.svg") }
+                            }
+                            tk_title := Label {
+                                width: Fill
+                                text: "我的行踪"
+                                draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 24.0 line_spacing: 1.35 } }
+                            }
+                            tk_card := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 6.0}
+                                spacing: 0.0
+                                tk0 := OuyuTrackRow { }
+                                tk1 := OuyuTrackRow { }
+                                tk2 := OuyuTrackRow { }
+                                tk3 := OuyuTrackRow { }
+                                tk4 := OuyuTrackRow { }
+                                tk5 := OuyuTrackRow { }
+                                tk6 := OuyuTrackRow { }
+                                tk7 := OuyuTrackRow { }
+                                tk8 := OuyuTrackRow { }
+                                tk9 := OuyuTrackRow { }
+                                tk10 := OuyuTrackRow { }
+                                tk11 := OuyuTrackRow { }
+                                tk12 := OuyuTrackRow { }
+                                tk13 := OuyuTrackRow { }
+                                tk14 := OuyuTrackRow { }
+                                tk15 := OuyuTrackRow { }
+                                tk16 := OuyuTrackRow { }
+                                tk17 := OuyuTrackRow { }
+                                tk18 := OuyuTrackRow { }
+                                tk19 := OuyuTrackRow { }
+                                tk20 := OuyuTrackRow { }
+                                tk21 := OuyuTrackRow { }
+                                tk22 := OuyuTrackRow { }
+                                tk23 := OuyuTrackRow { }
+                                tk_empty := OuyuEmpty {
+                                    visible: false
+                                    em_icon := OuyuIcon {
+                                        icon_walk: Walk{ width: 28.0 height: Fit }
+                                        draw_icon +: { svg: crate_resource("self:resources/icons/location.svg") color: ouyu.ink_ghost }
+                                    }
+                                    em_text := Label {
+                                        width: Fit
+                                        text: "还没有发布过行踪"
+                                        draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ---- 设置（「我」页进入的覆盖页）----
+                        page_settings := OuyuScrollY {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 14.0
+
+                            se_back := OuyuLink {
+                                width: Fit
+                                text: "返回「我」"
+                                draw_icon +: { svg: crate_resource("self:resources/icons/chevron-left.svg") }
+                            }
+                            se_title := Label {
+                                width: Fill
+                                text: "设置"
+                                draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 24.0 line_spacing: 1.35 } }
+                            }
+
+                            // ---- 外观 ----
+                            //
+                            // 放在第一组：它改的是整屏的样子，读设置的人一眼就该
+                            // 看见有得选，而不是翻到最后才发现。
+                            ap_head := OuyuGroupHead { text: "外观" }
+                            ap_card := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 14.0
+                                spacing: 10.0
+                                ap_name := Label {
+                                    width: Fill
+                                    text: "界面深浅"
+                                    draw_text +: { color: ouyu.ink text_style +: { font_size: 15.0 } }
+                                }
+                                ap_seg := OuyuSegTrack {
+                                    ap_dark := OuyuSeg { text: "夜色" }
+                                    ap_light := OuyuSeg { text: "白昼" }
+                                }
+                                ap_note := Label {
+                                    width: Fill
+                                    text: "只改这台设备上的偶遇，不动系统设置。"
+                                    draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                }
+                            }
+
+                            // ---- 定位权限 ----
+                            loc_head := OuyuGroupHead { text: "定位" }
+                            loc_card := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 6.0}
+                                spacing: 0.0
+                                row_loc := OuyuSetRow { }
+                            }
+
+                            // ---- 通知 ----
+                            ntf_head := OuyuGroupHead { text: "通知" }
+                            ntf_card := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 10.0}
+                                spacing: 0.0
+                                row_ntf_publish := OuyuSwitchRow { }
+                                row_ntf_reward := OuyuSwitchRow { }
+                                ntf_note := Label {
+                                    width: Fill
+                                    margin: Inset{left: 12.0, right: 12.0, top: 6.0}
+                                    text: "不做「附近有熟人」这类提醒，那等于实时位置广播。"
+                                    draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                }
+                            }
+
+                            // ---- 数据与隐私 ----
+                            data_head := OuyuGroupHead { text: "数据与隐私" }
+                            data_card := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 10.0}
+                                spacing: 0.0
+                                row_export := OuyuSetRow { }
+                                row_clear := OuyuSetRow { }
+                                // 清除不可撤销，所以不走 5 秒 toast，走二次确认。
+                                clear_confirm := View {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    margin: Inset{left: 12.0, right: 12.0, top: 4.0}
+                                    spacing: 8.0
+                                    cf_text := Label {
                                         width: Fill
-                                        text: "曲线会透露近 8 周频率，不含联系人或地点。"
+                                        text: "将清掉本机全部数据，无法撤销。要先导出吗？"
+                                        draw_text +: { wrap: Words color: ouyu.bad text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                    }
+                                    cf_row := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 8.0
+                                        spacing: 8.0
+                                        cf_cancel := OuyuBtn { text: "再想想" }
+                                        cf_ok := OuyuBtnDanger { text: "确认清除" }
+                                    }
+                                }
+                                data_note := Label {
+                                    width: Fill
+                                    margin: Inset{left: 12.0, right: 12.0, top: 6.0}
+                                    text: "所有数据只在本机；导出文件不含坐标和地点。"
+                                    draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                }
+                            }
+
+                            // ---- 关于 ----
+                            about_head := OuyuGroupHead { text: "关于" }
+                            about_card := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 18.0
+                                spacing: 8.0
+                                ab_name := Label {
+                                    width: Fill
+                                    text: "偶遇 OuYu v0.4"
+                                    draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 15.0 line_spacing: 1.35 } }
+                                }
+                                ab_p1 := Label {
+                                    width: Fill
+                                    text: "偶遇只做一件事：让本来就可能发生的相遇更容易发生一点，然后退开。"
+                                    draw_text +: { wrap: Words color: ouyu.ink_2 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                }
+                                ab_p2 := Label {
+                                    width: Fill
+                                    text: "不做：谁在附近、人数与距离、实时位置、把隐藏回忆算进统计。"
+                                    draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                }
+                                // 跳过引导的人在这里能重看那三句话（02 七.1）。
+                                ab_intro := OuyuBtn { text: "重看开场" }
+                            }
+                        }
+
+                        // ---- 分享卡预览页（成就页「生成分享卡 →」进入；不是侧栏 Tab）----
+                        page_share := OuyuScrollY {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 14.0
+
+                            sp_title := Label {
+                                width: Fill
+                                text: "让朋友看见，你生活里的光。"
+                                draw_text +: {
+                                    wrap: Words
+                                    color: ouyu.ink
+                                    text_style +: { font_size: 24.0 line_spacing: 1.35 }
+                                }
+                            }
+                            sp_sub := Label {
+                                width: Fill
+                                text: "先预览，再决定发不发。"
+                                draw_text +: {
+                                    wrap: Words
+                                    color: ouyu.ink_2
+                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                }
+                            }
+                            sp_row := View {
+                                width: Fill height: Fit
+                                flow: Right
+                                spacing: 14.0
+                                sp_left := OuyuCard {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    padding: 18.0
+                                    spacing: 10.0
+                                    sp_head := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        sp_ht := Label {
+                                            width: Fill
+                                            text: "分享卡预览"
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.ink
+                                                text_style +: { font_size: 15.0 line_spacing: 1.35 }
+                                            }
+                                        }
+                                        sp_badge := Label {
+                                            text: "仅用可见回忆"
+                                            draw_text +: {
+                                                color: ouyu.warm
+                                                text_style +: { font_size: 11.0 }
+                                            }
+                                        }
+                                    }
+                                    sp_center := View {
+                                        width: Fill height: Fit
+                                        align: Align{x: 0.5, y: 0.0}
+                                        sh_card := OuyuShareCard { width: 300 height: 400 }
+                                    }
+                                    sp_btns := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 8.0
+                                        spacing: 10.0
+                                        sh_save := OuyuBtnPrimary { text: "保存图片" }
+                                        sh_back := OuyuBtn { text: "返回" }
+                                    }
+                                    sh_saved := Label {
+                                        visible: false
+                                        width: Fill
+                                        text: ""
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.warm
+                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    sp_note := Label {
+                                        width: Fill
+                                        text: "保存后可在任意社交媒体自行发布。"
                                         draw_text +: {
                                             wrap: Words
                                             color: ouyu.ink_4
@@ -2787,193 +2707,138 @@ script_mod! {
                                         }
                                     }
                                 }
-                                sp_copy := OuyuCard {
-                                    width: Fill height: Fit
+                                sp_right := View {
+                                    width: 300 height: Fit
                                     flow: Down
-                                    padding: 16.0
-                                    spacing: 8.0
-                                    spc_t := Label {
-                                        text: "文案灵感"
-                                        draw_text +: {
-                                            color: ouyu.ink
-                                            text_style +: { font_size: 14.0 }
+                                    spacing: 14.0
+                                    sp_style := OuyuCard {
+                                        width: Fill height: Fit
+                                        flow: Down
+                                        padding: 16.0
+                                        spacing: 8.0
+                                        sps_t := Label {
+                                            text: "样式"
+                                            draw_text +: {
+                                                color: ouyu.ink
+                                                text_style +: { font_size: 14.0 }
+                                            }
+                                        }
+                                        sps_row := View {
+                                            width: Fill height: Fit
+                                            flow: Right{wrap: true}
+                                            wrap_spacing: 8.0
+                                            spacing: 8.0
+                                            sh_warm := OuyuChip { text: "暖杏" }
+                                            sh_night := OuyuChip { text: "夜蓝" }
                                         }
                                     }
-                                    spc_b := Label {
-                                        width: Fill
-                                        text: "不用专程约，刚好遇见。\n给生活留一点偶然。"
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: ouyu.warm
-                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                    sp_what := OuyuCard {
+                                        width: Fill height: Fit
+                                        flow: Down
+                                        padding: 16.0
+                                        spacing: 8.0
+                                        spw_t := Label {
+                                            text: "内容"
+                                            draw_text +: {
+                                                color: ouyu.ink
+                                                text_style +: { font_size: 14.0 }
+                                            }
+                                        }
+                                        spw_b := Label {
+                                            width: Fill
+                                            text: "汇总次数、成就文案、署名。"
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.ink_2
+                                                text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                            }
+                                        }
+                                        sh_curve := OuyuChip { text: "包含每周曲线" }
+                                        sh_curve_hint := Label {
+                                            visible: false
+                                            width: Fill
+                                            text: "会额外透露你的相遇频率"
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.warm
+                                                text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                            }
+                                        }
+                                        spw_note := Label {
+                                            width: Fill
+                                            text: "曲线会透露近 8 周频率，不含联系人或地点。"
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.ink_4
+                                                text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                            }
                                         }
                                     }
-                                    spc_note := Label {
-                                        width: Fill
-                                        text: "标记朋友前，先问问对方。"
-                                        draw_text +: {
-                                            wrap: Words
-                                            color: ouyu.ink_2
-                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                    sp_copy := OuyuCard {
+                                        width: Fill height: Fit
+                                        flow: Down
+                                        padding: 16.0
+                                        spacing: 8.0
+                                        spc_t := Label {
+                                            text: "文案灵感"
+                                            draw_text +: {
+                                                color: ouyu.ink
+                                                text_style +: { font_size: 14.0 }
+                                            }
+                                        }
+                                        spc_b := Label {
+                                            width: Fill
+                                            text: "不用专程约，刚好遇见。\n给生活留一点偶然。"
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.warm
+                                                text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                            }
+                                        }
+                                        spc_note := Label {
+                                            width: Fill
+                                            text: "标记朋友前，先问问对方。"
+                                            draw_text +: {
+                                                wrap: Words
+                                                color: ouyu.ink_2
+                                                text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
-                        sp_caution := OuyuCard {
-                            width: Fill height: Fit
-                            padding: 14.0
-                            sp_caut := Label {
-                                width: Fill
-                                text: "汇总次数会透露你的活跃程度；已发出的图片不会随本机删除撤回。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                            sp_caution := OuyuCard {
+                                width: Fill height: Fit
+                                padding: 14.0
+                                sp_caut := Label {
+                                    width: Fill
+                                    text: "汇总次数会透露你的活跃程度；已发出的图片不会随本机删除撤回。"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                    }
                                 }
                             }
                         }
-                    }
-                    }
+                        }
 
-                    // 删除提示：5 秒内可撤销，浮在所有页之上、导航之下。
-                    //
-                    // 不用弹窗问「确定删除吗」—— 删一条回忆不值得打断一次；
-                    // 真正不可逆的（清除本机数据）才保留二次确认。
-                    // ---- 一条回忆的详情（从回忆页某一行进来）----
-                    //
-                    // 隐藏 / 恢复 / 删除 / 写备注四件事都收进这里：这四个动作
-                    // 全摆在列表行上的时候，一行要塞四个按钮，手机上永远在换行，
-                    // 而且「删除」离手指太近。
-                    page_memdetail := OuyuScrollY {
-                        visible: false
-                        width: Fill height: Fill
-                        flow: Down
-                        spacing: 14.0
-                        md_back := OuyuLink { text: "返回「回忆」" }
-                        md_title := Label {
-                            width: Fill
-                            text: ""
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.ink
-                                text_style +: { font_size: 22.0 line_spacing: 1.35 }
-                            }
-                        }
-                        md_date := Label {
-                            width: Fill
-                            text: ""
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.ink_2
-                                text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                            }
-                        }
-                        md_card := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: 18.0
-                            spacing: 10.0
-                            md_note_head := Label {
-                                width: Fill
-                                text: "你的备注"
-                                draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 15.0 line_spacing: 1.35 } }
-                            }
-                            md_note := OuyuInput {
-                                empty_text: "写一句只给你自己看的"
-                            }
-                            md_note_tip := Label {
-                                width: Fill
-                                text: "备注只在本机，不进统计和分享卡。"
-                                draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
-                            }
-                            md_save := OuyuBtnPrimary { text: "保存备注" }
-                        }
-                        md_act_head := OuyuGroupHead { text: "这一条" }
-                        md_act := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: 18.0
-                            spacing: 10.0
-                            md_toggle := OuyuBtn { width: Fill text: "隐藏这一条" }
-                            md_hide_tip := Label {
-                                width: Fill
-                                text: "隐藏后不进搜索、提醒和成就，仍计一次相遇。"
-                                draw_text +: { wrap: Words color: ouyu.ink_2 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
-                            }
-                            md_del := OuyuBtnDanger { width: Fill text: "删除这一条" }
-                            md_del_tip := Label {
-                                width: Fill
-                                text: "删除后 5 秒内可撤销；只删你这一份。"
-                                draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
-                            }
-                        }
-                    }
-
-                    // ---- 开场三屏（第一次打开，或从「我」页重看）----
-                    //
-                    // 盖住整块内容区，并且把侧栏 / 顶栏 / 底部导航一起藏起来 ——
-                    // 这三句话要是能被一脚跨过去，就等于没讲。
-                    page_intro := View {
-                        visible: false
-                        width: Fill height: Fill
-                        flow: Down
-                        spacing: 14.0
-                        in_top := View {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            spacing: 6.0
-                            in_d0 := RoundedView {
-                                width: 22 height: 4
-                                draw_bg +: { color: ouyu.blue border_radius: r.tick }
-                            }
-                            in_d1 := RoundedView {
-                                width: 22 height: 4
-                                draw_bg +: { color: ouyu.line_soft border_radius: r.tick }
-                            }
-                            in_d2 := RoundedView {
-                                width: 22 height: 4
-                                draw_bg +: { color: ouyu.line_soft border_radius: r.tick }
-                            }
-                            in_gap := View { width: Fill height: Fit }
-                            in_skip := OuyuLink { text: "跳过" }
-                        }
-                        in_mid := OuyuScrollY {
+                        // 删除提示：5 秒内可撤销，浮在所有页之上、导航之下。
+                        //
+                        // 不用弹窗问「确定删除吗」—— 删一条回忆不值得打断一次；
+                        // 真正不可逆的（清除本机数据）才保留二次确认。
+                        // ---- 一条回忆的详情（从回忆页某一行进来）----
+                        //
+                        // 隐藏 / 恢复 / 删除 / 写备注四件事都收进这里：这四个动作
+                        // 全摆在列表行上的时候，一行要塞四个按钮，手机上永远在换行，
+                        // 而且「删除」离手指太近。
+                        page_memdetail := OuyuScrollY {
+                            visible: false
                             width: Fill height: Fill
                             flow: Down
                             spacing: 14.0
-                            // 三枚图标写死在这里、按步显隐，而不是运行时换 svg ——
-                            // script_apply_eval! 的作用域里没有 crate_resource
-                            // （批次 4 同一个坑）。Icon 自己没有 visible，所以各裹一层 View。
-                            in_icons := View {
-                                width: Fit height: Fit
-                                flow: Right
-                                in_ic0 := View {
-                                    width: Fit height: Fit
-                                    in_i := OuyuIcon {
-                                        icon_walk: Walk{ width: 40.0 height: Fit }
-                                        draw_icon +: { svg: crate_resource("self:resources/icons/nav-discover.svg") color: ouyu.warm }
-                                    }
-                                }
-                                in_ic1 := View {
-                                    visible: false
-                                    width: Fit height: Fit
-                                    in_i := OuyuIcon {
-                                        icon_walk: Walk{ width: 40.0 height: Fit }
-                                        draw_icon +: { svg: crate_resource("self:resources/icons/nav-meet.svg") color: ouyu.warm }
-                                    }
-                                }
-                                in_ic2 := View {
-                                    visible: false
-                                    width: Fit height: Fit
-                                    in_i := OuyuIcon {
-                                        icon_walk: Walk{ width: 40.0 height: Fit }
-                                        draw_icon +: { svg: crate_resource("self:resources/icons/lock.svg") color: ouyu.good }
-                                    }
-                                }
-                            }
-                            in_title := Label {
+                            md_back := OuyuLink { text: "返回「回忆」" }
+                            md_title := Label {
                                 width: Fill
                                 text: ""
                                 draw_text +: {
@@ -2982,108 +2847,278 @@ script_mod! {
                                     text_style +: { font_size: 22.0 line_spacing: 1.35 }
                                 }
                             }
-                            in_body := Label {
+                            md_date := Label {
                                 width: Fill
                                 text: ""
                                 draw_text +: {
                                     wrap: Words
                                     color: ouyu.ink_2
-                                    text_style +: { font_size: 15.0 line_spacing: 1.35 }
+                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
                                 }
                             }
-                            // 第 3 屏的隐私要点。前两屏收起来。
-                            in_points := OuyuCard {
-                                visible: false
+                            md_card := OuyuCard {
                                 width: Fill height: Fit
                                 flow: Down
-                                padding: 16.0
+                                padding: 18.0
                                 spacing: 10.0
-                                ip0 := Label {
+                                md_note_head := Label {
                                     width: Fill
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.good
-                                        text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                    }
+                                    text: "你的备注"
+                                    draw_text +: { wrap: Words color: ouyu.ink text_style +: { font_size: 15.0 line_spacing: 1.35 } }
                                 }
-                                ip1 := Label {
+                                md_note := OuyuInput {
+                                    empty_text: "写一句只给你自己看的"
+                                }
+                                md_note_tip := Label {
                                     width: Fill
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.good
-                                        text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                    }
+                                    text: "备注只在本机，不进统计和分享卡。"
+                                    draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
                                 }
-                                ip2 := Label {
-                                    width: Fill
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.good
-                                        text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                ip3 := Label {
-                                    width: Fill
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.good
-                                        text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                    }
-                                }
+                                md_save := OuyuBtnPrimary { text: "保存备注" }
                             }
-                        }
-                        in_bar := View {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            spacing: 10.0
-                            in_back := OuyuBtn { visible: false text: "上一步" }
-                            in_gap2 := View { width: Fill height: Fit }
-                            in_next := OuyuBtnPrimary { text: "下一步" }
-                        }
-                    }
-
-                    // ---- 通知条 ----
-                    //
-                    // 两类通知（去向到期、券到期）都落在这里。不是系统通知：
-                    // 这份草图跑在桌面上，没有可用的系统通知通道，所以先在应用内
-                    // 把「什么时候该响、响什么」做对，换壳时只要换发送端。
-                    notice_layer := View {
-                        visible: false
-                        width: Fill height: Fill
-                        flow: Down
-                        align: Align{x: 0.5, y: 0.0}
-                        nt_card := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Right
-                            align: Align{x: 0.0, y: 0.5}
-                            padding: 14.0
-                            spacing: 10.0
-                            draw_bg +: { color: ouyu.card border_color: ouyu.line_notice border_size: 1.0 }
-                            nt_icon := OuyuIcon {
-                                icon_walk: Walk{ width: 18.0 height: Fit }
-                                draw_icon +: { svg: crate_resource("self:resources/icons/bell.svg") color: ouyu.warm }
-                            }
-                            nt_col := View {
+                            md_act_head := OuyuGroupHead { text: "这一条" }
+                            md_act := OuyuCard {
                                 width: Fill height: Fit
                                 flow: Down
-                                spacing: 3.0
-                                nt_title := Label {
+                                padding: 18.0
+                                spacing: 10.0
+                                md_toggle := OuyuBtn { width: Fill text: "隐藏这一条" }
+                                md_hide_tip := Label {
+                                    width: Fill
+                                    text: "隐藏后不进搜索、提醒和成就，仍计一次相遇。"
+                                    draw_text +: { wrap: Words color: ouyu.ink_2 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                }
+                                md_del := OuyuBtnDanger { width: Fill text: "删除这一条" }
+                                md_del_tip := Label {
+                                    width: Fill
+                                    text: "删除后 5 秒内可撤销；只删你这一份。"
+                                    draw_text +: { wrap: Words color: ouyu.ink_3 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                }
+                            }
+                        }
+
+                        // ---- 开场三屏（第一次打开，或从「我」页重看）----
+                        //
+                        // 盖住整块内容区，并且把侧栏 / 顶栏 / 底部导航一起藏起来 ——
+                        // 这三句话要是能被一脚跨过去，就等于没讲。
+                        page_intro := View {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 14.0
+                            in_top := View {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                spacing: 6.0
+                                in_d0 := RoundedView {
+                                    width: 22 height: 4
+                                    draw_bg +: { color: ouyu.blue border_radius: r.tick }
+                                }
+                                in_d1 := RoundedView {
+                                    width: 22 height: 4
+                                    draw_bg +: { color: ouyu.line_soft border_radius: r.tick }
+                                }
+                                in_d2 := RoundedView {
+                                    width: 22 height: 4
+                                    draw_bg +: { color: ouyu.line_soft border_radius: r.tick }
+                                }
+                                in_gap := View { width: Fill height: Fit }
+                                in_skip := OuyuLink { text: "跳过" }
+                            }
+                            in_mid := OuyuScrollY {
+                                width: Fill height: Fill
+                                flow: Down
+                                spacing: 14.0
+                                // 三枚图标写死在这里、按步显隐，而不是运行时换 svg ——
+                                // script_apply_eval! 的作用域里没有 crate_resource
+                                // （批次 4 同一个坑）。Icon 自己没有 visible，所以各裹一层 View。
+                                in_icons := View {
+                                    width: Fit height: Fit
+                                    flow: Right
+                                    in_ic0 := View {
+                                        width: Fit height: Fit
+                                        in_i := OuyuIcon {
+                                            icon_walk: Walk{ width: 40.0 height: Fit }
+                                            draw_icon +: { svg: crate_resource("self:resources/icons/nav-discover.svg") color: ouyu.warm }
+                                        }
+                                    }
+                                    in_ic1 := View {
+                                        visible: false
+                                        width: Fit height: Fit
+                                        in_i := OuyuIcon {
+                                            icon_walk: Walk{ width: 40.0 height: Fit }
+                                            draw_icon +: { svg: crate_resource("self:resources/icons/nav-meet.svg") color: ouyu.warm }
+                                        }
+                                    }
+                                    in_ic2 := View {
+                                        visible: false
+                                        width: Fit height: Fit
+                                        in_i := OuyuIcon {
+                                            icon_walk: Walk{ width: 40.0 height: Fit }
+                                            draw_icon +: { svg: crate_resource("self:resources/icons/lock.svg") color: ouyu.good }
+                                        }
+                                    }
+                                }
+                                in_title := Label {
                                     width: Fill
                                     text: ""
                                     draw_text +: {
                                         wrap: Words
                                         color: ouyu.ink
-                                        text_style +: { font_size: 13.5 line_spacing: 1.35 }
+                                        text_style +: { font_size: 22.0 line_spacing: 1.35 }
                                     }
                                 }
-                                nt_text := Label {
+                                in_body := Label {
                                     width: Fill
                                     text: ""
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 15.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                // 第 3 屏的隐私要点。前两屏收起来。
+                                in_points := OuyuCard {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    padding: 16.0
+                                    spacing: 10.0
+                                    ip0 := Label {
+                                        width: Fill
+                                        text: ""
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.good
+                                            text_style +: { font_size: 13.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    ip1 := Label {
+                                        width: Fill
+                                        text: ""
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.good
+                                            text_style +: { font_size: 13.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    ip2 := Label {
+                                        width: Fill
+                                        text: ""
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.good
+                                            text_style +: { font_size: 13.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    ip3 := Label {
+                                        width: Fill
+                                        text: ""
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.good
+                                            text_style +: { font_size: 13.0 line_spacing: 1.35 }
+                                        }
+                                    }
+                                }
+                            }
+                            in_bar := View {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                spacing: 10.0
+                                in_back := OuyuBtn { visible: false text: "上一步" }
+                                in_gap2 := View { width: Fill height: Fit }
+                                in_next := OuyuBtnPrimary { text: "下一步" }
+                            }
+                        }
+
+                        // ---- 通知条 ----
+                        //
+                        // 两类通知（去向到期、券到期）都落在这里。不是系统通知：
+                        // 这份草图跑在桌面上，没有可用的系统通知通道，所以先在应用内
+                        // 把「什么时候该响、响什么」做对，换壳时只要换发送端。
+                        notice_layer := View {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            align: Align{x: 0.5, y: 0.0}
+                            nt_card := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 14.0
+                                spacing: 10.0
+                                draw_bg +: { color: ouyu.card border_color: ouyu.line_notice border_size: 1.0 }
+                                nt_icon := OuyuIcon {
+                                    icon_walk: Walk{ width: 18.0 height: Fit }
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/bell.svg") color: ouyu.warm }
+                                }
+                                nt_col := View {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 3.0
+                                    nt_title := Label {
+                                        width: Fill
+                                        text: ""
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink
+                                            text_style +: { font_size: 13.5 line_spacing: 1.35 }
+                                        }
+                                    }
+                                    nt_text := Label {
+                                        width: Fill
+                                        text: ""
+                                        draw_text +: {
+                                            wrap: Words
+                                            color: ouyu.ink_2
+                                            text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                        }
+                                    }
+                                }
+                                nt_close := OuyuIconBtn {
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/close.svg") }
+                                }
+                            }
+                        }
+
+                        toast_layer := View {
+                            width: Fill height: Fill
+                            flow: Down
+                            align: Align{x: 0.5, y: 1.0}
+                            padding: Inset{left: 2.0, right: 2.0, bottom: 2.0}
+                            toast := OuyuToast { }
+                        }
+
+                    }
+
+                    // ---- 右列解释栏（窗口窄于 ~900px 时隐藏）----
+                    aside := OuyuScrollY {
+                        width: 300 height: Fill
+                        flow: Down
+                        spacing: 14.0
+
+                        aside_discover := View {
+                            width: Fill height: Fit
+                            flow: Down
+                            spacing: 14.0
+                            ad1 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 16.0
+                                spacing: 8.0
+                                ad1_t := Label {
+                                    text: "偶遇不是找人雷达"
+                                    draw_text +: {
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 }
+                                    }
+                                }
+                                ad1_b := Label {
+                                    width: Fill
+                                    text: "看不到谁发布了行程；别人也看不到你的头像、姓名和位置。"
                                     draw_text +: {
                                         wrap: Words
                                         color: ouyu.ink_2
@@ -3091,330 +3126,336 @@ script_mod! {
                                     }
                                 }
                             }
-                            nt_close := OuyuIconBtn {
-                                draw_icon +: { svg: crate_resource("self:resources/icons/close.svg") }
-                            }
-                        }
-                    }
-
-                    toast_layer := View {
-                        width: Fill height: Fill
-                        flow: Down
-                        align: Align{x: 0.5, y: 1.0}
-                        padding: Inset{left: 2.0, right: 2.0, bottom: 2.0}
-                        toast := OuyuToast { }
-                    }
-
-                }
-
-                // ---- 右列解释栏（窗口窄于 ~900px 时隐藏）----
-                aside := OuyuScrollY {
-                    width: 300 height: Fill
-                    flow: Down
-                    spacing: 14.0
-
-                    aside_discover := View {
-                        width: Fill height: Fit
-                        flow: Down
-                        spacing: 14.0
-                        ad1 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: 16.0
-                            spacing: 8.0
-                            ad1_t := Label {
-                                text: "偶遇不是找人雷达"
-                                draw_text +: {
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 }
+                            ad2 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 16.0
+                                spacing: 8.0
+                                ad2_t := Label {
+                                    width: Fill
+                                    text: "从可能，到真的相遇"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                ad2_b := Label {
+                                    width: Fill
+                                    text: "1 发布粗区域与时段\n2 正常生活，线下认出彼此\n3 双方互认，可选相遇礼"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                    }
                                 }
                             }
-                            ad1_b := Label {
-                                width: Fill
-                                text: "看不到谁发布了行程；别人也看不到你的头像、姓名和位置。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                            ad3 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 16.0
+                                spacing: 8.0
+                                ad3_t := Label {
+                                    text: "你始终可以退出"
+                                    draw_text +: {
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 }
+                                    }
                                 }
-                            }
-                        }
-                        ad2 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: 16.0
-                            spacing: 8.0
-                            ad2_t := Label {
-                                width: Fill
-                                text: "从可能，到真的相遇"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            ad2_b := Label {
-                                width: Fill
-                                text: "1 发布粗区域与时段\n2 正常生活，线下认出彼此\n3 双方互认，可选相遇礼"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                ad3_b := Label {
+                                    width: Fill
+                                    text: "发布随时可撤回。宁可少提示，也不披露某个熟人。"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                    }
                                 }
                             }
                         }
-                        ad3 := OuyuCard {
+                        aside_meet := View {
+                            visible: false
                             width: Fill height: Fit
                             flow: Down
-                            padding: 16.0
-                            spacing: 8.0
-                            ad3_t := Label {
-                                text: "你始终可以退出"
-                                draw_text +: {
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 }
+                            spacing: 14.0
+                            am1 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 16.0
+                                spacing: 8.0
+                                am1_t := Label {
+                                    width: Fill
+                                    text: "定位只用在领奖验证"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                am1_b := Label {
+                                    width: Fill
+                                    text: "不持续定位，不向任何人展示坐标。拒绝也能记回忆。"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                    }
                                 }
                             }
-                            ad3_b := Label {
-                                width: Fill
-                                text: "发布随时可撤回。宁可少提示，也不披露某个熟人。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                            am2 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 16.0
+                                spacing: 8.0
+                                am2_t := Label {
+                                    width: Fill
+                                    text: "每次相遇，重新选择"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                am2_b := Label {
+                                    width: Fill
+                                    text: "保存、隐藏或不保存只影响这一次。"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                    }
                                 }
                             }
                         }
-                    }
-                    aside_meet := View {
-                        visible: false
-                        width: Fill height: Fit
-                        flow: Down
-                        spacing: 14.0
-                        am1 := OuyuCard {
+                        aside_contacts := View {
+                            visible: false
                             width: Fill height: Fit
                             flow: Down
-                            padding: 16.0
-                            spacing: 8.0
-                            am1_t := Label {
-                                width: Fill
-                                text: "定位只用在领奖验证"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                            spacing: 14.0
+                            ac1 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 16.0
+                                spacing: 8.0
+                                ac1_t := Label {
+                                    width: Fill
+                                    text: "记不记，留到每次相遇"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                ac1_b := Label {
+                                    width: Fill
+                                    text: "每次确认时选保存、隐藏或不保存，不设永久策略。"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                    }
                                 }
                             }
-                            am1_b := Label {
-                                width: Fill
-                                text: "不持续定位，不向任何人展示坐标。拒绝也能记回忆。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                            ac2 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 16.0
+                                spacing: 8.0
+                                ac2_t := Label {
+                                    width: Fill
+                                    text: "删除联系人，不必删回忆"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                                    }
+                                }
+                                ac2_b := Label {
+                                    width: Fill
+                                    text: "删除时可选是否连回忆一起删，默认保留。"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                    }
                                 }
                             }
                         }
-                        am2 := OuyuCard {
+                        aside_memories := View {
+                            visible: false
                             width: Fill height: Fit
                             flow: Down
-                            padding: 16.0
-                            spacing: 8.0
-                            am2_t := Label {
-                                width: Fill
-                                text: "每次相遇，重新选择"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                            spacing: 14.0
+                            ame1 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 16.0
+                                spacing: 8.0
+                                ame1_t := Label {
+                                    text: "默认不记地点"
+                                    draw_text +: {
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 }
+                                    }
+                                }
+                                ame1_b := Label {
+                                    width: Fill
+                                    text: "只记和谁、哪一天，不记时刻、位置或路线。"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                    }
                                 }
                             }
-                            am2_b := Label {
-                                width: Fill
-                                text: "保存、隐藏或不保存只影响这一次。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                            ame2 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 16.0
+                                spacing: 8.0
+                                ame2_t := Label {
+                                    text: "删除只影响这一份"
+                                    draw_text +: {
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 }
+                                    }
+                                }
+                                ame2_b := Label {
+                                    width: Fill
+                                    text: "删不掉对方自己记的那一份。"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                    }
                                 }
                             }
                         }
-                    }
-                    aside_contacts := View {
-                        visible: false
-                        width: Fill height: Fit
-                        flow: Down
-                        spacing: 14.0
-                        ac1 := OuyuCard {
+                        aside_achieve := View {
+                            visible: false
                             width: Fill height: Fit
                             flow: Down
-                            padding: 16.0
-                            spacing: 8.0
-                            ac1_t := Label {
-                                width: Fill
-                                text: "记不记，留到每次相遇"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
+                            spacing: 14.0
+                            aac1 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 16.0
+                                spacing: 8.0
+                                aac1_t := Label {
+                                    text: "成就不是任务"
+                                    draw_text +: {
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 }
+                                    }
+                                }
+                                aac1_b := Label {
+                                    width: Fill
+                                    text: "没有签到、排行榜和惩罚。"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                    }
                                 }
                             }
-                            ac1_b := Label {
-                                width: Fill
-                                text: "每次确认时选保存、隐藏或不保存，不设永久策略。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                            aac2 := OuyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 16.0
+                                spacing: 8.0
+                                aac2_t := Label {
+                                    text: "分享时留住边界"
+                                    draw_text +: {
+                                        color: ouyu.ink
+                                        text_style +: { font_size: 14.0 }
+                                    }
                                 }
-                            }
-                        }
-                        ac2 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: 16.0
-                            spacing: 8.0
-                            ac2_t := Label {
-                                width: Fill
-                                text: "删除联系人，不必删回忆"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                }
-                            }
-                            ac2_b := Label {
-                                width: Fill
-                                text: "删除时可选是否连回忆一起删，默认保留。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                }
-                            }
-                        }
-                    }
-                    aside_memories := View {
-                        visible: false
-                        width: Fill height: Fit
-                        flow: Down
-                        spacing: 14.0
-                        ame1 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: 16.0
-                            spacing: 8.0
-                            ame1_t := Label {
-                                text: "默认不记地点"
-                                draw_text +: {
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 }
-                                }
-                            }
-                            ame1_b := Label {
-                                width: Fill
-                                text: "只记和谁、哪一天，不记时刻、位置或路线。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                }
-                            }
-                        }
-                        ame2 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: 16.0
-                            spacing: 8.0
-                            ame2_t := Label {
-                                text: "删除只影响这一份"
-                                draw_text +: {
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 }
-                                }
-                            }
-                            ame2_b := Label {
-                                width: Fill
-                                text: "删不掉对方自己记的那一份。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                }
-                            }
-                        }
-                    }
-                    aside_achieve := View {
-                        visible: false
-                        width: Fill height: Fit
-                        flow: Down
-                        spacing: 14.0
-                        aac1 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: 16.0
-                            spacing: 8.0
-                            aac1_t := Label {
-                                text: "成就不是任务"
-                                draw_text +: {
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 }
-                                }
-                            }
-                            aac1_b := Label {
-                                width: Fill
-                                text: "没有签到、排行榜和惩罚。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                }
-                            }
-                        }
-                        aac2 := OuyuCard {
-                            width: Fill height: Fit
-                            flow: Down
-                            padding: 16.0
-                            spacing: 8.0
-                            aac2_t := Label {
-                                text: "分享时留住边界"
-                                draw_text +: {
-                                    color: ouyu.ink
-                                    text_style +: { font_size: 14.0 }
-                                }
-                            }
-                            aac2_b := Label {
-                                width: Fill
-                                text: "分享卡只含汇总次数和文案，不带联系人、地点或日期。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                aac2_b := Label {
+                                    width: Fill
+                                    text: "分享卡只含汇总次数和文案，不带联系人、地点或日期。"
+                                    draw_text +: {
+                                        wrap: Words
+                                        color: ouyu.ink_2
+                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                // ---- 手机模式底部导航（宽屏隐藏，窄屏代替左侧栏）----
+                tabbar := RoundedView {
+                    visible: false
+                    width: Fill height: 66
+                    flow: Right
+                    align: Align{x: 0.5, y: 0.5}
+                    padding: Inset{left: 6.0, right: 6.0, top: 4.0, bottom: 4.0}
+                    spacing: 4.0
+                    draw_bg +: {
+                        color: ouyu.bg_chrome
+                        border_color: ouyu.line
+                        border_size: 1.0
+                        border_radius: 0.0
+                    }
+                    tab_discover := OuyuNavTab { text: "发现" draw_icon +: { svg: crate_resource("self:resources/icons/nav-discover.svg") } }
+                    tab_meet := OuyuNavTab { text: "相遇" draw_icon +: { svg: crate_resource("self:resources/icons/nav-meet.svg") } }
+                    tab_contacts := OuyuNavTab { text: "熟人" draw_icon +: { svg: crate_resource("self:resources/icons/nav-contacts.svg") } }
+                    tab_memories := OuyuNavTab { text: "回忆" draw_icon +: { svg: crate_resource("self:resources/icons/nav-memories.svg") } }
+                    tab_achieve := OuyuNavTab { text: "我" draw_icon +: { svg: crate_resource("self:resources/icons/nav-me.svg") } }
+                }
+
             }
-            // ---- 手机模式底部导航（宽屏隐藏，窄屏代替左侧栏）----
-            tabbar := RoundedView {
+            // ---- 导入菜单浮层 ----
+            //
+            // 挂在这一层（shell，与顶栏同宽），叠在内容之上：不占布局空间，
+            // 「我的熟人」那张卡的高度不受它影响。
+            //
+            // 此前它是贴在熟人卡片里就地展开的 —— 那会把那张卡撑高、把下面的
+            // 输入框顶下去。菜单只有两三条，盖一层比撑开布局更合适。
+            //
+            // 锚在顶栏「+」正下方：右缘对齐顶栏的 padding right(12)，顶边贴在
+            // 顶栏(height 58)之下。不能挂进 main / content —— main 有 padding
+            // right 20，content 右边还有 300 的 aside，挂进去在桌面宽屏下会比
+            // 「+」明显左偏。
+            ct_menu_layer := View {
                 visible: false
-                width: Fill height: 66
-                flow: Right
-                align: Align{x: 0.5, y: 0.5}
-                padding: Inset{left: 6.0, right: 6.0, top: 4.0, bottom: 4.0}
-                spacing: 4.0
-                draw_bg +: {
-                    color: ouyu.bg_chrome
-                    border_color: ouyu.line
-                    border_size: 1.0
-                    border_radius: 0.0
+                width: Fill height: Fill
+                flow: Overlay
+
+                // 透明全屏命中区：点菜单以外任何地方收起。浮层若没有这条，
+                // 菜单会一直飘着关不掉（就地展开时不存在这个问题）。
+                ct_hit := mod.widgets.ButtonFlat {
+                    width: Fill height: Fill
+                    text: ""
+                    margin: 0.0
+                    padding: 0.0
+                    draw_bg +: {
+                        border_size: 0.0
+                        border_radius: 0.0
+                        color: #0000
+                        color_hover: #0000
+                        color_down: #0000
+                        color_focus: #0000
+                    }
                 }
-                tab_discover := OuyuNavTab { text: "发现" draw_icon +: { svg: crate_resource("self:resources/icons/nav-discover.svg") } }
-                tab_meet := OuyuNavTab { text: "相遇" draw_icon +: { svg: crate_resource("self:resources/icons/nav-meet.svg") } }
-                tab_contacts := OuyuNavTab { text: "熟人" draw_icon +: { svg: crate_resource("self:resources/icons/nav-contacts.svg") } }
-                tab_memories := OuyuNavTab { text: "回忆" draw_icon +: { svg: crate_resource("self:resources/icons/nav-memories.svg") } }
-                tab_achieve := OuyuNavTab { text: "我" draw_icon +: { svg: crate_resource("self:resources/icons/nav-me.svg") } }
+
+                // 定位层：右对齐 + 顶栏高度留白，把菜单放到「+」正下方。
+                ct_menu_pos := View {
+                    width: Fill height: Fill
+                    flow: Overlay
+                    align: Align{x: 1.0, y: 0.0}
+                    padding: Inset{top: 58.0, right: 12.0}
+                    ct_menu := OuyuMenu {
+                        im_local := OuyuMenuItem {
+                            text: "从本机导入"
+                            draw_icon +: { svg: crate_resource("self:resources/icons/nav-contacts.svg") }
+                        }
+                        im_file := OuyuMenuItem {
+                            text: "从文件导入"
+                            draw_icon +: { svg: crate_resource("self:resources/icons/download.svg") }
+                        }
+                    }
+                }
             }
         }
     }
@@ -5341,7 +5382,7 @@ impl OuyuView {
             }
         }
         self.view
-            .widget(cx, ids!(page_contacts.ct_card.ct_menu_row))
+            .widget(cx, ids!(ct_menu_layer))
             .set_visible(cx, self.import_menu);
     }
 
@@ -6611,7 +6652,7 @@ impl OuyuView {
         // 熟人页: 导入菜单的两条
         if self
             .view
-            .button(cx, ids!(page_contacts.ct_card.ct_menu_row.ct_menu.im_local))
+            .button(cx, ids!(ct_menu_layer.ct_menu_pos.ct_menu.im_local))
             .clicked(actions)
         {
             self.import_menu = false;
@@ -6619,11 +6660,20 @@ impl OuyuView {
         }
         if self
             .view
-            .button(cx, ids!(page_contacts.ct_card.ct_menu_row.ct_menu.im_file))
+            .button(cx, ids!(ct_menu_layer.ct_menu_pos.ct_menu.im_file))
             .clicked(actions)
         {
             self.import_menu = false;
             self.import_vcard(cx);
+        }
+        // 熟人页: 导入菜单的透明命中区 —— 点菜单以外任何地方收起。
+        if self
+            .view
+            .button(cx, ids!(ct_menu_layer.ct_hit))
+            .clicked(actions)
+        {
+            self.import_menu = false;
+            self.refresh_contacts(cx);
         }
 
         // 回忆页: 筛选芯片

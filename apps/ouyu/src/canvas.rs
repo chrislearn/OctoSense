@@ -564,8 +564,11 @@ script_mod! {
         }
     }
 
-    // 下拉菜单面板：贴在触发按钮下方的一张小卡，里面若干 OuyuMenuItem。
-    // 不做浮层 —— 这一版菜单只有两三条，就地展开比盖一层更好收回。
+    // 下拉菜单面板：一张小卡，里面若干 OuyuMenuItem。
+    //
+    // 由调用方挂进浮层、锚在触发按钮下方。它本身只是个「面板」——定位交给
+    // 外面那层。曾在熟人卡片里就地展开，那会把卡片撑高、把下面的输入框顶下去，
+    // 所以改成浮层（见 lib.rs 的 ct_menu_layer）。
     mod.widgets.OuyuMenu = mod.widgets.RoundedView{
         width: 172 height: Fit
         flow: Down
