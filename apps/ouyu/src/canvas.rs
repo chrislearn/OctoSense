@@ -61,6 +61,29 @@ script_mod! {
         }
     }
 
+    // 滚动条：手柄颜色也从色板取。
+    //
+    // makepad 的 ScrollBar 默认取 `theme.color_outset` —— 那是 widget 主题的
+    // 颜色，宿主的样式表说了算，不跟着偶遇的深浅走。白昼版跑在夜色宿主里时，
+    // 它会在白纸上画一条深蓝手柄（独立窗口下反过来：白色 10% 几乎看不见）。
+    // 每个 ScrollYView 都换成这个预设，深浅两套都由 `ouyu.bar` 决定。
+    mod.widgets.OuyuScrollBar = mod.widgets.ScrollBar {
+        draw_bg +: {
+            color: ouyu.bar
+            color_hover: ouyu.bar_hi
+            color_drag: ouyu.bar_drag
+        }
+    }
+
+    // 和 makepad 的 ScrollYView 一样的一份，只换掉手柄。
+    mod.widgets.OuyuScrollY = mod.widgets.ViewBase {
+        scroll_bars: mod.widgets.ScrollBars {
+            show_scroll_x: false
+            show_scroll_y: true
+            scroll_bar_y: mod.widgets.OuyuScrollBar { drag_scrolling: true }
+        }
+    }
+
     // 卡片分三级（docs/02 六·1）：主卡 / 次卡 / 内联行。
     // 主卡: 20 圆角 + 1px 描边 + 略提亮底，用于页面核心内容。
     mod.widgets.OuyuCard = mod.widgets.RoundedView{
