@@ -1138,16 +1138,16 @@ script_mod! {
                 flow: Right
                 align: Align{x: 0.0, y: 0.5}
                 padding: Inset{left: 3.0, right: 3.0}
-                draw_bg +: { color: ouyu.track_off border_radius: r.button }
+                draw_bg +: { color: ouyu.track_off border_radius: 13.0 }   // 胶囊:= height/2,形状本身,不参与圆角收敛
                 sw_off := mod.widgets.RoundedView {
                     width: 20 height: 20
-                    draw_bg +: { color: ouyu.knob border_radius: r.chip }
+                    draw_bg +: { color: ouyu.knob border_radius: 10.0 }       // 正圆:= height/2,同上
                 }
                 sw_gap := mod.widgets.View { width: Fill height: Fit }
                 sw_on := mod.widgets.RoundedView {
                     visible: false
                     width: 20 height: 20
-                    draw_bg +: { color: ouyu.knob_on border_radius: r.chip }
+                    draw_bg +: { color: ouyu.knob_on border_radius: 10.0 }    // 正圆:= height/2,同上
                 }
             }
         }
