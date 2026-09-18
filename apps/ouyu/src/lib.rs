@@ -1294,7 +1294,6 @@ script_mod! {
                                         wrap_spacing: 8.0
                                         spacing: 8.0
                                         ch_save := OuyuChip { text: "保存" }
-                                        ch_hidden := OuyuChip { text: "隐藏" }
                                         ch_skip := OuyuChip { text: "不保存" }
                                     }
                                     ch_note := Label {
@@ -1814,39 +1813,6 @@ script_mod! {
                             flow: Down
                             spacing: 14.0
 
-                            filt_row := View {
-                                width: Fill height: Fit
-                                flow: Right{wrap: true}
-                                wrap_spacing: 8.0
-                                spacing: 8.0
-                                filt_all := OuyuChip { text: "全部" }
-                                filt0 := OuyuChip { text: "" }
-                                filt1 := OuyuChip { text: "" }
-                                filt2 := OuyuChip { text: "" }
-                                filt3 := OuyuChip { text: "" }
-                                filt4 := OuyuChip { text: "" }
-                                filt5 := OuyuChip { text: "" }
-                            }
-                            mm_bar := View {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                spacing: 8.0
-                                mm_search := OuyuInput {
-                                    empty_text: "搜称呼或备注"
-                                }
-                            }
-                            // 搜索中显示：说清楚为什么有些东西搜不到。
-                            mm_hidden_note := Label {
-                                visible: false
-                                width: Fill
-                                text: "隐藏的回忆不参与搜索。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_3
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                }
-                            }
                             sec_mem := Label {
                                 text: "回忆"
                                 draw_text +: {
@@ -2056,226 +2022,6 @@ script_mod! {
                                     width: Fit
                                     text: "这里暂时留白"
                                     draw_text +: { color: ouyu.ink_2 text_style +: { font_size: 13.0 } }
-                                }
-                            }
-                            sec_hid := Label {
-                                width: Fill
-                                text: "已隐藏"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 13.0 line_spacing: 1.35 }
-                                }
-                            }
-                            hh0 := OuyuGroupHead { visible: false text: "" }
-                            hid0 := OuyuCard {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                padding: 14.0
-                                spacing: 10.0
-                                m_date := Label {
-                                    width: 104
-                                    draw_text +: {
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 12.5 }
-                                    }
-                                }
-                                m_text := Label {
-                                    width: Fill
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink
-                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                m_open := OuyuBtn { text: "打开" }
-                            }
-                            hh1 := OuyuGroupHead { visible: false text: "" }
-                            hid1 := OuyuCard {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                padding: 14.0
-                                spacing: 10.0
-                                m_date := Label {
-                                    width: 104
-                                    draw_text +: {
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 12.5 }
-                                    }
-                                }
-                                m_text := Label {
-                                    width: Fill
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink
-                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                m_open := OuyuBtn { text: "打开" }
-                            }
-                            hh2 := OuyuGroupHead { visible: false text: "" }
-                            hid2 := OuyuCard {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                padding: 14.0
-                                spacing: 10.0
-                                m_date := Label {
-                                    width: 104
-                                    draw_text +: {
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 12.5 }
-                                    }
-                                }
-                                m_text := Label {
-                                    width: Fill
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink
-                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                m_open := OuyuBtn { text: "打开" }
-                            }
-                            hh3 := OuyuGroupHead { visible: false text: "" }
-                            hid3 := OuyuCard {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                padding: 14.0
-                                spacing: 10.0
-                                m_date := Label {
-                                    width: 104
-                                    draw_text +: {
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 12.5 }
-                                    }
-                                }
-                                m_text := Label {
-                                    width: Fill
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink
-                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                m_open := OuyuBtn { text: "打开" }
-                            }
-                            hh4 := OuyuGroupHead { visible: false text: "" }
-                            hid4 := OuyuCard {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                padding: 14.0
-                                spacing: 10.0
-                                m_date := Label {
-                                    width: 104
-                                    draw_text +: {
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 12.5 }
-                                    }
-                                }
-                                m_text := Label {
-                                    width: Fill
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink
-                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                m_open := OuyuBtn { text: "打开" }
-                            }
-                            hh5 := OuyuGroupHead { visible: false text: "" }
-                            hid5 := OuyuCard {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                padding: 14.0
-                                spacing: 10.0
-                                m_date := Label {
-                                    width: 104
-                                    draw_text +: {
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 12.5 }
-                                    }
-                                }
-                                m_text := Label {
-                                    width: Fill
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink
-                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                m_open := OuyuBtn { text: "打开" }
-                            }
-                            hh6 := OuyuGroupHead { visible: false text: "" }
-                            hid6 := OuyuCard {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                padding: 14.0
-                                spacing: 10.0
-                                m_date := Label {
-                                    width: 104
-                                    draw_text +: {
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 12.5 }
-                                    }
-                                }
-                                m_text := Label {
-                                    width: Fill
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink
-                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                m_open := OuyuBtn { text: "打开" }
-                            }
-                            hh7 := OuyuGroupHead { visible: false text: "" }
-                            hid7 := OuyuCard {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                padding: 14.0
-                                spacing: 10.0
-                                m_date := Label {
-                                    width: 104
-                                    draw_text +: {
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 12.5 }
-                                    }
-                                }
-                                m_text := Label {
-                                    width: Fill
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink
-                                        text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                                    }
-                                }
-                                m_open := OuyuBtn { text: "打开" }
-                            }
-                            hid_empty := Label {
-                                visible: false
-                                width: Fill
-                                text: "没有隐藏的回忆。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_2
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                }
-                            }
-                            mm_note := Label {
-                                width: Fill
-                                text: "隐藏的仍会保存并计次，可随时恢复；隐藏不是加密。"
-                                draw_text +: {
-                                    wrap: Words
-                                    color: ouyu.ink_3
-                                    text_style +: { font_size: 12.5 line_spacing: 1.35 }
                                 }
                             }
                         }
@@ -2882,12 +2628,6 @@ script_mod! {
                                 flow: Down
                                 padding: 18.0
                                 spacing: 10.0
-                                md_toggle := OuyuBtn { width: Fill text: "隐藏这一条" }
-                                md_hide_tip := Label {
-                                    width: Fill
-                                    text: "隐藏后不进搜索、提醒和成就，仍计一次相遇。"
-                                    draw_text +: { wrap: Words color: ouyu.ink_2 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
-                                }
                                 md_del := OuyuBtnDanger { width: Fill text: "删除这一条" }
                                 md_del_tip := Label {
                                     width: Fill
@@ -3645,7 +3385,7 @@ const WA_ROWS: [LiveId; 4] = [live_id!(wa0), live_id!(wa1), live_id!(wa2), live_
 const WU_ROWS: [LiveId; 4] = [live_id!(wu0), live_id!(wu1), live_id!(wu2), live_id!(wu3)];
 const WG_ROWS: [LiveId; 4] = [live_id!(wg0), live_id!(wg1), live_id!(wg2), live_id!(wg3)];
 
-const CHOICE_CHIPS: [LiveId; 3] = [live_id!(ch_save), live_id!(ch_hidden), live_id!(ch_skip)];
+const CHOICE_CHIPS: [LiveId; 2] = [live_id!(ch_save), live_id!(ch_skip)];
 const MEET_ROWS: [LiveId; 6] = [
     live_id!(mr0),
     live_id!(mr1),
@@ -3674,16 +3414,6 @@ const MEM_ROWS: [LiveId; 8] = [
     live_id!(mem6),
     live_id!(mem7),
 ];
-const HID_ROWS: [LiveId; 8] = [
-    live_id!(hid0),
-    live_id!(hid1),
-    live_id!(hid2),
-    live_id!(hid3),
-    live_id!(hid4),
-    live_id!(hid5),
-    live_id!(hid6),
-    live_id!(hid7),
-];
 /// 每个熟人上面那一格字母索引。同一个字母只在第一位显示。
 const CONTACT_LETTERS: [LiveId; 6] = [
     live_id!(cl0),
@@ -3705,26 +3435,6 @@ const MEM_HEADS: [LiveId; 8] = [
     live_id!(mh6),
     live_id!(mh7),
 ];
-const HID_HEADS: [LiveId; 8] = [
-    live_id!(hh0),
-    live_id!(hh1),
-    live_id!(hh2),
-    live_id!(hh3),
-    live_id!(hh4),
-    live_id!(hh5),
-    live_id!(hh6),
-    live_id!(hh7),
-];
-
-const FILT_CHIPS: [LiveId; 6] = [
-    live_id!(filt0),
-    live_id!(filt1),
-    live_id!(filt2),
-    live_id!(filt3),
-    live_id!(filt4),
-    live_id!(filt5),
-];
-
 /// 相遇页首屏：4 / 8 周切换 chips。
 const WK_CHIPS: [LiveId; 2] = [live_id!(wk4), live_id!(wk8)];
 /// 相遇页首屏：三个里程碑卡片。
@@ -3926,14 +3636,11 @@ pub struct OuyuView {
     confirm_also: bool,
 
     // ---- 回忆页 ----
+    /// 只看某位熟人的回忆（点熟人页那行的「回忆」进来）。None = 全部。
     #[rust]
     memory_filter: Option<String>,
     #[rust]
-    filter_options: Vec<String>,
-    #[rust]
     mem_row_ids: Vec<usize>,
-    #[rust]
-    hid_row_ids: Vec<usize>,
 
     // ---- 成就页 / 分享卡 ----
     /// 曲线窗口：4 / 8 周（默认 8）。
@@ -3992,9 +3699,6 @@ pub struct OuyuView {
     contact_order: Vec<usize>,
 
     // ---- 回忆页 ----
-    /// 搜索框里的字。空串表示没在搜。
-    #[rust]
-    mem_query: String,
     /// 打开的那一条回忆详情（encounter id）。
     #[rust]
     mem_detail: Option<usize>,
@@ -4456,7 +4160,7 @@ impl OuyuView {
             }
             self.set_row_wrap(cx, &[row, live_id!(c_confirm)], phone);
         }
-        for row in MEM_ROWS.into_iter().chain(HID_ROWS) {
+        for row in MEM_ROWS {
             self.set_row_wrap(cx, &[row], phone);
         }
         for row in TRACK_ROWS {
@@ -5437,86 +5141,26 @@ impl OuyuView {
     // ---- 回忆页 ----
 
     fn refresh_memories(&mut self, cx: &mut Cx) {
-        // 筛选选项：本机联系人称呼 ∪ 回忆里的称呼快照（含已删除联系人）。
-        let mut options: Vec<String> = Vec::new();
-        for c in &self.state.contacts {
-            if !options.contains(&c.label) {
-                options.push(c.label.clone());
-            }
-        }
-        for e in &self.state.encounters {
-            if !options.contains(&e.label_snapshot) {
-                options.push(e.label_snapshot.clone());
-            }
-        }
-        options.truncate(FILT_CHIPS.len());
-        if let Some(f) = &self.memory_filter {
-            if !options.contains(f) {
-                self.memory_filter = None;
-            }
-        }
-        self.filter_options = options;
-        let options = self.filter_options.clone();
-        let filt_all_path = [
-            live_id!(page_memories),
-            live_id!(filt_row),
-            live_id!(filt_all),
-        ];
-        self.view
-            .check_box(cx, &filt_all_path)
-            .set_active(cx, self.memory_filter.is_none(), Animate::Yes);
-        for i in 0..FILT_CHIPS.len() {
-            let path = [live_id!(page_memories), live_id!(filt_row), FILT_CHIPS[i]];
-            match options.get(i) {
-                Some(label) => {
-                    self.view.widget(cx, &path).set_visible(cx, true);
-                    self.view.widget(cx, &path).set_text(cx, label);
-                    self.view
-                        .check_box(cx, &path)
-                        .set_active(cx, self.memory_filter.as_deref() == Some(label.as_str()), Animate::Yes);
-                }
-                None => self.view.widget(cx, &path).set_visible(cx, false),
-            }
-        }
+        // 只看某位熟人（点熟人页那行的「回忆」进来）；没筛就全看。
+        // 搜索框撤了，这里不再有查询条件。隐藏的仍然不进列表 —— 隐藏功能
+        // 已从 UI 撤下，但旧数据里标了 hidden 的条目不该因为升级就冒出来。
+        self.mem_row_ids = self
+            .state
+            .encounters
+            .iter()
+            .filter(|e| !e.hidden)
+            .filter(|e| {
+                self.memory_filter
+                    .as_ref()
+                    .is_none_or(|f| e.label_snapshot == *f)
+            })
+            .map(|e| e.id)
+            .collect();
 
-        // 可见的那一段：搜索 + 按人筛选都走 `search_memories`（隐藏的进不来）。
-        let filter = self.memory_filter.clone();
-        self.mem_row_ids =
-            search_memories(&self.state.encounters, &self.mem_query, filter.as_deref())
-                .iter()
-                .map(|e| e.id)
-                .collect();
-        // 已隐藏那一段永远不参与搜索 —— 搜索中干脆整段收起来，并说明为什么。
-        let searching = !self.mem_query.trim().is_empty();
-        self.hid_row_ids = if searching {
-            Vec::new()
-        } else {
-            self.state
-                .encounters
-                .iter()
-                .filter(|e| e.hidden)
-                .filter(|e| filter.as_ref().is_none_or(|f| e.label_snapshot == *f))
-                .map(|e| e.id)
-                .collect()
-        };
-
-        self.fill_memory_rows(cx, &MEM_ROWS, &MEM_HEADS, true);
-        self.fill_memory_rows(cx, &HID_ROWS, &HID_HEADS, false);
+        self.fill_memory_rows(cx, &MEM_ROWS, &MEM_HEADS);
 
         let n = self.mem_row_ids.len();
-        let empty_text = if searching { "没有搜到" } else { "这里暂时留白" };
-        self.apply_list_state(cx, ids!(page_memories.mem_empty), empty_text, "", n);
-        self.view
-            .widget(cx, ids!(page_memories.mm_hidden_note))
-            .set_visible(cx, searching);
-        for id in [live_id!(sec_hid), live_id!(hid_empty), live_id!(mm_note)] {
-            self.view
-                .widget(cx, &[live_id!(page_memories), id])
-                .set_visible(cx, !searching);
-        }
-        self.view
-            .widget(cx, ids!(page_memories.hid_empty))
-            .set_visible(cx, !searching && self.hid_row_ids.is_empty());
+        self.apply_list_state(cx, ids!(page_memories.mem_empty), "这里暂时留白", "", n);
         self.refresh_memory_detail(cx);
     }
 
@@ -5524,12 +5168,8 @@ impl OuyuView {
     ///
     /// 分组头是「行的一部分」而不是独立的一段：固定八个位置，行往下挪的时候
     /// 头也跟着挪，不用另算一套下标。
-    fn fill_memory_rows(&mut self, cx: &mut Cx, rows: &[LiveId], heads: &[LiveId], visible: bool) {
-        let ids = if visible {
-            self.mem_row_ids.clone()
-        } else {
-            self.hid_row_ids.clone()
-        };
+    fn fill_memory_rows(&mut self, cx: &mut Cx, rows: &[LiveId], heads: &[LiveId]) {
+        let ids = self.mem_row_ids.clone();
         let mut last_month = String::new();
         for i in 0..rows.len() {
             let row = [live_id!(page_memories), rows[i]];
@@ -5582,9 +5222,6 @@ impl OuyuView {
         self.view
             .text_input(cx, ids!(page_memdetail.md_card.md_note))
             .set_text(cx, &note);
-        self.view
-            .widget(cx, ids!(page_memdetail.md_act.md_toggle))
-            .set_text(cx, if hidden { "恢复这一条" } else { "隐藏这一条" });
     }
 
     // ---- 成就页 / 分享卡 ----
@@ -6109,6 +5746,12 @@ impl OuyuView {
                 .changed(actions)
                 .is_some();
             if sidebar || bottom {
+                // 点「回忆」Tab 本身 = 看全部：清掉按人筛选。
+                // （熟人页那行的「回忆」按钮是另一条路：它先设好筛选再调
+                //   set_tab，不经过这里，所以不会被这次清除冲掉。）
+                if i == 3 {
+                    self.memory_filter = None;
+                }
                 self.set_tab(cx, i);
             }
         }
@@ -6676,40 +6319,13 @@ impl OuyuView {
             self.refresh_contacts(cx);
         }
 
-        // 回忆页: 筛选芯片
-        if self
-            .view
-            .check_box(cx, ids!(page_memories.filt_row.filt_all))
-            .changed(actions)
-            .is_some()
-        {
-            self.memory_filter = None;
-            self.refresh_memories(cx);
-        }
-        for i in 0..FILT_CHIPS.len() {
-            let path = [live_id!(page_memories), live_id!(filt_row), FILT_CHIPS[i]];
-            if self.view.check_box(cx, &path).changed(actions).is_some() {
-                if let Some(label) = self.filter_options.get(i) {
-                    self.memory_filter = Some(label.clone());
-                }
-                self.refresh_memories(cx);
-            }
-        }
-        // 回忆页: 搜索
-        if let Some(q) = self
-            .view
-            .text_input(cx, ids!(page_memories.mm_bar.mm_search))
-            .changed(actions)
-        {
-            self.mem_query = q;
-            self.refresh_memories(cx);
-        }
-        // 回忆页: 打开某一条的详情（可见段与已隐藏段是同一个按钮）
-        for (rows, hidden_seg) in [(&MEM_ROWS, false), (&HID_ROWS, true)] {
-            for i in 0..rows.len() {
-                let base = [live_id!(page_memories), rows[i]];
-                let ids = if hidden_seg { &self.hid_row_ids } else { &self.mem_row_ids };
-                let Some(id) = ids.get(i).copied() else { continue };
+        // 回忆页: 打开某一条的详情
+        for i in 0..MEM_ROWS.len() {
+            {
+                let base = [live_id!(page_memories), MEM_ROWS[i]];
+                let Some(id) = self.mem_row_ids.get(i).copied() else {
+                    continue;
+                };
                 if self.view.button(cx, &[base[0], base[1], live_id!(m_open)]).clicked(actions) {
                     self.mem_detail = Some(id);
                     self.refresh_memory_detail(cx);
@@ -6738,27 +6354,6 @@ impl OuyuView {
                 self.state.set_note(id, &note);
                 self.toast(cx, "备注已保存");
                 self.refresh_memories(cx);
-            }
-        }
-        // 回忆详情: 隐藏 / 恢复
-        if self
-            .view
-            .button(cx, ids!(page_memdetail.md_act.md_toggle))
-            .clicked(actions)
-        {
-            if let Some(id) = self.mem_detail {
-                let now = self
-                    .state
-                    .encounters
-                    .iter()
-                    .find(|e| e.id == id)
-                    .map(|e| e.hidden)
-                    .unwrap_or(false);
-                self.state.set_hidden(id, !now);
-                self.refresh_memories(cx);
-                self.refresh_contacts(cx);
-                self.refresh_achievements(cx);
-                self.redraw(cx);
             }
         }
         // 回忆详情: 删除（5 秒可撤销，删完退回列表）
