@@ -146,7 +146,7 @@ script_mod! {
                         flow: Down
 
                     // ---- 发现页（首页：什么时候出门 + 匿名机会）----
-                    page_discover := ScrollYView {
+                    page_discover := OuyuScrollY {
                         width: Fill height: Fill
                         flow: Down
                         spacing: 16.0
@@ -267,7 +267,7 @@ script_mod! {
                         flow: Down
                         spacing: 12.0
 
-                        pw_scroll := ScrollYView {
+                        pw_scroll := OuyuScrollY {
                         width: Fill height: Fill
                         flow: Down
                         spacing: 16.0
@@ -497,7 +497,7 @@ script_mod! {
                     // 四个用户可见的态，一次只露一个：① 选人 → ② 定位门槛
                     // → ③ 等待 → ④ 结果。六条结局（成功 / 同地不成立 / 无库存
                     // / 超时 / 信息不一致 / 未授权）都停在同一张结果屏上。
-                    page_meet := ScrollYView {
+                    page_meet := OuyuScrollY {
                         visible: false
                         width: Fill height: Fill
                         flow: Down
@@ -1315,7 +1315,7 @@ script_mod! {
                     }
 
                     // ---- 熟人页 ----
-                    page_contacts := ScrollYView {
+                    page_contacts := OuyuScrollY {
                         visible: false
                         width: Fill height: Fill
                         flow: Down
@@ -1821,7 +1821,7 @@ script_mod! {
                     }
 
                     // ---- 回忆页 ----
-                    page_memories := ScrollYView {
+                    page_memories := OuyuScrollY {
                         visible: false
                         width: Fill height: Fill
                         flow: Down
@@ -2296,7 +2296,7 @@ script_mod! {
                     // ---- 「我」页：我的行踪 + 三个入口（券包 / 设置 / 关于）----
                     //
                     // 成就曲线、里程碑和分享卡在相遇页首屏；本机统计那张卡没有了。
-                    page_achieve := ScrollYView {
+                    page_achieve := OuyuScrollY {
                         visible: false
                         width: Fill height: Fill
                         flow: Down
@@ -2350,7 +2350,7 @@ script_mod! {
                     }
 
                     // ---- 我的券（「我」页进入的覆盖页）----
-                    page_wallet := ScrollYView {
+                    page_wallet := OuyuScrollY {
                         visible: false
                         width: Fill height: Fill
                         flow: Down
@@ -2436,7 +2436,7 @@ script_mod! {
                     }
 
                     // ---- 我的行踪（「我」页「更多」进入的覆盖页）----
-                    page_tracks := ScrollYView {
+                    page_tracks := OuyuScrollY {
                         visible: false
                         width: Fill height: Fill
                         flow: Down
@@ -2497,7 +2497,7 @@ script_mod! {
                     }
 
                     // ---- 设置（「我」页进入的覆盖页）----
-                    page_settings := ScrollYView {
+                    page_settings := OuyuScrollY {
                         visible: false
                         width: Fill height: Fill
                         flow: Down
@@ -2633,7 +2633,7 @@ script_mod! {
                     }
 
                     // ---- 分享卡预览页（成就页「生成分享卡 →」进入；不是侧栏 Tab）----
-                    page_share := ScrollYView {
+                    page_share := OuyuScrollY {
                         visible: false
                         width: Fill height: Fill
                         flow: Down
@@ -2845,7 +2845,7 @@ script_mod! {
                     // 隐藏 / 恢复 / 删除 / 写备注四件事都收进这里：这四个动作
                     // 全摆在列表行上的时候，一行要塞四个按钮，手机上永远在换行，
                     // 而且「删除」离手指太近。
-                    page_memdetail := ScrollYView {
+                    page_memdetail := OuyuScrollY {
                         visible: false
                         width: Fill height: Fill
                         flow: Down
@@ -2939,7 +2939,7 @@ script_mod! {
                             in_gap := View { width: Fill height: Fit }
                             in_skip := OuyuLink { text: "跳过" }
                         }
-                        in_mid := ScrollYView {
+                        in_mid := OuyuScrollY {
                             width: Fill height: Fill
                             flow: Down
                             spacing: 14.0
@@ -3108,111 +3108,11 @@ script_mod! {
                 }
 
                 // ---- 右列解释栏（窗口窄于 ~900px 时隐藏）----
-                aside := ScrollYView {
+                aside := OuyuScrollY {
                     width: 300 height: Fill
                     flow: Down
                     spacing: 14.0
 
-                    // 当页上下文：这一栏原来五页都只有静态说明，
-                    // 看久了就变背景板。顶上这张卡跟着当前页和当前数据走，
-                    // 但仍然只说「你自己的那一份」——不出现别人的身份、
-                    // 人数、距离。
-                    aside_ctx := OuyuCard {
-                        width: Fill height: Fit
-                        flow: Down
-                        padding: 16.0
-                        spacing: 10.0
-                        ax_title := Label {
-                            width: Fill
-                            text: ""
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.warm
-                                text_style +: { font_size: 14.0 line_spacing: 1.35 }
-                            }
-                        }
-                            ax_r0 := View {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                spacing: 8.0
-                                ax_k := Label {
-                                    width: 88
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                    }
-                                }
-                                ax_v := Label {
-                                    width: Fill
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                    }
-                                }
-                            }
-                            ax_r1 := View {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                spacing: 8.0
-                                ax_k := Label {
-                                    width: 88
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                    }
-                                }
-                                ax_v := Label {
-                                    width: Fill
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                    }
-                                }
-                            }
-                            ax_r2 := View {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                spacing: 8.0
-                                ax_k := Label {
-                                    width: 88
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink_2
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                    }
-                                }
-                                ax_v := Label {
-                                    width: Fill
-                                    text: ""
-                                    draw_text +: {
-                                        wrap: Words
-                                        color: ouyu.ink
-                                        text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                                    }
-                                }
-                            }
-                        ax_tip := Label {
-                            width: Fill
-                            text: ""
-                            draw_text +: {
-                                wrap: Words
-                                color: ouyu.ink_3
-                                text_style +: { font_size: 12.5 line_spacing: 1.35 }
-                            }
-                        }
-                    }
                     aside_discover := View {
                         width: Fill height: Fit
                         flow: Down
@@ -3596,8 +3496,6 @@ const PAGES: [LiveId; 5] = [
     live_id!(page_memories),
     live_id!(page_achieve),
 ];
-/// 上下文面板那三行。
-const AX_ROWS: [LiveId; 3] = [live_id!(ax_r0), live_id!(ax_r1), live_id!(ax_r2)];
 const ASIDES: [LiveId; 5] = [
     live_id!(aside_discover),
     live_id!(aside_meet),
@@ -4708,7 +4606,6 @@ impl OuyuView {
             }
         }
 
-        self.refresh_aside(cx);
     }
 
     // ---- 发布向导 ----
@@ -5057,7 +4954,6 @@ impl OuyuView {
             _ => {}
         }
         self.refresh_topbar(cx);
-        self.refresh_aside(cx);
     }
 
     /// ① 选人。
@@ -5447,156 +5343,6 @@ impl OuyuView {
         self.view
             .widget(cx, ids!(page_contacts.ct_card.ct_menu_row))
             .set_visible(cx, self.import_menu);
-        self.refresh_aside(cx);
-    }
-
-    // ---- 桌面右栏 ----
-
-    /// 当页上下文面板。宽屏才有这一栏，窄屏整栏不显示，所以这里不做
-    /// 布局分支，只管填字。
-    ///
-    /// 三行一律是「你自己的那一份」：发布、券、回忆、熟人数目。
-    /// 刻意不放任何跟别人有关的计数（谁在附近、几个人看到了你），
-    /// 那是 03 节红线表里第一条。
-    fn refresh_aside(&mut self, cx: &mut Cx) {
-        let today = today_days();
-        let (title, rows, tip): (&str, [(String, String); 3], &str) = match self.state.tab {
-            0 => {
-                let active = self.state.active_publishes(today, minutes_of_day());
-                let mine = match active.as_slice() {
-                    [] => "还没有发布".to_string(),
-                    [p] => p.text_at(today),
-                    [p, ..] => format!("{}（共 {} 条）", p.text_at(today), active.len()),
-                };
-                let looking = day_label_at(today, self.day_sel).to_string();
-                let ranking = opportunity_ranking_at(today, self.day_sel);
-                let best = ranking
-                    .iter()
-                    .find(|o| o.level.shown())
-                    .map(|o| format!("{} · {}", areas::area_name(o.area), o.level.label()))
-                    .unwrap_or_else(|| "还不够成局".to_string());
-                (
-                    "这一页在看什么",
-                    [
-                        ("你的行踪".into(), mine),
-                        ("正在看".into(), looking),
-                        ("最靠前".into(), best),
-                    ],
-                    "档位按你的熟人算，不显示人数和是谁。",
-                )
-            }
-            1 if self.session.is_none() && !self.meet_open => {
-                let st = achievement_stats(&self.state.encounters, self.weeks, today);
-                let this_week = st.weekly.last().map(|w| w.count).unwrap_or(0);
-                (
-                    "你的这一份",
-                    [
-                        ("记住的相遇".into(), format!("{} 次", st.remembered)),
-                        ("相遇日".into(), format!("{} 天", st.days)),
-                        ("本周".into(), format!("{} 次", this_week)),
-                    ],
-                    "只算未隐藏的回忆。分享卡不带名字、地点和日期。",
-                )
-            }
-            1 => {
-                let people = self.state.contacts.len();
-                let usable = self
-                    .state
-                    .rewards_in(today, RewardState::Available)
-                    .len();
-                let last = self
-                    .state
-                    .encounters
-                    .iter()
-                    .map(|e| e.date.clone())
-                    .max()
-                    .unwrap_or_else(|| "还没有".to_string());
-                (
-                    "互认前后",
-                    [
-                        ("可互认".into(), format!("{} 位", people)),
-                        ("可用券".into(), format!("{} 张", usable)),
-                        ("最近相遇".into(), last),
-                    ],
-                    "定位只在确认那一下用一次，不存不传。",
-                )
-            }
-            2 => {
-                let most = self
-                    .state
-                    .contacts
-                    .iter()
-                    .map(|c| (self.state.meeting_count(c.id), c.label.clone()))
-                    .max_by_key(|(n, _)| *n)
-                    .filter(|(n, _)| *n > 0)
-                    .map(|(n, label)| format!("{} · {} 次", label, n))
-                    .unwrap_or_else(|| "还没有".to_string());
-                (
-                    "这份名单",
-                    [
-                        ("我的熟人".into(), format!("{} 位", self.state.contacts.len())),
-                        ("通讯录".into(), format!("{} 人", self.state.directory.len())),
-                        ("回忆最多".into(), most),
-                    ],
-                    "次数包含隐藏的回忆；相遇页的统计只算未隐藏的。",
-                )
-            }
-            3 => {
-                let hidden = self.state.encounters.iter().filter(|e| e.hidden).count();
-                let shown = self.state.encounters.len() - hidden;
-                let span = {
-                    let mut ds: Vec<&str> =
-                        self.state.encounters.iter().map(|e| e.date.as_str()).collect();
-                    ds.sort_unstable();
-                    match (ds.first(), ds.last()) {
-                        (Some(a), Some(b)) => {
-                            let (ha, hb) = (month_head(a), month_head(b));
-                            if ha == hb { ha } else { format!("{} → {}", ha, hb) }
-                        }
-                        _ => "还没有".to_string(),
-                    }
-                };
-                (
-                    "这台机器上的回忆",
-                    [
-                        ("可见".into(), format!("{} 条", shown)),
-                        ("已隐藏".into(), format!("{} 条", hidden)),
-                        ("跨度".into(), span),
-                    ],
-                    "隐藏的不进搜索、提醒和统计。",
-                )
-            }
-            _ => {
-                let now = minutes_of_day();
-                let active = self.state.active_publishes(today, now).len();
-                let gone = self.state.publishes.len() - active;
-                let usable = self.state.rewards_in(today, RewardState::Available).len();
-                (
-                    "你自己的东西",
-                    [
-                        ("有效行踪".into(), format!("{} 条", active)),
-                        ("已到期".into(), format!("{} 条", gone)),
-                        ("可用券".into(), format!("{} 张", usable)),
-                    ],
-                    "行踪只有大致片区和时段，没有坐标；到期自动下线。",
-                )
-            }
-        };
-        self.view
-            .widget(cx, ids!(main.aside.aside_ctx.ax_title))
-            .set_text(cx, title);
-        for (id, (k, v)) in AX_ROWS.iter().zip(rows.iter()) {
-            let base = [live_id!(main), live_id!(aside), live_id!(aside_ctx), *id];
-            self.view
-                .widget(cx, &[base[0], base[1], base[2], base[3], live_id!(ax_k)])
-                .set_text(cx, k);
-            self.view
-                .widget(cx, &[base[0], base[1], base[2], base[3], live_id!(ax_v)])
-                .set_text(cx, v);
-        }
-        self.view
-            .widget(cx, ids!(main.aside.aside_ctx.ax_tip))
-            .set_text(cx, tip);
     }
 
     /// 一批名字加成熟人。重名 / 空名 / 过长的那几条静静跳过 ——
@@ -5731,7 +5477,6 @@ impl OuyuView {
             .widget(cx, ids!(page_memories.hid_empty))
             .set_visible(cx, !searching && self.hid_row_ids.is_empty());
         self.refresh_memory_detail(cx);
-        self.refresh_aside(cx);
     }
 
     /// 铺一段回忆行，顺带在每个月的第一条上面放一个月份头。
@@ -5906,7 +5651,6 @@ impl OuyuView {
             "",
             "v0.4",
         );
-        self.refresh_aside(cx);
     }
 
     /// 相遇页首屏的成就内容：频率曲线、每周次数、里程碑（分享卡预览开着时一并刷）。
@@ -5999,7 +5743,6 @@ impl OuyuView {
         if self.share_open {
             self.refresh_share(cx);
         }
-        self.refresh_aside(cx);
     }
 
     /// 当前分享卡场景（预览与保存共用，保证所见即所得）。

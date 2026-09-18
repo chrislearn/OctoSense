@@ -100,6 +100,11 @@ script_mod! {
         heat_0: #x2b3a52
         heat_1: #x5b6f92
         ring_track: #x22334d
+
+        // 滚动条手柄（半透明，压在页面底上）
+        bar: #xffffff1f
+        bar_hi: #xffffff33
+        bar_drag: #xffffff4d
     }
 
     // ---- 昼 ----
@@ -174,6 +179,10 @@ script_mod! {
         heat_0: #xcfd8e6
         heat_1: #x8e9db8
         ring_track: #xd5dded
+
+        bar: #x16233c2e
+        bar_hi: #x16233c47
+        bar_drag: #x16233c66
     }
 }
 
