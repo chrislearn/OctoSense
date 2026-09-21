@@ -263,9 +263,13 @@ mod tests {
             Some(Path::new("/cargo/checkouts/makepad-d00a/ad8f372")),
         )
         .unwrap();
+        let manifest = Path::new("/cargo/checkouts/makepad-d00a/ad8f372")
+            .join("Cargo.toml")
+            .to_string_lossy()
+            .into_owned();
         assert_eq!(
             apps[0].manifest.as_deref(),
-            Some("/cargo/checkouts/makepad-d00a/ad8f372/Cargo.toml")
+            Some(manifest.as_str())
         );
         assert_eq!(apps[0].package, "makepad-browser");
         assert_eq!(apps[0].bin, "browser");
