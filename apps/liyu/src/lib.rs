@@ -137,6 +137,48 @@ script_mod! {
                             width: Fill height: Fill
                             flow: Down
 
+                        // ---- 通知条（礼物快过期 / 契约快到期）----
+                        // 排在页面上方、占自己的高度，把页面往下推，不盖住内容。
+                        notice_layer := View {
+                            visible: false
+                            width: Fill height: Fit
+                            flow: Down
+                            padding: Inset{left: 16.0, right: 16.0, bottom: 10.0}
+                            nt_card := LiyuCard {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                padding: 14.0
+                                spacing: 10.0
+                                draw_bg +: { color: liyu.card border_color: liyu.line_notice border_size: 1.0 }
+                                nt_icon := LiyuIcon {
+                                    icon_walk: Walk{ width: 18.0 height: Fit }
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/bell.svg") color: liyu.warm }
+                                }
+                                nt_col := View {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 3.0
+                                    nt_title := Label {
+                                        flow: Right{wrap: true}
+                                        width: Fill
+                                        text: ""
+                                        draw_text +: { wrap: Words color: liyu.ink text_style +: { font_size: 13.5 line_spacing: 1.35 } }
+                                    }
+                                    nt_text := Label {
+                                        flow: Right{wrap: true}
+                                        width: Fill
+                                        text: ""
+                                        draw_text +: { wrap: Words color: liyu.ink_2 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
+                                    }
+                                }
+                                nt_go := LiyuBtnSm { width: Fit text: "去看看" }
+                                nt_close := LiyuIconBtn {
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/close.svg") }
+                                }
+                            }
+                        }
+
                         // ================= 挑礼 =================
                         page_gift := LiyuScrollY {
                             width: Fill height: Fill
@@ -500,7 +542,8 @@ script_mod! {
                                     sd_free := LiyuMuted { visible: false text: "TA 打开礼卡就能直接领取，不用答题。惊喜少一点，但一定拆得开。" }
                                 }
 
-                                sd_pact_row := LiyuSwitchRow { margin: Inset{top: 6.0} }
+                                // 开关行自带 12 的左右内边距（给悬停底色留位），这里往外挪 12，文字和各段标题对齐。
+                                sd_pact_row := LiyuSwitchRow { margin: Inset{left: -12.0, right: -12.0, top: 6.0} }
                                 sd_pact := View {
                                     visible: false
                                     width: Fill height: Fit
@@ -524,7 +567,7 @@ script_mod! {
                                 sd_msg := LiyuInput { empty_text: "写一句话给 TA，最多 40 字（揭晓后才看得到）" }
 
                                 sd_s4 := LiyuH3 { margin: Inset{top: 6.0} text: "4 · 付款" }
-                                sd_bal_row := LiyuSwitchRow { }
+                                sd_bal_row := LiyuSwitchRow { margin: Inset{left: -12.0, right: -12.0} }
                             }
                             // 固定底栏只留「怎么付」一句话和发送按钮，别和表单抢高度。
                             sd_bar := View {
@@ -692,7 +735,8 @@ script_mod! {
                                 flow: Down
                                 spacing: 10.0
                                 oa_title := LiyuH3 { text: "" }
-                                oa_agree := LiyuChip { visible: false text: "" }
+                                // 同意契约用开关行：开/关一眼看得出，契约长也能换行（胶囊不换行，手机上放不下）。
+                                oa_agree := LiyuSwitchRow { visible: false margin: Inset{left: -12.0, right: -12.0} }
                                 oa_ship := View {
                                     width: Fill height: Fit
                                     flow: Down
@@ -795,7 +839,8 @@ script_mod! {
                                 }
                                 odn_bar := View {
                                     width: Fill height: Fit
-                                    flow: Right{wrap: true}
+                                    // 主按钮 44 高、次按钮 36 高，按行居中才不高低错开。
+                                    flow: Right{wrap: true row_align: RowAlign.Center}
                                     wrap_spacing: 8.0
                                     spacing: 10.0
                                     odn_return := LiyuBtnPrimary {
@@ -1110,48 +1155,6 @@ script_mod! {
                         }
                         }
 
-                        // ---- 通知条（礼物快过期 / 契约快到期）----
-                        notice_layer := View {
-                            visible: false
-                            width: Fill height: Fill
-                            flow: Down
-                            align: Align{x: 0.5, y: 0.0}
-                            padding: Inset{left: 16.0, right: 16.0}
-                            nt_card := LiyuCard {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                padding: 14.0
-                                spacing: 10.0
-                                draw_bg +: { color: liyu.card border_color: liyu.line_notice border_size: 1.0 }
-                                nt_icon := LiyuIcon {
-                                    icon_walk: Walk{ width: 18.0 height: Fit }
-                                    draw_icon +: { svg: crate_resource("self:resources/icons/bell.svg") color: liyu.warm }
-                                }
-                                nt_col := View {
-                                    width: Fill height: Fit
-                                    flow: Down
-                                    spacing: 3.0
-                                    nt_title := Label {
-                                        flow: Right{wrap: true}
-                                        width: Fill
-                                        text: ""
-                                        draw_text +: { wrap: Words color: liyu.ink text_style +: { font_size: 13.5 line_spacing: 1.35 } }
-                                    }
-                                    nt_text := Label {
-                                        flow: Right{wrap: true}
-                                        width: Fill
-                                        text: ""
-                                        draw_text +: { wrap: Words color: liyu.ink_2 text_style +: { font_size: 12.5 line_spacing: 1.35 } }
-                                    }
-                                }
-                                nt_go := LiyuBtnSm { width: Fit text: "去看看" }
-                                nt_close := LiyuIconBtn {
-                                    draw_icon +: { svg: crate_resource("self:resources/icons/close.svg") }
-                                }
-                            }
-                        }
-
                         toast_layer := View {
                             width: Fill height: Fill
                             flow: Down
@@ -1177,7 +1180,7 @@ script_mod! {
                                 padding: 16.0
                                 spacing: 8.0
                                 ag1_t := LiyuH3 { text: "怎么玩" }
-                                ag1_b := LiyuMuted { text: "1 挑一件小礼物\n2 出一道只有 TA 答得上的题，可附一个小契约\n3 把神秘礼卡发给 TA，等 TA 来拆" }
+                                ag1_b := LiyuMuted { text: "1 挑一件小礼物\n2 出一道只有 TA 答得上的题，可附一个小契约\n3 把礼卡发给 TA，等 TA 来拆" }
                             }
                             ag2 := LiyuCard {
                                 width: Fill height: Fit
@@ -1324,7 +1327,7 @@ script_mod! {
 // 文案与控件 id 表
 // ---------------------------------------------------------------------------
 
-/// 开场三屏（liyu/docs/03-pages.md 1 节）。第一屏先说「这是送礼，不是转账」，
+/// 开场三屏（liyu/docs/03-pages.md 10 节）。第一屏先说「这是送礼，不是转账」，
 /// 第二屏说悬念，第三屏说「不喜欢也没关系」—— 顺序就是一份礼物的一生。
 const INTRO: [(&str, &str); 3] = [
     (
@@ -1336,8 +1339,8 @@ const INTRO: [(&str, &str); 3] = [
         "TA 可以猜你是谁、回答只有你们知道的问题，或者对上暗号。猜错也不怕，机会用完礼物照样拆开。",
     ),
     (
-        "不喜欢？换一份，或折成余额",
-        "收下时可以答应你附上的小契约；不合心意就换购或折现，再用余额给你回一份「反击礼物」。",
+        "不合心意？换购或折现",
+        "TA 可以开心收下、答应你附上的小契约；也可以换一件，或折成余额，再用余额给你回一份「反击礼物」。",
     ),
 ];
 
@@ -1976,6 +1979,8 @@ impl LiyuView {
         self.update_page_visibility(cx);
         self.reshape(cx);
         self.start_fade(cx);
+        // 引导开着时通知是压住的；关掉马上查一次，不用等下一轮 60 秒轮询。
+        self.poll_notices(cx);
     }
 
     fn refresh_intro(&mut self, cx: &mut Cx) {
@@ -2704,8 +2709,14 @@ impl LiyuView {
         let it = g.catalog();
         self.set_text(cx, ids!(oa_title), &format!("收下「{}」", it.name));
         self.show(cx, ids!(oa_agree), g.has_contract());
-        self.set_text(cx, ids!(oa_agree), &format!("我同意：{}", g.contract));
-        self.view.check_box(cx, ids!(oa_agree)).set_active(cx, self.accept_agree, Animate::No);
+        let agree = self.accept_agree;
+        self.set_switch(
+            cx,
+            ids!(oa_agree),
+            &format!("我同意：{}", g.contract),
+            "收下就要答应；不想答应可以换购或折现",
+            agree,
+        );
         self.show(cx, ids!(oa_ship), it.physical);
         self.show(cx, ids!(oa_ev), !it.physical);
         self.show(cx, ids!(oa_err), self.open_err.is_some());
@@ -3438,8 +3449,11 @@ impl LiyuView {
             if self.clicked(cx, ids!(or_swap), actions) {
                 self.enter_stage(cx, Stage::Swap);
             }
-            if let Some(v) = self.view.check_box(cx, ids!(oa_agree)).changed(actions) {
-                self.accept_agree = v;
+            if self.clicked(cx, &[live_id!(oa_agree), live_id!(sw_hit)], actions) {
+                self.accept_agree = !self.accept_agree;
+                // 报的错多半就是「先打开我同意」，一动开关就收起来。
+                self.open_err = None;
+                self.refresh_open(cx);
             }
             if self.clicked(cx, ids!(oa_back), actions) || self.clicked(cx, ids!(ow_back), actions) {
                 self.enter_stage(cx, Stage::Reveal);

@@ -37,11 +37,15 @@
 - 熟人只存一个称呼（`ContactLocal { id, label }`），另有一份通讯录名字列表，见 05；
 - 送礼页的「4 · 付款」（余额抵扣开关）在表单末尾，底部固定栏只留校验提示和发送按钮，
   窄屏下不占太多高度；
-- 通知横幅盖在页面顶部，点掉之前会遮住下面一小块。
+- 通知条排在页面上方、占自己的高度，把页面往下推，不做浮层；
+- 收下页的「我同意：契约」用开关行而不是复选框（契约长也能换行，开/关一眼看得出）。
 
 ## 实现备注（makepad）
 
 - `Script` / `Widget` 派生宏不认带生命周期的字段类型，校验文案用别名 `type Msg = &'static str`；
 - `TextInput` 没有 `visible` 属性，要显隐就外面包一层 `View`；
 - 换主题走 ScriptReapply 时，Label 没写出来的 `flow` 会被重置成不换行的 `Right`，
-  所以每个 Label 都显式写 `flow: Right{wrap: true}`。
+  所以每个 Label 都显式写 `flow: Right{wrap: true}`；
+- 中文标点避头尾（逗号、句号、右引号不出现在行首，左引号、左括号不留在行尾）和 ¥6 这种金额不拆行，是在引擎里修的：
+  `../makepad` 分支 `fix/cjk-line-break-punct`（`draw/src/text/layouter.rs`），
+  OctoSense 固定的 makepad 版本要等它合入后再升级。

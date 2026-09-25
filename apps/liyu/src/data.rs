@@ -1665,7 +1665,7 @@ impl LiyuState {
     pub fn accept(&mut self, id: u64, f: &AcceptForm, today: i64) -> Result<(), &'static str> {
         let g = self.revealed_received(id)?;
         if g.has_contract() && !f.agree {
-            return Err("先勾选同意契约，才能收下");
+            return Err("先打开「我同意」，才能收下");
         }
         let physical = g.catalog().physical;
         Self::check_ship(physical, f)?;
@@ -2444,7 +2444,7 @@ mod tests {
         s.open(id, T);
         s.submit_answer(id, "星际穿越", T);
         let pacts = s.pacts.len();
-        assert_eq!(s.accept(id, &AcceptForm::default(), T), Err("先勾选同意契约，才能收下"));
+        assert_eq!(s.accept(id, &AcceptForm::default(), T), Err("先打开「我同意」，才能收下"));
         let f = AcceptForm { agree: true, ..Default::default() };
         s.accept(id, &f, T).unwrap();
         let g = s.gift(id).unwrap();

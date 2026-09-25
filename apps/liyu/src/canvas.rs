@@ -185,7 +185,9 @@ script_mod! {
             color_disabled: liyu.off_bg
         }
         draw_icon +: { preserve_viewbox: true color: liyu.on_blue }
+        // 不写字号就是 ButtonFlat 的默认小字，比 Sm 档还小；三档按钮字号要递减。
         draw_text +: {
+            text_style +: { font_size: 14.5 }
             color: liyu.on_blue
             color_hover: liyu.on_blue
             color_down: liyu.on_blue
@@ -222,6 +224,7 @@ script_mod! {
             border_color_focus: liyu.blue
         }
         draw_text +: {
+            text_style +: { font_size: 13.5 }
             color: liyu.ink
             color_hover: liyu.ink
             color_down: liyu.ink
@@ -282,6 +285,7 @@ script_mod! {
             color_focus: liyu.warm_btn
         }
         draw_text +: {
+            text_style +: { font_size: 14.5 }
             color: liyu.on_warm_btn
             color_hover: liyu.on_warm_btn_hi
             color_down: liyu.on_warm_btn_hi
