@@ -1,16 +1,15 @@
-//! 分享卡（06 节）：900×1200 矢量海报的纯文本生成。
+//! 神秘礼卡：900×1200 矢量图的纯文本生成（界面上的预览见 canvas.rs 的 LiyuShareCard）。
 //!
-//! 取舍说明：平台有 `Cx::encode_rgba_as_png` 与 `Texture::read_back`，但把
-//! 一棵 widget 树离屏渲染到纹理再异步回读，在应用层没有先例（read_back 只有
-//! 平台 remote / 测试在用），需要自管 DrawPass、跨后端验证成本高。本轮退而
-//! 生成 SVG：零依赖、纯文本、可单测，浏览器 / 聊天工具都能直接打开看。
+//! 为什么是 SVG：离屏渲染一棵 widget 树再回读纹理，在应用层没有先例；SVG 零依赖、
+//! 纯文本、可单测，浏览器 / 聊天工具都能直接打开。
 //!
-//! 隐私边界（06 节硬要求）：场景结构里就没有姓名 / 地点 / 具体日期 / 隐藏
-//! 记录字段；曲线默认不含，主动打开后也不标具体日期。
+//! 隐私边界（04-rules 5 节）：礼卡会被截图、会被转发，所以场景结构里**只有**玩法、
+//! 线索 / 问题 / 暗号提示、口令。礼物名、价格、送礼人、答案、寄语根本不进场景 ——
+//! 由类型保证，不靠调用方记得。
 
-use crate::data::{AchievementStats, Milestone};
+use crate::data::{Gift, Unlock, MAX_ATTEMPTS};
 
-/// 海报样式：暖杏 / 夜蓝。
+/// 礼卡样式：暖杏 / 夜蓝。
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ShareStyle {
     #[default]
@@ -51,44 +50,52 @@ impl ShareStyle {
     }
 }
 
-/// 分享卡的全部内容（只来自可见回忆的汇总统计与固定文案）。
+/// 礼卡上的全部内容。
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ShareCardScene {
     pub style: ShareStyle,
-    /// 我愿意记住的相遇次数。
-    pub total: usize,
-    /// 成就文案（最高已点亮里程碑；一个都没有时是留白文案）。
-    pub milestone_title: String,
-    pub milestone_sub: String,
-    /// 可选的每周次数（「包含每周曲线」打开时才有；不标具体日期）。
-    pub curve: Option<Vec<usize>>,
+    /// 「玩法：猜我是谁 · 3 次机会」。
+    pub play: String,
+    /// 「TA 留下的线索」；直接领取时为空。
+    pub prompt_title: String,
+    /// 线索 / 问题 / 暗号提示，已按行切好。
+    pub prompt_lines: Vec<String>,
+    /// `LY-7K3M`。
+    pub code: String,
 }
 
-/// 从成就统计生成默认场景（不含曲线）。
-pub fn scene_from_stats(stats: &AchievementStats, style: ShareStyle, ms: &[Milestone; 3]) -> ShareCardScene {
-    // 取最高一档已点亮里程碑；都没有时是 06 节的留白文案。
-    let (title, sub) = if ms[2].lit {
-        ("把日常过成故事。".to_string(), "七个平常的日子，都在悄悄发光。".to_string())
-    } else if ms[1].lit {
-        ("生活有回响。".to_string(), "平常的日子，也有回响。".to_string())
-    } else if ms[0].lit {
-        ("第一次，刚刚好。".to_string(), "那些平常的日子，也在悄悄发光。".to_string())
-    } else {
-        ("下一次偶然，值得期待。".to_string(), String::new())
+/// 每行最多几个字（900 宽、40 号字、左右各留 64）。
+pub const LINE_CHARS: usize = 16;
+
+/// 按字数切行。线索最多 30 字，所以最多两行。
+pub fn wrap_chars(s: &str, n: usize) -> Vec<String> {
+    let chars: Vec<char> = s.chars().collect();
+    chars.chunks(n.max(1)).map(|c| c.iter().collect()).collect()
+}
+
+/// 从一份送出的礼物取礼卡场景。只拷玩法、线索、口令三样。
+pub fn scene_for(g: &Gift, style: ShareStyle) -> ShareCardScene {
+    let u = g.unlock();
+    let play = match u {
+        Unlock::Free => format!("玩法：{} · 打开就能领", u.short()),
+        _ => format!("玩法：{} · {} 次机会", u.short(), MAX_ATTEMPTS),
+    };
+    let prompt = match u {
+        Unlock::Free => String::new(),
+        Unlock::Passphrase if g.clue.trim().is_empty() => "TA 说：你知道的".to_string(),
+        _ => format!("「{}」", g.clue.trim()),
     };
     ShareCardScene {
         style,
-        total: stats.remembered,
-        milestone_title: title,
-        milestone_sub: sub,
-        curve: None,
+        play,
+        prompt_title: u.clue_title().to_string(),
+        prompt_lines: if prompt.is_empty() { Vec::new() } else { wrap_chars(&prompt, LINE_CHARS) },
+        code: g.code.clone(),
     }
 }
 
 fn esc(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
 }
 
 fn text(x: f64, y: f64, size: u32, color: &str, weight: &str, body: &str) -> String {
@@ -98,7 +105,7 @@ fn text(x: f64, y: f64, size: u32, color: &str, weight: &str, body: &str) -> Str
     )
 }
 
-/// 生成 900×1200 SVG 海报。曲线（如有）只画折线与圆点，不标日期。
+/// 生成 900×1200 SVG 礼卡。版式与 canvas.rs 的预览一致。
 pub fn render_svg(s: &ShareCardScene) -> String {
     let (bg, fg, sub, accent, ring) = (
         s.style.bg(),
@@ -112,90 +119,57 @@ pub fn render_svg(s: &ShareCardScene) -> String {
     out.push('\n');
     out.push_str(r#"<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1200" viewBox="0 0 900 1200">"#);
     out.push_str(&format!(r#"<rect width="900" height="1200" fill="{bg}"/>"#));
-    // 装饰圆环（右上两个、左下一个），描边不填充。
-    out.push_str(&format!(
-        r#"<circle cx="800" cy="150" r="170" fill="none" stroke="{ring}" stroke-width="2"/>"#
-    ));
-    out.push_str(&format!(
-        r#"<circle cx="800" cy="150" r="120" fill="none" stroke="{ring}" stroke-width="2"/>"#
-    ));
-    out.push_str(&format!(
-        r#"<circle cx="60" cy="1010" r="200" fill="none" stroke="{ring}" stroke-width="2"/>"#
-    ));
-    // 正文。
-    out.push_str(&text(64.0, 92.0, 22, sub, "normal", "OUYU / 我的相遇手记"));
-    out.push_str(&text(64.0, 168.0, 40, fg, "normal", "★"));
-    out.push_str(&text(64.0, 300.0, 64, fg, "bold", "给生活"));
-    out.push_str(&text(64.0, 384.0, 64, fg, "bold", "留一点偶然。"));
-    out.push_str(&text(64.0, 448.0, 26, sub, "normal", "不用专程约，也许刚好遇见。"));
-    out.push_str(&text(64.0, 700.0, 200, accent, "bold", &s.total.to_string()));
-    out.push_str(&text(64.0, 770.0, 28, fg, "normal", "次，我愿意记住的相遇"));
-    out.push_str(&text(64.0, 876.0, 30, fg, "normal", &s.milestone_title));
-    if !s.milestone_sub.is_empty() {
-        out.push_str(&text(64.0, 922.0, 20, sub, "normal", &s.milestone_sub));
+    // 礼盒徽记：两道圆环 + 中间一个问号。
+    for r in [170, 120] {
+        out.push_str(&format!(
+            r#"<circle cx="450" cy="330" r="{r}" fill="none" stroke="{ring}" stroke-width="2"/>"#
+        ));
     }
-    // 可选曲线：折线 + 圆点，不标日期（06 节：仍可能被关联推断，界面有提示）。
-    if let Some(counts) = &s.curve {
-        if !counts.is_empty() {
-            let ymax = counts.iter().copied().max().unwrap_or(0).max(1) as f64;
-            let (x0, x1, ybase, ytop) = (64.0_f64, 836.0_f64, 1040.0_f64, 960.0_f64);
-            let n = counts.len();
-            let px = |i: usize| {
-                if n == 1 {
-                    (x0 + x1) / 2.0
-                } else {
-                    x0 + (x1 - x0) * i as f64 / (n - 1) as f64
-                }
-            };
-            let py = |v: usize| ybase - (ybase - ytop) * v as f64 / ymax;
-            let pts: Vec<String> = counts
-                .iter()
-                .enumerate()
-                .map(|(i, v)| format!("{:.1},{:.1}", px(i), py(*v)))
-                .collect();
-            out.push_str(&format!(
-                r#"<polyline points="{}" fill="none" stroke="{accent}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>"#,
-                pts.join(" ")
-            ));
-            for (i, v) in counts.iter().enumerate() {
-                out.push_str(&format!(
-                    r#"<circle cx="{:.1}" cy="{:.1}" r="6" fill="{accent}"/>"#,
-                    px(i),
-                    py(*v)
-                ));
-            }
+    out.push_str(&format!(
+        r#"<text x="450" y="390" text-anchor="middle" font-family="system-ui, sans-serif" font-size="170" fill="{accent}" font-weight="bold">?</text>"#
+    ));
+    out.push_str(&text(64.0, 92.0, 22, sub, "normal", "LIYU / 神秘礼卡"));
+    out.push_str(&text(64.0, 600.0, 52, fg, "bold", "一份神秘礼物 · 等你来拆"));
+    out.push_str(&text(64.0, 656.0, 26, sub, "normal", &s.play));
+    let mut y = 740.0;
+    if !s.prompt_lines.is_empty() {
+        out.push_str(&text(64.0, y, 24, sub, "normal", &s.prompt_title));
+        y += 58.0;
+        for line in &s.prompt_lines {
+            out.push_str(&text(64.0, y, 40, fg, "normal", line));
+            y += 54.0;
         }
     }
-    // 底部署名。
+    out.push_str(&text(64.0, 950.0, 24, sub, "normal", "口令"));
+    out.push_str(&text(64.0, 1030.0, 84, accent, "bold", &s.code));
     out.push_str(&format!(
         r#"<line x1="64" y1="1080" x2="836" y2="1080" stroke="{ring}" stroke-width="1.5"/>"#
     ));
-    out.push_str(&text(64.0, 1130.0, 26, fg, "normal", "偶遇 OuYu"));
-    out.push_str(&text(610.0, 1130.0, 16, sub, "normal", "个人记录 · 非社交排名"));
+    out.push_str(&text(64.0, 1130.0, 26, fg, "normal", "礼遇 LiYu"));
+    out.push_str(&text(530.0, 1130.0, 18, sub, "normal", "礼遇 · 礼盒 · 输入口令"));
     out.push_str("</svg>");
     out
 }
 
-/// 分享卡保存路径：`<MAKEPAD_HOME>/ouyu/share-card.svg`。
-pub fn share_card_file() -> Option<std::path::PathBuf> {
-    std::env::var_os("MAKEPAD_HOME")
-        .map(|h| std::path::Path::new(&h).join("ouyu").join("share-card.svg"))
+/// 礼卡保存路径：`<MAKEPAD_HOME>/liyu/cards/LY-XXXX.svg`。
+pub fn card_file(code: &str) -> Option<std::path::PathBuf> {
+    crate::data::LiyuState::data_dir().map(|d| d.join("cards").join(format!("{code}.svg")))
 }
 
-/// 写分享卡文件（保存与预览是分开的动作；不代发不上传）。
-pub fn save_share_card(svg: &str) -> std::io::Result<Option<std::path::PathBuf>> {
-    let Some(path) = share_card_file() else {
+/// 写礼卡文件（只落本机，不代发不上传）。没有 MAKEPAD_HOME 时返回 Ok(None)。
+pub fn save_card(scene: &ShareCardScene) -> std::io::Result<Option<std::path::PathBuf>> {
+    let Some(path) = card_file(&scene.code) else {
         return Ok(None);
     };
-    save_share_card_to(&path, svg)?;
+    save_card_to(&path, scene)?;
     Ok(Some(path))
 }
 
-fn save_share_card_to(path: &std::path::Path, svg: &str) -> std::io::Result<()> {
+fn save_card_to(path: &std::path::Path, scene: &ShareCardScene) -> std::io::Result<()> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    std::fs::write(path, svg)
+    std::fs::write(path, render_svg(scene))
 }
 
 #[cfg(test)]
@@ -203,92 +177,102 @@ mod tests {
     use super::*;
     use crate::data::*;
 
-    fn stats_with(remembered: usize, days_apart: usize) -> AchievementStats {
-        let today = civil_to_days(2026, 9, 17);
-        let list: Vec<EncounterLocal> = (0..remembered)
-            .map(|i| EncounterLocal {
-                id: i,
-                contact_id: Some(0),
-                label_snapshot: format!("朋友{i}"),
-                date: fmt_days(today - (i % days_apart.max(1)) as i64),
-                hidden: false,
-                note: String::new(),
-            })
-            .collect();
-        achievement_stats(&list, 8, today)
+    fn every_sent_card(s: &LiyuState) -> Vec<(Gift, String)> {
+        s.gifts
+            .iter()
+            .map(|g| (g.clone(), render_svg(&scene_for(g, ShareStyle::Warm))))
+            .collect()
     }
 
     #[test]
-    fn scene_picks_highest_lit_milestone() {
-        let s0 = stats_with(0, 1);
-        let sc = scene_from_stats(&s0, ShareStyle::Warm, &milestones(&s0));
-        assert_eq!(sc.milestone_title, "下一次偶然，值得期待。");
-        assert!(sc.curve.is_none()); // 默认不含曲线
-
-        let s1 = stats_with(1, 1);
-        let sc = scene_from_stats(&s1, ShareStyle::Warm, &milestones(&s1));
-        assert_eq!(sc.milestone_title, "第一次，刚刚好。");
-
-        let s3 = stats_with(3, 3);
-        let sc = scene_from_stats(&s3, ShareStyle::Night, &milestones(&s3));
-        assert_eq!(sc.milestone_title, "生活有回响。");
-
-        let s7 = stats_with(7, 7);
-        let sc = scene_from_stats(&s7, ShareStyle::Night, &milestones(&s7));
-        assert_eq!(sc.milestone_title, "把日常过成故事。");
-    }
-
-    #[test]
-    fn svg_is_900x1200_and_has_signature() {
-        let s = stats_with(2, 2);
-        let sc = scene_from_stats(&s, ShareStyle::Warm, &milestones(&s));
-        let svg = render_svg(&sc);
-        assert!(svg.contains(r#"width="900" height="1200""#));
-        assert!(svg.contains("偶遇 OuYu"));
-        assert!(svg.contains("个人记录 · 非社交排名"));
-        assert!(svg.contains("给生活"));
-        assert!(svg.contains(">2</text>")); // 大数字
-        assert!(!svg.contains("polyline")); // 默认无曲线
-    }
-
-    #[test]
-    fn svg_curve_has_no_dates() {
-        let s = stats_with(2, 2);
-        let mut sc = scene_from_stats(&s, ShareStyle::Night, &milestones(&s));
-        sc.curve = Some(s.weekly.iter().map(|w| w.count).collect());
-        let svg = render_svg(&sc);
-        assert!(svg.contains("polyline"));
-        // 曲线不标具体日期：SVG 里没有任何 YYYY-MM-DD 或 MM/DD 文本。
-        assert!(!svg.contains("2026-"));
-        assert!(!svg.contains("09/"));
-    }
-
-    #[test]
-    fn svg_has_no_identity_fields() {
-        // 06 节硬要求：无联系人姓名 / 地点 / 具体日期 / 隐藏记录。
-        let s = stats_with(3, 3);
-        let sc = scene_from_stats(&s, ShareStyle::Warm, &milestones(&s));
-        let svg = render_svg(&sc);
-        for forbidden in ["朋友0", "朋友1", "林舟", "三里屯", "2026-09"] {
-            assert!(!svg.contains(forbidden), "leaked {forbidden}");
+    fn card_never_leaks_gift_price_sender_or_answer() {
+        let mut s = LiyuState::for_tests();
+        // 再送几份各种玩法的，覆盖所有分支。
+        for (k, u) in Unlock::ALL.into_iter().enumerate() {
+            let d = SendDraft {
+                item: k as u16 * 3,
+                peer: "林舟".into(),
+                unlock: u,
+                clue: "我们在哪认识的".into(),
+                answer: "图书馆".into(),
+                contract: Some("周末陪我看一场电影".into()),
+                message: "天冷了多穿点".into(),
+                use_balance: true,
+            };
+            s.send_gift(&d, TEST_TODAY).unwrap();
+        }
+        for (g, svg) in every_sent_card(&s) {
+            let name = g.catalog().name;
+            assert!(!svg.contains(name), "礼卡泄露礼物名 {name}");
+            assert!(!svg.contains(&yuan(g.price)), "礼卡泄露价格");
+            assert!(!svg.contains('¥'), "礼卡上不该有金额");
+            for alias in split_aliases(&g.peer) {
+                assert!(!svg.contains(&alias), "礼卡泄露送礼人 / 收礼人 {alias}");
+            }
+            if !g.answer.is_empty() {
+                assert!(!svg.contains(&g.answer), "礼卡泄露答案 {}", g.answer);
+            }
+            if !g.message.is_empty() {
+                assert!(!svg.contains(&g.message), "礼卡带了寄语");
+            }
+            if !g.contract.is_empty() {
+                assert!(!svg.contains(&g.contract), "礼卡带了契约");
+            }
+            assert!(svg.contains(&g.code), "礼卡要有口令");
         }
     }
 
     #[test]
-    fn svg_escapes_text() {
-        assert_eq!(esc("a<&>b"), "a&lt;&amp;&gt;b");
+    fn card_shows_play_and_clue() {
+        let s = LiyuState::for_tests();
+        let g = s.gifts.iter().find(|g| g.unlock() == Unlock::Question).unwrap();
+        let sc = scene_for(g, ShareStyle::Night);
+        assert_eq!(sc.play, "玩法：私密问答 · 3 次机会");
+        assert_eq!(sc.prompt_title, "TA 的问题");
+        assert_eq!(sc.prompt_lines.concat(), format!("「{}」", g.clue));
+        let svg = render_svg(&sc);
+        assert!(svg.starts_with("<?xml"));
+        assert!(svg.contains(r#"width="900" height="1200""#));
+        assert!(svg.ends_with("</svg>"));
     }
 
     #[test]
-    fn save_writes_file() {
-        // 不走 MAKEPAD_HOME 环境变量（并行测试会互相干扰），直接测写盘本体。
-        let path = std::env::temp_dir()
-            .join(format!("ouyu-share-{}/ouyu/share-card.svg", std::process::id()));
-        let s = stats_with(1, 1);
-        let sc = scene_from_stats(&s, ShareStyle::Warm, &milestones(&s));
+    fn free_and_hintless_cards() {
+        let mut s = LiyuState::for_tests();
+        let mut d = SendDraft { item: 1, unlock: Unlock::Passphrase, answer: "芝麻开门".into(), ..Default::default() };
+        let id = s.send_gift(&d, TEST_TODAY).unwrap();
+        let sc = scene_for(s.gift(id).unwrap(), ShareStyle::Warm);
+        assert_eq!(sc.prompt_lines, vec!["TA 说：你知道的".to_string()]);
+        d.unlock = Unlock::Free;
+        let id = s.send_gift(&d, TEST_TODAY).unwrap();
+        let sc = scene_for(s.gift(id).unwrap(), ShareStyle::Warm);
+        assert!(sc.prompt_lines.is_empty());
+        assert_eq!(sc.play, "玩法：直接领取 · 打开就能领");
+    }
+
+    #[test]
+    fn long_clue_wraps_into_two_lines() {
+        let lines = wrap_chars(&"线".repeat(32), LINE_CHARS);
+        assert_eq!(lines.len(), 2);
+        assert!(lines.iter().all(|l| l.chars().count() <= LINE_CHARS));
+    }
+
+    #[test]
+    fn text_is_escaped() {
+        let sc = ShareCardScene { prompt_lines: vec!["<b>&".into()], prompt_title: "t".into(), ..Default::default() };
         let svg = render_svg(&sc);
-        save_share_card_to(&path, &svg).expect("写盘应成功");
-        assert_eq!(std::fs::read_to_string(&path).unwrap(), svg);
-        let _ = std::fs::remove_dir_all(path.parent().unwrap().parent().unwrap());
+        assert!(svg.contains("&lt;b&gt;&amp;"));
+        assert!(!svg.contains("<b>"));
+    }
+
+    #[test]
+    fn save_writes_svg_file() {
+        let dir = std::env::temp_dir().join(format!("liyu-card-{}", std::process::id()));
+        let path = dir.join("cards").join("LY-TEST.svg");
+        let sc = ShareCardScene { code: "LY-TEST".into(), ..Default::default() };
+        save_card_to(&path, &sc).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.contains("LY-TEST"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

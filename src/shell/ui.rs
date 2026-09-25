@@ -573,7 +573,7 @@ script_mod! {
             speaker +: {svg: crate_resource("self:resources/icons/speaker.svg")}
             headphone +: {svg: crate_resource("self:resources/icons/headphone.svg")}
             lock +: {svg: crate_resource("self:resources/icons/lock.svg")}
-            encounter +: {svg: crate_resource("self:resources/icons/encounter.svg")}
+            gift +: {svg: crate_resource("self:resources/icons/gift.svg")}
         }
     }
 }
@@ -710,7 +710,7 @@ pub struct ShellIcons {
     #[live]
     pub shirt: DrawSvg,
     #[live]
-    pub encounter: DrawSvg,
+    pub gift: DrawSvg,
     #[live]
     pub pulse: DrawSvg,
     #[live]
@@ -769,8 +769,8 @@ pub enum Ico {
     Globe,
     Play,
     Shirt,
-    /// Two overlapping rings: the 偶遇 (OuYu) encounter app.
-    Encounter,
+    /// A wrapped gift box: the 礼遇 (LiYu) mystery-gift app.
+    Gift,
     Pulse,
     Photo,
     WindowMin,
@@ -814,7 +814,7 @@ impl ShellIcons {
             Ico::Globe => &mut self.globe,
             Ico::Play => &mut self.play,
             Ico::Shirt => &mut self.shirt,
-            Ico::Encounter => &mut self.encounter,
+            Ico::Gift => &mut self.gift,
             Ico::Pulse => &mut self.pulse,
             Ico::Photo => &mut self.photo,
             Ico::WindowMin => &mut self.window_min,

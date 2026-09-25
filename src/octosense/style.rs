@@ -53,12 +53,12 @@ impl DesktopStyle {
 /// the 64×64 rounded tile that upstream's macOS-style catalog uses. Each app
 /// adds its `IconAsset` here, keyed by its catalog id.
 pub fn local_app_icons(style: UpstreamStyle) -> Vec<app_icon::IconAsset> {
-    let ouyu = if style == UpstreamStyle::Omarchy {
-        include_str!("../../resources/app-icons/ouyu-mono.svg")
+    let liyu = if style == UpstreamStyle::Omarchy {
+        include_str!("../../resources/app-icons/liyu-mono.svg")
     } else {
-        include_str!("../../resources/app-icons/ouyu.svg")
+        include_str!("../../resources/app-icons/liyu.svg")
     };
-    vec![app_icon::IconAsset { name: "ouyu".into(), svg: ouyu.into() }]
+    vec![app_icon::IconAsset { name: "liyu".into(), svg: liyu.into() }]
 }
 
 /// Upstream's catalog for `style` plus our own apps, in the catalog's sorted order.
@@ -136,7 +136,7 @@ mod tests {
         // reapply walk at all when it connects.
         for (style, dark) in [(DesktopStyle::Omarchy, false), (DesktopStyle::Macos, true), (DesktopStyle::Windows, false)] {
             let sheet = load_sheet(style, dark);
-            assert!(sheet.icons.iter().any(|a| a.name == "ouyu"));
+            assert!(sheet.icons.iter().any(|a| a.name == "liyu"));
             assert_eq!(wire_sheet(&sheet), StyleSheet::load_with_appearance(style.framework(), dark));
         }
     }
@@ -153,9 +153,9 @@ mod tests {
                 assert_eq!(StyleSheet::parse(&sheet.to_json()), Some(sheet.clone()));
                 assert_eq!(UpstreamStyle::parse(&sheet.name), Some(UpstreamStyle::Macos));
                 assert_eq!(sheet.icons, sheet_icons(UpstreamStyle::Macos));
-                assert!(sheet.icons.iter().any(|a| a.name == "ouyu"));
+                assert!(sheet.icons.iter().any(|a| a.name == "liyu"));
                 // Children never see our local icons (see `wire_sheet`).
-                assert!(!wire_sheet(&sheet).icons.iter().any(|a| a.name == "ouyu"));
+                assert!(!wire_sheet(&sheet).icons.iter().any(|a| a.name == "liyu"));
                 desktop_style::install(vm, sheet);
                 vm.bx.captured_errors = Some(Vec::new());
                 vm.with_reload(makepad_widgets::script_mod);

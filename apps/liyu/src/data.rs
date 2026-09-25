@@ -1,41 +1,20 @@
-//! 偶遇 OuYu Phase 1 数据模型与纯逻辑（2026-09-17 新版设计）。
+//! 礼遇 LiYu 的数据模型与纯逻辑：礼物目录、神秘礼物、社交契约、余额流水。
 //!
-//! 核心转向「匿名机会」：发布模糊去向后地图上只有匿名光圈，线下认出彼此后
-//! 双方在「相遇」页现场确认（互认），可选领「相遇礼」券；每次相遇独立选择
-//! 保存 / 隐藏 / 不保存。
+//! 设计见 `liyu/docs/`：规则（04-rules.md）里的每个常量、每个函数都在这里，
+//! 实体与持久化边界见 05-data-model.md。
 //!
-//! 持久化边界（ouyu/design/02-features.md G/H 节）：
-//! - 长期 state.json 存 contacts、encounters、directory、reward claim，以及
-//!   本人发布过的行踪（Publish）——「我的行踪」要能回看，所以留着；一条里只有
-//!   粗片区 + 时段 + 意愿，没有坐标。到期的行踪自动退出匹配，只留在列表里。
-//! - 回声属于短时匹配数据，按 G 节「短期存储不入持久备份」的精神**不落盘**：
-//!   只活在进程内存里，最后一条有效行踪没了就一起清除。
-//! - 旧版 state.json 的 my_windows / cards / stealth / my_pos / 亲密度等字段
-//!   在加载时被忽略；首次保存后旧数据自然消失。
+//! 约定：
+//! - 金额一律是「分」（`i64`），显示时才转成 ¥x；
+//! - 日期一律是「天序号」（1970-01-01 起的 UTC 天数），`today` 从外面传进来，
+//!   所以过期、到期、通知这些跟时间有关的规则都能直接写单测；
+//! - 枚举落盘存 `u8`，读出来认不得的值一律退回第一项，不 panic；
+//! - 没有服务器、没有真实支付：「对方」由 `simulate_step` 驱动，
+//!   余额不够的部分记一条「模拟支付」，不影响余额。
 use makepad_widgets::makepad_micro_serde::*;
 
-/// 发布可选日期的跨度：今天起一周内任一天（design/02-features.md A 节）。
-pub const DAY_SPAN: usize = 7;
-/// 粗时段（生产要求不短于 3 小时，演示只做选项）。
-pub const SLOTS: [&str; 3] = ["上午", "下午", "晚间"];
-/// 通用意愿。
-pub const INTENTS: [&str; 3] = ["随意走走", "顺路办事", "就想出门"];
-/// 匿名回声的固定三选（02 C 节：无自定义文字，防暗号辨认）。
-pub const ECHOES: [&str; 3] = ["咖啡", "散步", "吃饭"];
-/// 城市小签：不依赖他人行程的空状态趣味（01 趣味设计）。
-pub const SIGNS: [&str; 4] = [
-    "去一家没进过的书店，只翻三页。",
-    "绕一点路，去看看树。",
-    "今天的咖啡，可以慢慢喝。",
-    "在公共街区走走，让生活留白。",
-];
-/// 匿名机会阈值（02 B 节设计起点：至少 5 位不同有效候选才显示熟人机会）。
-pub const OPPORTUNITY_THRESHOLD: usize = 5;
-
-// ---- 日期与周桶（成就统计基础，06 节）----
+// ---- 日期 ----
 //
-// 新记录写真实 ISO 日期（YYYY-MM-DD）。本地时区偏移没有可移植的平台 API，
-// 演示统一用 UTC 日期（比本地日期最多差一天，不影响周桶演示语义）。
+// 本地时区偏移没有可移植的平台 API，演示统一用 UTC 日期。
 
 /// 1970-01-01（周四）以来的 UTC 天数。
 pub fn today_days() -> i64 {
@@ -141,292 +120,7 @@ pub fn is_weekend(days: i64) -> bool {
     weekday(days) >= 5
 }
 
-const WEEKDAY_NAMES: [&str; 7] = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
-
-/// 相对今天的偏移（0..=6）→ 日期条上的短标签，例如「今天」「周四」。
-pub fn day_label_at(today: i64, offset: usize) -> &'static str {
-    match offset {
-        0 => "今天",
-        1 => "明天",
-        2 => "后天",
-        n => WEEKDAY_NAMES[weekday(today + n as i64)],
-    }
-}
-
-/// 相对今天的偏移 → 短标签（当天日期）。
-pub fn day_label(offset: usize) -> &'static str {
-    day_label_at(today_days(), offset)
-}
-
-/// 相对今天的偏移 → "9/17" 这样的日期数字，配在标签下面。
-pub fn day_number_at(today: i64, offset: usize) -> String {
-    let (_, m, d) = days_to_civil(today + offset as i64);
-    format!("{}/{}", m, d)
-}
-
-/// 相对今天的偏移 → "9/17"。
-pub fn day_number(offset: usize) -> String {
-    day_number_at(today_days(), offset)
-}
-
-// ---- 匿名区域机会（02 B 节）----
-//
-// 发现页只展示**分档**，永远不展示候选人数、身份或距离；人数只是这里的内部
-// 中间量，既不出现在 UI，也不进 AI 快照。演示里用 (区域 id, 绝对日期) 的确定
-// 性散列代替真实匹配服务：同一天内多次进入结果一致，换一天才会变。
-
-/// 一个片区某一天的机会分档。
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum OppLevel {
-    /// 很可能
-    Likely,
-    /// 有可能
-    Possible,
-    /// 较少
-    Few,
-    /// 未达匿名保护阈值：不展示为熟人机会（02 B）。
-    BelowThreshold,
-}
-
-impl OppLevel {
-    pub fn label(self) -> &'static str {
-        match self {
-            OppLevel::Likely => "很可能",
-            OppLevel::Possible => "有可能",
-            OppLevel::Few => "较少",
-            OppLevel::BelowThreshold => "暂不显示",
-        }
-    }
-
-    /// 是否达到匿名保护阈值。
-    pub fn shown(self) -> bool {
-        !matches!(self, OppLevel::BelowThreshold)
-    }
-}
-
-/// 某片区某天的机会。不含人数字段 —— 分档是这里唯一对外的东西。
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct AreaOpportunity {
-    pub area: u16,
-    /// 相对今天的偏移 0..=6。
-    pub day: usize,
-    /// 最可能的粗时段下标（SLOTS）。
-    pub best_slot: Option<usize>,
-    pub level: OppLevel,
-}
-
-/// 确定性散列（SplitMix64 的 finalizer），保证同一天同一片区结果稳定。
-fn mix(mut x: u64) -> u64 {
-    x = x.wrapping_add(0x9e37_79b9_7f4a_7c15);
-    x = (x ^ (x >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-    x = (x ^ (x >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-    x ^ (x >> 31)
-}
-
-/// 片区类型在工作日 / 周末的基准权重。办公园区反着来，公园与商圈周末更旺。
-fn kind_weight(kind: crate::areas::AreaKind, weekend: bool) -> u64 {
-    use crate::areas::AreaKind::*;
-    match kind {
-        Commercial => if weekend { 120 } else { 90 },
-        Park => if weekend { 110 } else { 60 },
-        Culture => if weekend { 95 } else { 55 },
-        Waterfront => if weekend { 90 } else { 50 },
-        Transit => 85,
-        Campus => 70,
-        Neighborhood => 55,
-        Office => if weekend { 25 } else { 95 },
-    }
-}
-
-/// 内部候选数估算：只在本模块里存在，不会被 UI 或 AI 读到。
-///
-/// 标定的目标是让「达到阈值」保持稀有 —— 工作日全城十来个片区、周末二十几
-/// 个。如果满城都是机会，分档就退化成装饰，阈值也就没有意义了。
-fn candidate_count(area: &crate::areas::Area, abs_day: i64) -> usize {
-    let h = mix((area.id as u64) << 32 ^ (abs_day as u64 & 0xffff_ffff));
-    let w = kind_weight(area.kind, is_weekend(abs_day));
-    let jitter = 30 + h % 211; // 30..240
-    (w * jitter / 3000) as usize
-}
-
-fn level_of(count: usize) -> OppLevel {
-    if count < OPPORTUNITY_THRESHOLD {
-        OppLevel::BelowThreshold
-    } else if count >= 7 {
-        OppLevel::Likely
-    } else if count >= 6 {
-        OppLevel::Possible
-    } else {
-        OppLevel::Few
-    }
-}
-
-/// 单个片区某天的机会，连内部候选数一起返回（候选数只用来排序，
-/// 不出这个模块）。排行和逐个查询走同一条路，两边结果不会对不上。
-fn opportunity_scored(a: &crate::areas::Area, today: i64, day: usize) -> (usize, AreaOpportunity) {
-    let abs = today + day as i64;
-    let c = candidate_count(a, abs);
-    let h = mix((abs as u64).wrapping_mul(31).wrapping_add(a.id as u64));
-    (
-        c,
-        AreaOpportunity {
-            area: a.id,
-            day,
-            best_slot: (c >= OPPORTUNITY_THRESHOLD).then(|| (h >> 16) as usize % SLOTS.len()),
-            level: level_of(c),
-        },
-    )
-}
-
-/// 某一天全部片区的机会排序（高 → 低）。纯函数版，测试与固定日期用。
-pub fn opportunity_ranking_at(today: i64, day: usize) -> Vec<AreaOpportunity> {
-    let mut out: Vec<(usize, AreaOpportunity)> = crate::areas::AREAS
-        .iter()
-        .map(|a| opportunity_scored(a, today, day))
-        .collect();
-    // 分档相同的按 id 升序，保证同一天内反复进入顺序一致。
-    out.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.area.cmp(&b.1.area)));
-    out.into_iter().map(|(_, o)| o).collect()
-}
-
-/// 某一天（相对今天 0..=6）全部片区的机会排序。
-pub fn opportunity_ranking(day: usize) -> Vec<AreaOpportunity> {
-    opportunity_ranking_at(today_days(), day)
-}
-
-/// 单个片区某天的机会（区域选择器行内分档用）。
-pub fn area_opportunity_at(today: i64, day: usize, area_id: u16) -> AreaOpportunity {
-    match crate::areas::area(area_id) {
-        Some(a) => opportunity_scored(a, today, day).1,
-        None => AreaOpportunity {
-            area: area_id,
-            day,
-            best_slot: None,
-            level: OppLevel::BelowThreshold,
-        },
-    }
-}
-
-/// 一周七天的强度点（日期条上的小圆点）：当天达到阈值的片区数量。
-pub fn week_intensity_at(today: i64) -> [usize; DAY_SPAN] {
-    let mut out = [0usize; DAY_SPAN];
-    for (d, slot) in out.iter_mut().enumerate() {
-        *slot = opportunity_ranking_at(today, d)
-            .iter()
-            .filter(|o| o.level.shown())
-            .count();
-    }
-    out
-}
-
-/// 一周七天的强度点。
-pub fn week_intensity() -> [usize; DAY_SPAN] {
-    week_intensity_at(today_days())
-}
-
-/// 一条回忆参与统计的有效日期：能解析的 ISO 日期；解析不了的旧记录归入今天。
-fn effective_days(e: &EncounterLocal, today: i64) -> i64 {
-    parse_iso_days(&e.date).unwrap_or(today)
-}
-
-/// 一周的次数桶：start 是这一周周一（天数）。
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct WeekBucket {
-    pub start: i64,
-    pub count: usize,
-}
-
-/// 成就页统计（06 节口径：只统计未隐藏且仍保存的回忆；隐藏退出统计、
-/// 恢复计入、删除重算。熟人页 meeting_count 含隐藏，是两个不同口径）。
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AchievementStats {
-    /// 记住的相遇（可见回忆条数）。
-    pub remembered: usize,
-    /// 有相遇的日子（不同有效日期数）。
-    pub days: usize,
-    /// 最近 N 周（含本周，本周在最后）的每周次数。
-    pub weekly: Vec<WeekBucket>,
-}
-
-impl AchievementStats {
-    /// 所选时段内的相遇总数。
-    pub fn recent(&self) -> usize {
-        self.weekly.iter().map(|w| w.count).sum()
-    }
-}
-
-pub fn achievement_stats(encounters: &[EncounterLocal], weeks: usize, today: i64) -> AchievementStats {
-    let n = weeks.max(1);
-    let first = week_start(today) - 7 * (n as i64 - 1);
-    let mut weekly: Vec<WeekBucket> = (0..n)
-        .map(|i| WeekBucket { start: first + 7 * i as i64, count: 0 })
-        .collect();
-    let mut remembered = 0;
-    let mut dates: Vec<i64> = Vec::new();
-    for e in encounters.iter().filter(|e| !e.hidden) {
-        remembered += 1;
-        let d = effective_days(e, today);
-        dates.push(d);
-        let idx = (week_start(d) - first) / 7;
-        if idx >= 0 && (idx as usize) < n {
-            weekly[idx as usize].count += 1;
-        }
-    }
-    dates.sort_unstable();
-    dates.dedup();
-    AchievementStats { remembered, days: dates.len(), weekly }
-}
-
-/// 一个里程碑（06 节：点亮 / 等自然发生，不用凑次数，无排名）。
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Milestone {
-    pub title: &'static str,
-    pub desc: &'static str,
-    pub lit: bool,
-}
-
-/// 三个里程碑：第一次刚刚好（≥1 次）、生活有回响（≥3 次）、
-/// 把日常过成故事（≥7 个不同日期）。不按签到 / 领券 / 消费发成就。
-pub fn milestones(s: &AchievementStats) -> [Milestone; 3] {
-    [
-        Milestone { title: "第一次刚刚好", desc: "记住一次重逢", lit: s.remembered >= 1 },
-        Milestone { title: "生活有回响", desc: "记住三次相遇", lit: s.remembered >= 3 },
-        Milestone { title: "把日常过成故事", desc: "七个有相遇的日子", lit: s.days >= 7 },
-    ]
-}
-
-/// 本机联系人：只有本机称呼，无授权 / 安装状态 / 永久回忆策略。
-#[derive(Clone, Debug, PartialEq, SerJson, DeJson)]
-pub struct ContactLocal {
-    pub id: usize,
-    pub label: String,
-}
-
-/// 一条私人相遇回忆：默认无地点、无精确时刻、无券 ID（02 F 节）。
-/// 删除联系人但保留回忆时 contact_id 置 None，用 label_snapshot 独立展示。
-#[derive(Clone, Debug, PartialEq, SerJson, DeJson)]
-pub struct EncounterLocal {
-    pub id: usize,
-    pub contact_id: Option<usize>,
-    pub label_snapshot: String,
-    pub date: String,
-    pub hidden: bool,
-    pub note: String,
-}
-
-/// 一条回忆归到哪个月。回忆页的分组头用它，`2026-09-17` -> `2026 年 9 月`。
-///
-/// 认不出来的日期（旧数据、手填的怪字符串）归到「更早」那一组，而不是丢掉 ——
-/// 分组是为了好找，不是为了筛掉谁。
-pub fn month_head(date: &str) -> String {
-    match parse_iso_days(date) {
-        Some(d) => {
-            let (y, m, _) = days_to_civil(d);
-            format!("{} 年 {} 月", y, m)
-        }
-        None => "更早".to_string(),
-    }
-}
+// ---- 熟人索引 ----
 
 /// 常见姓氏与拼音首字母。
 ///
@@ -511,419 +205,763 @@ pub fn alpha_key(label: &str) -> char {
     '#'
 }
 
-/// 回忆页的搜索：**只搜称呼与备注**，且**隐藏的记录不进搜索**
-/// （design/02-features.md F 节：隐藏记录不进入提醒、搜索、AI 或推荐）。
-///
-/// 空查询返回未隐藏的全部 —— 「已隐藏」那一段由页面另外列，不从这里出。
-pub fn search_memories<'a>(
-    encounters: &'a [EncounterLocal],
-    query: &str,
-    filter: Option<&str>,
-) -> Vec<&'a EncounterLocal> {
-    let q = query.trim().to_lowercase();
-    encounters
-        .iter()
-        .filter(|e| !e.hidden)
-        .filter(|e| filter.is_none_or(|f| e.label_snapshot == f))
-        .filter(|e| {
-            q.is_empty()
-                || e.label_snapshot.to_lowercase().contains(&q)
-                || e.note.to_lowercase().contains(&q)
-        })
+/// 相对今天的短日期：「今天」「昨天」「9 月 24 日」。列表和时间线用。
+pub fn rel_day(day: i64, today: i64) -> String {
+    match today - day {
+        0 => "今天".into(),
+        1 => "昨天".into(),
+        -1 => "明天".into(),
+        _ => {
+            let (_, m, d) = days_to_civil(day);
+            format!("{} 月 {} 日", m, d)
+        }
+    }
+}
+
+// ---- 规则常量（04-rules.md）----
+
+/// 每份礼物的解谜机会。
+pub const MAX_ATTEMPTS: u8 = 3;
+/// 契约期限：收下当天 + 7 天。
+pub const PACT_DAYS: i64 = 7;
+/// 收到的礼物 7 天内没揭晓就退回送礼人。
+pub const EXPIRE_DAYS: i64 = 7;
+/// 折现手续费率（%）。
+pub const CASHOUT_FEE_PCT: i64 = 8;
+/// 换购手续费率（%）。
+pub const EXCHANGE_FEE_PCT: i64 = 5;
+/// 手续费下限：¥1。
+pub const MIN_FEE: i64 = 100;
+pub const PACT_MAX_CHARS: usize = 24;
+pub const MESSAGE_MAX_CHARS: usize = 40;
+pub const CLUE_MAX_CHARS: usize = 30;
+pub const ANSWER_MAX_CHARS: usize = 20;
+pub const NICKNAME_MAX_CHARS: usize = 16;
+/// 新人礼金（演示初始流水）。
+pub const WELCOME_BONUS: i64 = 2000;
+/// 「演示充值」一次加多少。
+pub const TOP_UP_AMOUNT: i64 = 5000;
+/// 收到的礼物离过期 ≤ 2 天时提醒。
+pub const GIFT_NOTICE_LEAD_DAYS: i64 = 2;
+/// 我答应的契约离到期 ≤ 1 天时提醒。
+pub const PACT_NOTICE_LEAD_DAYS: i64 = 1;
+/// 猜我是谁的候选人芯片个数。
+pub const CANDIDATE_COUNT: usize = 6;
+/// 契约禁用词：契约只写轻约定，不涉及钱。
+pub const BANNED_WORDS: [&str; 7] = ["转账", "借钱", "红包", "还钱", "现金", "打钱", "贷款"];
+/// 预设契约：（芯片上的短名, 契约全文）。
+pub const PACT_PRESETS: [(&str, &str); 4] = [
+    ("回请咖啡", "下周找时间回请我喝一杯咖啡"),
+    ("晒一晒", "收下要发一条朋友圈晒一晒"),
+    ("陪看电影", "周末陪我看一场电影"),
+    ("见面拥抱", "下次见面先给我一个拥抱"),
+];
+/// 身份保密时对送礼人的称呼。
+pub const MYSTERY_FRIEND: &str = "一位神秘的朋友";
+/// 未揭晓的礼物在列表里的名字。
+pub const MYSTERY_GIFT: &str = "一份神秘礼物";
+/// 模拟器生成的回礼寄语。
+pub const RETURN_MESSAGE: &str = "收到你的礼物啦，礼尚往来";
+/// 默认称呼（猜我是谁时对方要猜的名字）。
+pub const DEFAULT_NICKNAME: &str = "阿岚";
+
+// ---- 礼物目录 ----
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Category {
+    Coffee,
+    Movie,
+    Trendy,
+    Blind,
+    Sweet,
+}
+
+impl Category {
+    pub const ALL: [Category; 5] = [
+        Category::Coffee,
+        Category::Movie,
+        Category::Trendy,
+        Category::Blind,
+        Category::Sweet,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Category::Coffee => "咖啡茶饮",
+            Category::Movie => "电影演出",
+            Category::Trendy => "潮流小物",
+            Category::Blind => "盲盒",
+            Category::Sweet => "甜点鲜花",
+        }
+    }
+}
+
+/// 目录里的一件礼物。目录是代码常量，不落盘；下标就是 `Gift::item`，只追加不重排。
+#[derive(Clone, Copy, Debug)]
+pub struct CatalogItem {
+    pub name: &'static str,
+    pub cat: Category,
+    /// 实物要填收件地址；电子券收下即给券码。
+    pub physical: bool,
+    pub spec: &'static str,
+    /// 分。
+    pub price: i64,
+}
+
+const fn ci(name: &'static str, cat: Category, physical: bool, spec: &'static str, yuan: i64) -> CatalogItem {
+    CatalogItem { name, cat, physical, spec, price: yuan * 100 }
+}
+
+pub const CATALOG: [CatalogItem; 12] = [
+    ci("三顿半精品咖啡礼盒", Category::Coffee, true, "24 颗装 · 包邮", 109),
+    ci("星巴克中杯拿铁电子券", Category::Coffee, false, "全国门店通用 · 30 天有效", 35),
+    ci("喜茶多肉葡萄兑换券", Category::Coffee, false, "全国门店通用 · 30 天有效", 29),
+    ci("电影通兑票", Category::Movie, false, "2D 场次通兑 · 60 天有效", 49),
+    ci("电影双人套票", Category::Movie, false, "两张通兑票 + 爆米花套餐", 98),
+    ci("帆布托特包", Category::Trendy, true, "米白 · 加厚帆布 · 包邮", 79),
+    ci("香薰蜡烛", Category::Trendy, true, "无花果香 · 200g · 包邮", 88),
+    ci("拍立得相纸", Category::Trendy, true, "mini 白边 · 40 张 · 包邮", 59),
+    ci("潮玩盲盒", Category::Blind, true, "随机一款 · 有隐藏款 · 包邮", 69),
+    ci("文具盲盒", Category::Blind, true, "6 件随机 · 包邮", 39),
+    ci("小蛋糕兑换券", Category::Sweet, false, "6 寸 · 指定门店自提", 128),
+    ci("向日葵花束", Category::Sweet, true, "3 枝装 · 同城配送", 99),
+];
+
+/// 按下标取目录项；越界（旧存档、坏数据）退回第一件，不 panic。
+pub fn item(i: u16) -> &'static CatalogItem {
+    CATALOG.get(i as usize).unwrap_or(&CATALOG[0])
+}
+
+/// 某个品类下的目录下标；`None` = 全部。
+pub fn catalog_in(cat: Option<Category>) -> Vec<u16> {
+    (0..CATALOG.len() as u16)
+        .filter(|&i| cat.map_or(true, |c| item(i).cat == c))
         .collect()
 }
 
-/// 每次相遇的独立选择（02 F 节：默认保存，只影响本次）。
+/// 不超过 `budget` 的最贵一件（同价取靠前的）。回礼、AI 建议都用它。
+pub fn best_item_within(budget: i64) -> Option<u16> {
+    let mut best: Option<u16> = None;
+    for i in 0..CATALOG.len() as u16 {
+        let p = item(i).price;
+        if p <= budget && best.map_or(true, |b| p > item(b).price) {
+            best = Some(i);
+        }
+    }
+    best
+}
+
+// ---- 金额 ----
+
+/// 分 → 「¥109」/「¥8.72」/「-¥6」。
+pub fn yuan(cents: i64) -> String {
+    let a = cents.abs();
+    let s = if a % 100 == 0 {
+        format!("¥{}", a / 100)
+    } else {
+        format!("¥{}.{:02}", a / 100, a % 100)
+    };
+    if cents < 0 {
+        format!("-{s}")
+    } else {
+        s
+    }
+}
+
+/// 手续费：`max(¥1, 向上取整到元(price × pct / 100))`。
+pub fn fee(price: i64, pct: i64) -> i64 {
+    let cents = (price * pct + 99) / 100;
+    let whole = (cents + 99) / 100 * 100;
+    whole.max(MIN_FEE)
+}
+
+/// 折现报价：（手续费, 退回余额）。
+pub fn cashout_quote(price: i64) -> (i64, i64) {
+    let f = fee(price, CASHOUT_FEE_PCT);
+    (f, (price - f).max(0))
+}
+
+/// 换购抵扣：（手续费, 抵扣额）。
+pub fn exchange_credit(price: i64) -> (i64, i64) {
+    let f = fee(price, EXCHANGE_FEE_PCT);
+    (f, (price - f).max(0))
+}
+
+// ---- 解谜 ----
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum MemoryChoice {
+pub enum Unlock {
     #[default]
-    Save,
-    Hidden,
-    Skip,
+    GuessWho,
+    Question,
+    Passphrase,
+    Free,
 }
 
-/// 「我的行踪」里最多留多少条已到期的记录；再多就从最早的开始丢。
-pub const PUBLISH_HISTORY_MAX: usize = 20;
+impl Unlock {
+    pub const ALL: [Unlock; 4] = [Unlock::GuessWho, Unlock::Question, Unlock::Passphrase, Unlock::Free];
 
-/// 一条模糊行踪。可以同时有多条（不同日子、不同时段），各自在所在时段
-/// 结束时到期退出匹配。没有「状态」字段：是否到期由日期 + 时刻现算。
-#[derive(Clone, Debug, PartialEq, SerJson, DeJson)]
-pub struct Publish {
-    pub id: usize,
-    /// 绝对日期（1970-01-01 起天数）。存偏移会在第二天全部错位。
-    pub date: i64,
-    pub slot: usize,
-    /// 区域库里的片区 id —— 不是下标，换库不会错位。
-    pub area: u16,
-    pub intent: usize,
-}
-
-impl Publish {
-    /// 相对今天的偏移（0..DAY_SPAN）；已过去或超出一周为 None。
-    pub fn day_at(&self, today: i64) -> Option<usize> {
-        let d = self.date - today;
-        (0..DAY_SPAN as i64).contains(&d).then_some(d as usize)
+    pub fn from_u8(v: u8) -> Self {
+        match v {
+            1 => Unlock::Question,
+            2 => Unlock::Passphrase,
+            3 => Unlock::Free,
+            _ => Unlock::GuessWho,
+        }
     }
 
-    /// 到期 = 所在那天的时段结束；更早的日子整条都过了。
-    pub fn expired_at(&self, today: i64, now_min: u32) -> bool {
-        self.date < today || (self.date == today && now_min >= SLOT_END_MIN[self.slot.min(2)])
+    pub fn id(self) -> u8 {
+        self as u8
     }
 
-    /// 预览 / 已发布的展示文案：无昵称、头像、时间戳。
-    pub fn text(&self) -> String {
-        self.text_at(today_days())
-    }
-
-    /// 固定「今天」的版本，测试用。一周内用「今天 / 明天 / 周四」，
-    /// 更早的（历史）用「9月15日」。
-    pub fn text_at(&self, today: i64) -> String {
-        let when = match self.day_at(today) {
-            Some(d) => day_label_at(today, d).to_string(),
-            None => {
-                let (_, m, d) = days_to_civil(self.date);
-                format!("{}月{}日", m, d)
-            }
-        };
-        format!(
-            "{}{} · {} · {}",
-            when,
-            SLOTS[self.slot.min(SLOTS.len() - 1)],
-            crate::areas::area_name(self.area),
-            INTENTS[self.intent.min(INTENTS.len() - 1)],
-        )
-    }
-}
-
-/// 赞助店家（虚构示例）。结果屏最多给 3 家（02-features E 节）。
-///
-/// 距离只给档位（「步行可达」），不给米数 —— 米数等于在告诉你对方此刻离你多远。
-#[derive(Clone, Copy, Debug)]
-pub struct Merchant {
-    pub name: &'static str,
-    pub address: &'static str,
-    pub hours: &'static str,
-    pub walk: &'static str,
-}
-
-/// 三家虚构示例店。真实版本由商户侧配置，这里只为把结果屏铺满。
-pub const MERCHANTS: [Merchant; 3] = [
-    Merchant {
-        name: "禾间小馆",
-        address: "朝阳区 · 三里屯一带（示例地址）",
-        hours: "每天 11:00 - 22:00",
-        walk: "步行可达",
-    },
-    Merchant {
-        name: "长夏咖啡",
-        address: "朝阳区 · 三里屯一带（示例地址）",
-        hours: "每天 09:00 - 20:00",
-        walk: "步行可达",
-    },
-    Merchant {
-        name: "元宵书局 · café",
-        address: "东城区 · 崇文门一带（示例地址）",
-        hours: "周二至周日 10:00 - 21:00",
-        walk: "需要坐几站",
-    },
-];
-
-/// 券的有效天数。
-pub const REWARD_VALID_DAYS: i64 = 7;
-
-/// 相遇礼券（虚构示例）。
-///
-/// 券上没有联系人、没有坐标、没有「和谁在哪天相遇」。`expires_on` 是券自身的
-/// 有效期（02-features H 节 `RewardClaim.expires_at`），不是相遇日期字段。
-/// `claimed` 留着只为兼容旧状态文件 —— 新流程里确认成功即出券，没有领取这一步。
-#[derive(Clone, Debug, PartialEq, SerJson, DeJson)]
-pub struct RewardClaim {
-    pub venue: String,
-    pub offer: String,
-    pub claimed: bool,
-    pub redeemed: bool,
-    pub expires_on: Option<i64>,
-    pub token: Option<String>,
-    pub terms: Option<String>,
-}
-
-/// 券在券包里的三个分区（02-features 七.3）。过期与否按当天算，不落盘 ——
-/// 落盘的话，一台好几天没开的手机再打开时，券的分区就是错的。
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RewardState {
-    Available,
-    Redeemed,
-    Expired,
-}
-
-impl RewardState {
+    /// 送礼页上的全称。
     pub fn label(self) -> &'static str {
         match self {
-            RewardState::Available => "可用",
-            RewardState::Redeemed => "已核销",
-            RewardState::Expired => "已过期",
+            Unlock::GuessWho => "猜我是谁",
+            Unlock::Question => "专属私密问答",
+            Unlock::Passphrase => "专属暗号",
+            Unlock::Free => "无条件直接领取",
+        }
+    }
+
+    /// 徽章 / 分段上的短名。
+    pub fn short(self) -> &'static str {
+        match self {
+            Unlock::GuessWho => "猜我是谁",
+            Unlock::Question => "私密问答",
+            Unlock::Passphrase => "专属暗号",
+            Unlock::Free => "直接领取",
+        }
+    }
+
+    /// 解密页上那张卡片的标题。
+    pub fn clue_title(self) -> &'static str {
+        match self {
+            Unlock::GuessWho => "TA 留下的线索",
+            Unlock::Question => "TA 的问题",
+            Unlock::Passphrase => "暗号提示",
+            Unlock::Free => "",
         }
     }
 }
 
-impl RewardClaim {
-    /// 今天看这张券属于哪一区。已核销优先于过期：核销过的券不该又变成「过期」。
-    pub fn state(&self, today: i64) -> RewardState {
-        if self.redeemed {
-            RewardState::Redeemed
-        } else if self.expires_on.map(|d| d < today).unwrap_or(false) {
-            RewardState::Expired
-        } else {
-            RewardState::Available
-        }
+fn to_halfwidth(c: char) -> char {
+    match c as u32 {
+        0xFF01..=0xFF5E => char::from_u32(c as u32 - 0xFEE0).unwrap_or(c),
+        0x3000 => ' ',
+        _ => c,
     }
+}
 
-    /// 「还剩 2 天」/「今天最后一天」。过期与已核销的券不提醒。
-    pub fn remaining_label(&self, today: i64) -> Option<String> {
-        let d = self.expires_on? - today;
-        match d {
-            _ if self.redeemed => None,
-            0 => Some("今天最后一天".to_string()),
-            1..=3 => Some(format!("还剩 {} 天", d)),
-            _ => None,
-        }
+fn is_punct(c: char) -> bool {
+    c.is_ascii_punctuation()
+        || matches!(c as u32, 0x2010..=0x206F | 0x3000..=0x303F | 0xFE30..=0xFE4F)
+        || "·～￥…".contains(c)
+}
+
+/// 答案规范化：全角转半角 → 去掉所有空白与标点 → 转小写。
+pub fn normalize_answer(s: &str) -> String {
+    s.chars()
+        .map(to_halfwidth)
+        .filter(|&c| !c.is_whitespace() && !is_punct(c))
+        .flat_map(|c| c.to_lowercase())
+        .collect()
+}
+
+/// 称呼别名：「林舟 / 舟舟、阿舟」→ [林舟, 舟舟, 阿舟]。
+pub fn split_aliases(s: &str) -> Vec<String> {
+    s.split(['/', '、', ',', '，'])
+        .map(|a| a.trim().to_string())
+        .filter(|a| !a.is_empty())
+        .collect()
+}
+
+/// 规范化后比较；`aliases` 为真时命中任一别名即算对。空答案永远不对。
+pub fn answer_matches(expected: &str, guess: &str, aliases: bool) -> bool {
+    let g = normalize_answer(guess);
+    if g.is_empty() {
+        return false;
     }
+    if aliases {
+        split_aliases(expected).iter().any(|a| normalize_answer(a) == g)
+    } else {
+        normalize_answer(expected) == g
+    }
+}
 
-    /// 「有效期至 9 月 24 日」。没有 expires_on 的旧券只说「有效期以券面为准」。
-    pub fn expiry_label(&self) -> String {
-        match self.expires_on {
-            Some(d) => {
-                let (_, m, day) = days_to_civil(d);
-                format!("有效期至 {} 月 {} 日", m, day)
-            }
-            None => "有效期以券面为准".to_string(),
+// ---- 契约 / 文本校验 ----
+
+/// 契约：去首尾空白后 1–24 字，不含禁用词。返回整理后的文本。
+pub fn validate_pact(text: &str) -> Result<String, &'static str> {
+    let t = text.trim();
+    if t.is_empty() {
+        return Err("契约还没写");
+    }
+    if t.chars().count() > PACT_MAX_CHARS {
+        return Err("契约最多 24 个字");
+    }
+    if BANNED_WORDS.iter().any(|w| t.contains(w)) {
+        return Err("契约只写轻约定，不涉及钱");
+    }
+    Ok(t.to_string())
+}
+
+/// 手机号：11 位数字、1 开头（演示只做这一层）。
+pub fn valid_phone(s: &str) -> bool {
+    let s = s.trim();
+    s.len() == 11 && s.starts_with('1') && s.bytes().all(|b| b.is_ascii_digit())
+}
+
+// ---- 口令 / 券码 ----
+
+/// 口令字符集：去掉 0 / O / 1 / I，免得抄错。
+pub const CODE_CHARS: &[u8] = b"23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+
+fn mix(mut x: u64) -> u64 {
+    x = x.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    x ^ (x >> 31)
+}
+
+fn code_chars(mut v: u64, n: usize) -> String {
+    let mut s = String::new();
+    for _ in 0..n {
+        s.push(CODE_CHARS[(v % CODE_CHARS.len() as u64) as usize] as char);
+        v /= CODE_CHARS.len() as u64;
+    }
+    s
+}
+
+/// 生成 `LY-XXXX` 口令；`taken` 说已被占用就换一个。
+pub fn gen_code(seed: u64, taken: impl Fn(&str) -> bool) -> String {
+    let mut s = seed;
+    loop {
+        s = mix(s);
+        let code = format!("LY-{}", code_chars(s, 4));
+        if !taken(&code) {
+            return code;
         }
     }
 }
 
-/// 互认窗口：10 分钟（与门槛屏上的说法一致）。
-pub const RECOG_WINDOW_SECS: u64 = 600;
-
-/// 倒计时文案：`9:58`。中性语气，不做红色跳动（design/05）。
-pub fn countdown_label(secs: u64) -> String {
-    format!("{}:{:02}", secs / 60, secs % 60)
+/// 电子券券码：`XXXX-XXXX`。
+pub fn gen_voucher(seed: u64) -> String {
+    let v = mix(seed ^ 0x5EED);
+    format!("{}-{}", code_chars(v, 4), code_chars(v >> 24, 4))
 }
 
-/// 现场互认会话状态（02 D 节）。
-///
-/// 用户只看到四个态：选人（没有会话）→ 定位门槛 → 等待 → 结果。
-/// 旧版的 `Session` / `SelfDone` 合并成 `Waiting`：本人确认在点「确认相遇」
-/// 那一刻就完成了，再让人点一次是多出来的。
+/// 口令输入的宽松解析：大小写、空格、少了「LY-」都认。认不出来返回 None。
+pub fn normalize_code(input: &str) -> Option<String> {
+    let s: String = input
+        .chars()
+        .map(to_halfwidth)
+        .filter(|c| !c.is_whitespace() && *c != '-')
+        .collect::<String>()
+        .to_ascii_uppercase();
+    let body = if s.len() == 6 && s.starts_with("LY") { &s[2..] } else { &s[..] };
+    if body.len() == 4 && body.bytes().all(|b| CODE_CHARS.contains(&b)) {
+        Some(format!("LY-{body}"))
+    } else {
+        None
+    }
+}
+
+/// 口令链接（演示）。
+pub fn gift_link(code: &str) -> String {
+    format!("liyu://g/{code}")
+}
+
+// ---- 礼物 ----
+
+pub const DIR_SENT: u8 = 0;
+pub const DIR_RECEIVED: u8 = 1;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RecogStage {
-    /// 定位门槛：**会话尚未建立**。
-    LocationGate,
-    /// 定位被拒：会话仍未建立，只能再开定位或退成普通回忆。
-    NoLocation,
-    /// 会话已建立，本人确认已随之提交，等对方在现场也确认。
-    Waiting,
-    /// 双方确认 + 同地校验通过。
-    Success,
-    /// 互认成立但同地不成立：有回忆，没有相遇礼。
-    Ordinary,
-    /// 倒计时归零 / 对方一直没确认。
+pub enum GiftState {
+    Sealed,
+    Opened,
+    Revealed,
+    Accepted,
+    Exchanged,
+    CashedOut,
     Expired,
-    /// 双方信息尚未一致（不揭示谁填了谁）。
-    Mismatch,
-    /// 相遇成立，但相遇礼限额 / 无库存。
-    NoStock,
+    Withdrawn,
 }
 
-impl RecogStage {
-    /// 是不是第 ④ 屏（结果屏）。六条异常路径与成功路径停在同一屏。
-    pub fn is_result(self) -> bool {
-        matches!(
-            self,
-            RecogStage::Success
-                | RecogStage::Ordinary
-                | RecogStage::Expired
-                | RecogStage::Mismatch
-                | RecogStage::NoStock
-        )
+impl GiftState {
+    pub fn from_u8(v: u8) -> Self {
+        match v {
+            1 => GiftState::Opened,
+            2 => GiftState::Revealed,
+            3 => GiftState::Accepted,
+            4 => GiftState::Exchanged,
+            5 => GiftState::CashedOut,
+            6 => GiftState::Expired,
+            7 => GiftState::Withdrawn,
+            _ => GiftState::Sealed,
+        }
     }
 
-    /// 会话是否已经建立。未授权定位时恒为 false（硬门槛，02 D）。
-    pub fn session_open(self) -> bool {
-        !matches!(self, RecogStage::LocationGate | RecogStage::NoLocation)
+    pub fn id(self) -> u8 {
+        self as u8
+    }
+
+    pub fn is_terminal(self) -> bool {
+        self.id() >= GiftState::Accepted.id()
+    }
+
+    /// 还没揭晓（会过期的那两态）。
+    pub fn is_unrevealed(self) -> bool {
+        matches!(self, GiftState::Sealed | GiftState::Opened)
     }
 }
 
-/// 一次现场互认会话（运行时状态，不持久化；会话结束即清除）。
-#[derive(Clone, Debug)]
-pub struct RecogSession {
-    pub contact_id: usize,
-    pub label: String,
-    /// 4 位会话短码（虚构）。
+/// 状态颜色：进行中蓝、完成绿、退回灰。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Tone {
+    Pending,
+    Done,
+    Returned,
+}
+
+#[derive(Clone, Debug, PartialEq, SerJson, DeJson)]
+pub struct Gift {
+    pub id: u64,
     pub code: String,
-    pub stage: RecogStage,
-    /// 交叉互认已尝试次数（最多 3 次）。
-    pub attempts: u32,
-    pub choice: MemoryChoice,
-    /// 成功页离页时按选择写入，只写一次。
-    pub memory_written: bool,
-    /// 会话建立后走了多少秒（由 UI 每秒 tick 一次）。
-    pub elapsed: u64,
+    pub dir: u8,
+    pub item: u16,
+    /// 下单时价格（分）。
+    pub price: i64,
+    /// 送出：收礼人备注（可空）；收到：送礼人称呼（别名用 `/` 分隔）。
+    pub peer: String,
+    pub unlock: u8,
+    /// 猜我是谁：线索；私密问答：问题；专属暗号：提示。
+    pub clue: String,
+    /// 私密问答 / 专属暗号的答案；猜我是谁：送出时是我的称呼，收到时留空（用 peer）。
+    pub answer: String,
+    /// 空 = 无契约。
+    pub contract: String,
+    pub message: String,
+    pub sent_on: i64,
+    pub attempts: u8,
+    pub state: u8,
+    pub identity_known: bool,
+    /// 是答对（或直接领取）拆开的，而不是机会用完。时间线靠它分两种说法；
+    /// 身份保密后因同意契约又揭晓时，`identity_known` 会变、它不变。
+    pub solved: bool,
+    pub opened_on: i64,
+    pub revealed_on: i64,
+    pub settled_on: i64,
+    /// 换购后的目录下标（`u16::MAX` = 无）。
+    pub swap_item: u16,
+    /// 折现 / 换购退回余额的金额（分）。
+    pub refund: i64,
+    pub voucher: String,
+    pub ship_name: String,
+    pub ship_phone: String,
+    pub ship_addr: String,
+    pub demo_tip: String,
 }
 
-impl RecogSession {
-    /// 刚选完人、点了「确认相遇」：停在定位门槛，会话还没建。
-    pub fn new(contact_id: usize, label: String, seed: usize) -> Self {
-        Self {
-            contact_id,
-            label,
-            code: format!("{:04}", 1000 + seed % 9000),
-            stage: RecogStage::LocationGate,
+impl Gift {
+    fn blank(id: u64, code: String, dir: u8, item_id: u16, sent_on: i64) -> Self {
+        Gift {
+            id,
+            code,
+            dir,
+            item: item_id,
+            price: item(item_id).price,
+            peer: String::new(),
+            unlock: Unlock::Free.id(),
+            clue: String::new(),
+            answer: String::new(),
+            contract: String::new(),
+            message: String::new(),
+            sent_on,
             attempts: 0,
-            choice: MemoryChoice::Save,
-            memory_written: false,
-            elapsed: 0,
+            state: GiftState::Sealed.id(),
+            identity_known: false,
+            solved: false,
+            opened_on: 0,
+            revealed_on: 0,
+            settled_on: 0,
+            swap_item: u16::MAX,
+            refund: 0,
+            voucher: String::new(),
+            ship_name: String::new(),
+            ship_phone: String::new(),
+            ship_addr: String::new(),
+            demo_tip: String::new(),
         }
     }
 
-    /// 会话是否已建立。未授权定位就不建会话（硬门槛）。
-    pub fn session_open(&self) -> bool {
-        self.stage.session_open()
+    pub fn state(&self) -> GiftState {
+        GiftState::from_u8(self.state)
     }
 
-    /// 「开启定位并确认」：建会话 + 提交本人确认，一步到等待态。
-    pub fn grant_location(&mut self) -> bool {
-        if matches!(self.stage, RecogStage::LocationGate | RecogStage::NoLocation) {
-            self.stage = RecogStage::Waiting;
-            self.elapsed = 0;
-            true
+    fn set_state(&mut self, s: GiftState) {
+        self.state = s.id();
+    }
+
+    pub fn unlock(&self) -> Unlock {
+        Unlock::from_u8(self.unlock)
+    }
+
+    pub fn is_sent(&self) -> bool {
+        self.dir == DIR_SENT
+    }
+
+    pub fn catalog(&self) -> &'static CatalogItem {
+        item(self.item)
+    }
+
+    /// 最后到手的那件（换购过就是新的那件）。
+    pub fn final_item(&self) -> &'static CatalogItem {
+        if self.swap_item != u16::MAX {
+            item(self.swap_item)
         } else {
-            false
+            self.catalog()
         }
     }
 
-    /// 拒绝定位：停在门槛，会话不建。
-    pub fn deny_location(&mut self) -> bool {
-        if self.stage == RecogStage::LocationGate {
-            self.stage = RecogStage::NoLocation;
-            true
+    pub fn has_contract(&self) -> bool {
+        !self.contract.is_empty()
+    }
+
+    /// 称呼的第一个别名（送出时是备注）。
+    pub fn peer_name(&self) -> String {
+        split_aliases(&self.peer).into_iter().next().unwrap_or_default()
+    }
+
+    /// 收到的礼物：此刻能给我看的送礼人名字。没揭晓、或揭晓了但身份保密，都是「一位神秘的朋友」。
+    pub fn shown_sender(&self) -> String {
+        let revealed = !self.state().is_unrevealed() && self.revealed_on > 0;
+        if revealed && self.identity_known {
+            let n = self.peer_name();
+            if !n.is_empty() {
+                return n;
+            }
+        }
+        MYSTERY_FRIEND.to_string()
+    }
+
+    /// 送出的礼物：收礼人怎么称呼（没写备注就是「TA」）。
+    pub fn shown_recipient(&self) -> String {
+        let n = self.peer_name();
+        if n.is_empty() {
+            "TA".into()
         } else {
-            false
+            n
         }
     }
 
-    /// 对方也确认，同地校验通过 → 成功。
-    pub fn peer_confirm(&mut self) -> bool {
-        if self.stage == RecogStage::Waiting {
-            self.stage = RecogStage::Success;
-            true
+    /// 列表上的名字：收到的、还没揭晓的只说「一份神秘礼物」。
+    pub fn title(&self) -> String {
+        if !self.is_sent() && self.revealed_on == 0 {
+            return MYSTERY_GIFT.to_string();
+        }
+        self.final_item().name.to_string()
+    }
+
+    /// 解谜要比对的答案（猜我是谁 = 称呼别名）。
+    pub fn expected_answer(&self) -> &str {
+        if self.unlock() == Unlock::GuessWho && self.answer.is_empty() {
+            &self.peer
         } else {
-            false
+            &self.answer
         }
     }
 
-    /// 信息不一致：计数 +1（最多 3 次），停在结果屏。返回是否仍可重试。
-    pub fn peer_mismatch(&mut self) -> bool {
-        if self.stage == RecogStage::Waiting && self.attempts < 3 {
-            self.attempts += 1;
-            self.stage = RecogStage::Mismatch;
-            self.can_retry()
+    pub fn attempts_left(&self) -> u8 {
+        MAX_ATTEMPTS.saturating_sub(self.attempts)
+    }
+
+    /// 离过期还有几天（只对未揭晓的有意义）。
+    pub fn days_left(&self, today: i64) -> i64 {
+        self.sent_on + EXPIRE_DAYS - today
+    }
+
+    pub fn tone(&self) -> Tone {
+        match self.state() {
+            GiftState::Sealed | GiftState::Opened | GiftState::Revealed => Tone::Pending,
+            GiftState::Accepted | GiftState::Exchanged | GiftState::CashedOut => Tone::Done,
+            GiftState::Expired | GiftState::Withdrawn => Tone::Returned,
+        }
+    }
+
+    /// 状态文案（02-flows 3 节那张表）。
+    pub fn status_text(&self, today: i64) -> String {
+        let st = self.state();
+        if self.is_sent() {
+            match st {
+                GiftState::Sealed => "待拆 · TA 还没打开".into(),
+                GiftState::Opened => format!("解谜中 · 猜错 {} 次", self.attempts),
+                GiftState::Revealed => "已揭晓 · 等 TA 决定".into(),
+                GiftState::Accepted => "TA 收下了".into(),
+                GiftState::Exchanged => "TA 换了一份更喜欢的".into(),
+                GiftState::CashedOut => "TA 折成了余额".into(),
+                GiftState::Expired => "已过期 · 已全额退回".into(),
+                GiftState::Withdrawn => "已撤回 · 已全额退回".into(),
+            }
         } else {
-            false
+            match st {
+                GiftState::Sealed => format!("待拆 · 还剩 {} 天", self.days_left(today).max(0)),
+                GiftState::Opened => format!("解谜中 · 剩 {} 次机会", self.attempts_left()),
+                GiftState::Revealed => "待你决定".into(),
+                GiftState::Accepted => "已收下".into(),
+                GiftState::Exchanged => format!("已换成{}", self.final_item().name),
+                GiftState::CashedOut => format!("已折现 {}", yuan(self.refund)),
+                GiftState::Expired => "已过期，已退回给 TA".into(),
+                GiftState::Withdrawn => "TA 撤回了这份礼物".into(),
+            }
         }
     }
 
-    /// 还剩几次重试。
-    pub fn retries_left(&self) -> u32 {
-        3u32.saturating_sub(self.attempts)
-    }
-
-    pub fn can_retry(&self) -> bool {
-        self.retries_left() > 0
-    }
-
-    /// 「再试一次」：回到等待态，倒计时重新起算。
-    pub fn retry(&mut self) -> bool {
-        if self.stage == RecogStage::Mismatch && self.can_retry() {
-            self.stage = RecogStage::Waiting;
-            self.elapsed = 0;
-            true
-        } else {
-            false
+    /// 送出详情的时间线（最多 5 行，旧的在前）。
+    pub fn timeline(&self) -> Vec<(i64, String)> {
+        let mut t = vec![(self.sent_on, format!("送出礼卡 · 口令 {}", self.code))];
+        if self.opened_on > 0 && self.unlock() != Unlock::Free {
+            t.push((self.opened_on, "TA 打开了礼卡".into()));
         }
-    }
-
-    /// 同地不成立：相遇成立，没有券。**不能谎称验证失败**。
-    pub fn not_same_place(&mut self) -> bool {
-        if self.stage == RecogStage::Waiting {
-            self.stage = RecogStage::Ordinary;
-            true
-        } else {
-            false
+        if self.revealed_on > 0 {
+            let s = if self.unlock() == Unlock::Free {
+                "TA 领取了礼物".to_string()
+            } else if self.solved {
+                format!("TA 答对了（用了 {} 次机会）", self.attempts.max(1))
+            } else {
+                "机会用完，礼物拆开了（没透露你）".to_string()
+            };
+            t.push((self.revealed_on, s));
         }
-    }
-
-    /// 限额 / 无库存：相遇成立，没有券。与同地不成立必须分开说。
-    pub fn no_stock(&mut self) -> bool {
-        if self.stage == RecogStage::Waiting {
-            self.stage = RecogStage::NoStock;
-            true
-        } else {
-            false
+        if self.settled_on > 0 {
+            let s = match self.state() {
+                GiftState::Accepted if self.has_contract() => "TA 收下了，契约生效".to_string(),
+                GiftState::Accepted => "TA 收下了".to_string(),
+                GiftState::Exchanged => format!("TA 换成了{}", self.final_item().name),
+                GiftState::CashedOut => "TA 折成了余额".to_string(),
+                GiftState::Expired => format!("7 天没拆开，已全额退回 {}", yuan(self.price)),
+                GiftState::Withdrawn => format!("你撤回了礼物，已全额退回 {}", yuan(self.price)),
+                _ => String::new(),
+            };
+            if !s.is_empty() {
+                t.push((self.settled_on, s));
+            }
         }
-    }
-
-    /// 倒计时走一秒。归零就过期；返回是否发生了状态变化。
-    pub fn tick(&mut self) -> bool {
-        if self.stage != RecogStage::Waiting {
-            return false;
-        }
-        self.elapsed = self.elapsed.saturating_add(1);
-        if self.elapsed >= RECOG_WINDOW_SECS {
-            self.stage = RecogStage::Expired;
-        }
-        true
-    }
-
-    /// 还可确认多久（秒）。
-    pub fn remaining_secs(&self) -> u64 {
-        RECOG_WINDOW_SECS.saturating_sub(self.elapsed)
-    }
-
-    /// 进度环的完成度 0.0..=1.0。
-    pub fn progress(&self) -> f32 {
-        (self.elapsed as f32 / RECOG_WINDOW_SECS as f32).clamp(0.0, 1.0)
+        t
     }
 }
 
-/// 本机设置。两类通知默认关闭（02-features 七.4：opt-in）。
-///
-/// **明确不做**「附近有熟人」「有人和你去了同一个地方」这类通知 —— 它们会把
-/// 匿名机会变成实时位置广播，直接违反 02 B 节。以后想加功能的人请先读那一节。
+// ---- 契约 ----
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PactState {
+    Pending,
+    Done,
+    Waived,
+}
+
+impl PactState {
+    pub fn from_u8(v: u8) -> Self {
+        match v {
+            1 => PactState::Done,
+            2 => PactState::Waived,
+            _ => PactState::Pending,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, SerJson, DeJson)]
+pub struct Pact {
+    pub id: u64,
+    pub gift_id: u64,
+    pub text: String,
+    pub peer: String,
+    /// true = 我答应的（我是收礼人）；false = 答应我的。
+    pub mine: bool,
+    pub made_on: i64,
+    pub due_on: i64,
+    pub state: u8,
+    /// 最近一次「提醒 TA」的日期（0 = 从没提醒过）。
+    pub nudged_on: i64,
+}
+
+impl Pact {
+    pub fn state(&self) -> PactState {
+        PactState::from_u8(self.state)
+    }
+
+    /// 「还有 3 天」「今天到期」「已逾期 2 天」「已兑现」「已免除」。
+    pub fn due_text(&self, today: i64) -> String {
+        match self.state() {
+            PactState::Done => "已兑现".into(),
+            PactState::Waived => "已免除".into(),
+            PactState::Pending => {
+                let d = self.due_on - today;
+                if d > 0 {
+                    format!("还有 {d} 天")
+                } else if d == 0 {
+                    "今天到期".into()
+                } else {
+                    format!("已逾期 {} 天", -d)
+                }
+            }
+        }
+    }
+}
+
+// ---- 流水 ----
+
+#[derive(Clone, Debug, PartialEq, SerJson, DeJson)]
+pub struct LedgerEntry {
+    pub id: u64,
+    pub day: i64,
+    /// 对余额的影响（分，带符号）。
+    pub amount: i64,
+    /// 这笔里模拟支付的部分（分，≥ 0，不影响余额）。
+    pub external: i64,
+    pub title: String,
+    pub note: String,
+}
+
+// ---- 熟人 / 设置 / 通知 ----
+
+/// 本机熟人：只有一个称呼。
+#[derive(Clone, Debug, PartialEq, SerJson, DeJson)]
+pub struct ContactLocal {
+    pub id: usize,
+    pub label: String,
+}
+
 #[derive(Clone, Debug, PartialEq, SerJson, DeJson)]
 pub struct Settings {
-    /// 行程 30 分钟后到期。
-    pub notify_publish: bool,
-    /// 手里的券还剩 2 天。
-    pub notify_reward: bool,
-    /// 本机是否已给过定位授权（只影响门槛屏的默认文案，不缓存任何坐标）。
-    pub location_granted: bool,
-    /// 开场三屏看完（或跳过）了没有。跳过也算看完 —— 入口在「我」页留着。
+    /// 我的称呼：猜我是谁时对方要猜的名字，可以写多个别名。
+    pub nickname: String,
+    /// 礼物快过期提醒。
+    pub notify_gift: bool,
+    /// 我答应的契约快到期提醒。
+    pub notify_pact: bool,
+    /// 开场三屏看完（或跳过）了没有。
     pub onboarded: bool,
     /// 界面深浅（`theme::ThemeMode::id`）。`None` = 还没选过，按夜色。
-    ///
-    /// 存名字而不是序号：以后加第三套主题时，旧存档里的 "dark" 还是夜色，
-    /// 不会因为枚举里插了一项就整体错位。认不出来的名字也退回夜色。
     pub theme: Option<String>,
+    /// 上次填的收件信息，下次收实物时预填。只在本机。
+    pub ship_name: String,
+    pub ship_phone: String,
+    pub ship_addr: String,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            notify_publish: false,
-            notify_reward: false,
-            location_granted: false,
+            nickname: DEFAULT_NICKNAME.into(),
+            notify_gift: true,
+            notify_pact: true,
             onboarded: false,
             theme: None,
+            ship_name: String::new(),
+            ship_phone: String::new(),
+            ship_addr: String::new(),
         }
     }
 }
@@ -941,580 +979,110 @@ impl Settings {
     }
 }
 
-/// 只有两类通知（docs/02-redesign-plan.md 七.4），而且两类都默认关闭。
-///
-/// **明确不做**：「附近有熟人」「有人和你去了同一个地方」—— 这类通知会把一次
-/// 匿名机会直接变成实时位置广播，违反 02 B。以后要加通知，先回来读这一行。
+/// 只有两类通知（02-flows 6 节）。不做「TA 刚打开了你的礼卡」这类实时通知。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NoticeKind {
-    /// 你发布的某条行踪快结束了。
-    PublishExpiring,
-    /// 手里有张券快过期了。
-    RewardExpiring,
+    GiftExpiring,
+    PactDue,
 }
 
 impl NoticeKind {
     pub fn title(self) -> &'static str {
         match self {
-            NoticeKind::PublishExpiring => "行踪快到期了",
-            NoticeKind::RewardExpiring => "券快过期了",
+            NoticeKind::GiftExpiring => "有礼物等你拆",
+            NoticeKind::PactDue => "契约快到期了",
         }
     }
 }
 
-/// 一条待发的通知。文案里不含任何人、任何坐标 —— 说的全是你自己的东西。
 #[derive(Clone, Debug, PartialEq)]
 pub struct Notice {
     pub kind: NoticeKind,
     pub text: String,
+    /// 点「去看看」要打开的东西：礼物 id 或契约 id。
+    pub target: u64,
 }
 
-/// 三个粗时段各自的结束时刻（分钟）。发布到期就是它所在的时段结束。
-const SLOT_END_MIN: [u32; 3] = [12 * 60, 18 * 60, 22 * 60];
-/// 提前多久提醒去向到期。
-pub const PUBLISH_NOTICE_LEAD_MIN: u32 = 30;
-/// 券剩几天时提醒。
-pub const REWARD_NOTICE_LEAD_DAYS: i64 = 2;
+// ---- 操作的输入与结果 ----
 
-/// 此刻该发哪些通知。纯函数：今天、此刻几点、状态全从外面传进来，
-/// 所以能直接写单测，不用等到 11:30、也不用等两天。
-///
-/// 关着的那一类一条都不发 —— 开关是唯一的闸，不在 UI 侧再判一次。
-pub fn due_notices(s: &OuyuState, today: i64, now_min: u32) -> Vec<Notice> {
-    let mut out = Vec::new();
-    if s.settings.notify_publish {
-        // 只提醒今天的那些：明天下午的行踪今天不到期。几条同时快到期也只
-        // 提醒最先结束的那一条 —— 同时弹两条就成了信息流。
-        let mut todays: Vec<&Publish> = s.publishes.iter().filter(|p| p.date == today).collect();
-        todays.sort_by_key(|p| p.slot);
-        for p in todays {
-            let end = SLOT_END_MIN[p.slot.min(2)];
-            let lead = end.saturating_sub(PUBLISH_NOTICE_LEAD_MIN);
-            if now_min >= lead && now_min < end {
-                out.push(Notice {
-                    kind: NoticeKind::PublishExpiring,
-                    // 标题已经说了是「行踪」，正文就别再重复一遍 ——
-                    // 句子越短，窄屏上标点落在行首的机会越小。
-                    text: format!(
-                        "今天{}那条还有 {} 分钟结束，到期自动退出",
-                        SLOTS[p.slot.min(2)],
-                        end - now_min
-                    ),
-                });
-                break;
-            }
+/// 送礼页的草稿。离开送礼页就丢，不落盘。
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct SendDraft {
+    pub item: u16,
+    pub peer: String,
+    pub unlock: Unlock,
+    /// 线索 / 问题 / 暗号提示。
+    pub clue: String,
+    /// 问题答案 / 暗号。
+    pub answer: String,
+    /// `None` = 不绑契约。
+    pub contract: Option<String>,
+    pub message: String,
+    pub use_balance: bool,
+}
+
+/// 收下 / 换购实物时填的东西。
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct AcceptForm {
+    pub agree: bool,
+    pub name: String,
+    pub phone: String,
+    pub addr: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AnswerOutcome {
+    /// 空答案，不扣机会。
+    Empty,
+    Wrong { left: u8 },
+    Right,
+    /// 机会用完，礼物照样拆开，身份保密。
+    Exhausted,
+    /// 这份礼物不在解谜阶段。
+    NotOpen,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ExchangeResult {
+    /// 抵扣额 − 新礼物价格：≥ 0 退回余额，< 0 要补。
+    pub diff: i64,
+    pub from_balance: i64,
+    pub external: i64,
+}
+
+/// 模拟器推进一步的结果。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SimStep {
+    Opened,
+    Revealed { known: bool },
+    Accepted { pact: bool },
+    Exchanged,
+    CashedOut { returned: bool },
+}
+
+impl SimStep {
+    pub fn text(self) -> &'static str {
+        match self {
+            SimStep::Opened => "TA 打开了礼卡，第一次没猜中",
+            SimStep::Revealed { known: true } => "TA 答对了，知道是你",
+            SimStep::Revealed { known: false } => "TA 机会用完，礼物拆开了，没透露你",
+            SimStep::Accepted { pact: true } => "TA 收下了，契约生效",
+            SimStep::Accepted { pact: false } => "TA 收下了",
+            SimStep::Exchanged => "TA 换了一份更喜欢的",
+            SimStep::CashedOut { returned: true } => "TA 折成了余额，还给你回了一份礼",
+            SimStep::CashedOut { returned: false } => "TA 折成了余额",
         }
-    }
-    if s.settings.notify_reward {
-        for r in &s.wallet {
-            if r.state(today) != RewardState::Available {
-                continue;
-            }
-            let Some(exp) = r.expires_on else { continue };
-            let left = exp - today;
-            if (0..=REWARD_NOTICE_LEAD_DAYS).contains(&left) {
-                out.push(Notice {
-                    kind: NoticeKind::RewardExpiring,
-                    text: if left == 0 {
-                        format!("「{}」那张券今天最后一天。", r.venue)
-                    } else {
-                        format!("「{}」那张券还剩 {} 天。", r.venue, left)
-                    },
-                });
-                break;
-            }
-        }
-    }
-    out
-}
-
-/// 应用状态。长期部分见 PersistedState；echo 为运行时短时数据。
-pub struct OuyuState {
-    pub contacts: Vec<ContactLocal>,
-    pub encounters: Vec<EncounterLocal>,
-    pub directory: Vec<String>,
-    /// 券包。最新的在最后；三个分区按当天现算（见 RewardClaim::state）。
-    pub wallet: Vec<RewardClaim>,
-    pub settings: Settings,
-    next_encounter_id: usize,
-
-    /// 当前 Tab（运行时）。
-    pub tab: usize,
-    /// 发布过的行踪，按发布先后排；到期的留在里面给「我的行踪」回看，
-    /// 删除的直接拿掉。有效 / 到期用 `active_publishes` 现算。
-    pub publishes: Vec<Publish>,
-    next_publish_id: usize,
-    /// 匿名回声（ECHOES 下标）；最后一条有效行踪没了就一起清除。
-    pub echo: Option<usize>,
-    /// 最近发布过的片区 id，最新在前，最多 5 条。**只在本机**，不上传、
-    /// 不进 AI 快照、不进券——纯粹是让下次填地址少翻一次列表。
-    pub recent_areas: Vec<u16>,
-}
-
-impl Default for OuyuState {
-    fn default() -> Self {
-        Self::load()
     }
 }
 
-impl OuyuState {
-    pub fn demo() -> Self {
-        // 演示回忆落在最近两周内，成就曲线开箱即有形状（真实 ISO 日期）。
-        let today = today_days();
-        Self {
-            contacts: vec![
-                ContactLocal { id: 0, label: "林舟".into() },
-                ContactLocal { id: 1, label: "陈晓".into() },
-                ContactLocal { id: 2, label: "许宁".into() },
-            ],
-            encounters: vec![
-                EncounterLocal {
-                    id: 0,
-                    contact_id: Some(0),
-                    label_snapshot: "林舟".into(),
-                    date: fmt_days(today - 5),
-                    hidden: false,
-                    note: "这次聊得很开心。".into(),
-                },
-                EncounterLocal {
-                    id: 1,
-                    contact_id: Some(1),
-                    label_snapshot: "陈晓".into(),
-                    date: fmt_days(today - 12),
-                    hidden: false,
-                    note: "一起走了走。".into(),
-                },
-            ],
-            directory: vec!["周子墨".into(), "林小满".into(), "黄一诺".into(), "吴凯文".into()],
-            wallet: Vec::new(),
-            settings: Settings::default(),
-            next_encounter_id: 2,
-            tab: 0,
-            // 演示行踪：三条到期的、三条进行中的，「我的行踪」和「更多」开箱就有东西看。
-            // 今天那条放晚间，白天任何时候打开都还没到期。
-            publishes: vec![
-                Publish { id: 0, date: today - 9, slot: 1, area: 1, intent: 0 },
-                Publish { id: 1, date: today - 4, slot: 2, area: 4, intent: 1 },
-                Publish { id: 2, date: today - 1, slot: 0, area: 3, intent: 2 },
-                Publish { id: 3, date: today, slot: 2, area: 1, intent: 0 },
-                Publish { id: 4, date: today + 1, slot: 1, area: 2, intent: 1 },
-                Publish { id: 5, date: today + 3, slot: 0, area: 8, intent: 2 },
-            ],
-            next_publish_id: 6,
-            echo: None,
-            recent_areas: Vec::new(),
-        }
-    }
-
-    /// 测试用底座：演示数据但没有行踪，免得每条行踪相关的断言都先得清一遍。
-    #[cfg(test)]
-    pub(crate) fn for_tests() -> Self {
-        let mut s = Self::demo();
-        s.publishes.clear();
-        s.next_publish_id = 0;
-        s
-    }
-
-    pub fn contact(&self, id: usize) -> Option<&ContactLocal> {
-        self.contacts.iter().find(|c| c.id == id)
-    }
-
-    /// 相遇次数口径（02 F 节）：统计目前保存的回忆，含隐藏；删除后减少。
-    pub fn meeting_count(&self, contact_id: usize) -> usize {
-        self.encounters
-            .iter()
-            .filter(|e| e.contact_id == Some(contact_id))
-            .count()
-    }
-
-    /// 按本次选择写入一条回忆。返回是否实际写入（Skip 不写、不累计次数）。
-    /// 写入后立即持久化。
-    pub fn push_memory(&mut self, contact_id: usize, label: &str, choice: MemoryChoice) -> bool {
-        if choice == MemoryChoice::Skip {
-            return false;
-        }
-        let id = self.next_encounter_id;
-        self.next_encounter_id += 1;
-        self.encounters.push(EncounterLocal {
-            id,
-            contact_id: Some(contact_id),
-            label_snapshot: label.to_string(),
-            date: today_iso(),
-            hidden: choice == MemoryChoice::Hidden,
-            note: String::new(),
-        });
-        self.save();
-        true
-    }
-
-    /// 成功页离页时按会话选择写入，只写一次（02 F 节）。
-    pub fn write_session_memory(&mut self, session: &mut RecogSession) {
-        if session.memory_written {
-            return;
-        }
-        session.memory_written = true;
-        self.push_memory(session.contact_id, &session.label.clone(), session.choice);
-    }
-
-    /// 逐条隐藏 / 恢复（只影响该条，可恢复）。
-    pub fn set_hidden(&mut self, encounter_id: usize, hidden: bool) -> bool {
-        if let Some(e) = self.encounters.iter_mut().find(|e| e.id == encounter_id) {
-            e.hidden = hidden;
-            self.save();
-            true
-        } else {
-            false
-        }
-    }
-
-    /// 删除前的一份快照。5 秒内点「撤销」就整个放回去。
-    ///
-    /// 存的是两张表的副本而不是一条逆操作 —— 删联系人会连带改动回忆里的
-    /// `contact_id`，逐条推演逆操作迟早会和主流程走散。这点数据量，整份拷贝
-    /// 最省心也最不会错。
-    pub fn snapshot_for_undo(&self, label: impl Into<String>) -> UndoSnapshot {
-        UndoSnapshot {
-            label: label.into(),
-            contacts: self.contacts.clone(),
-            encounters: self.encounters.clone(),
-        }
-    }
-
-    /// 把快照放回去。
-    pub fn restore(&mut self, u: UndoSnapshot) {
-        self.contacts = u.contacts;
-        self.encounters = u.encounters;
-        self.save();
-    }
-
-    /// 导出本机数据：把落盘的那份原样写到 `ouyu/export-<日期>.json`。
-    /// 导出的内容和 state.json 一致 —— 不多带坐标、不多带相遇地点。
-    pub fn export_data(&self) -> Option<std::path::PathBuf> {
-        let dir = Self::state_file()?.parent()?.to_path_buf();
-        let path = dir.join(format!("export-{}.json", fmt_days(today_days())));
-        std::fs::create_dir_all(&dir).ok()?;
-        std::fs::write(&path, self.persisted().serialize_json()).ok()?;
-        Some(path)
-    }
-
-    /// 清除本机数据：联系人、回忆、券包、最近片区、通讯录候选全部清空，
-    /// 设置留着（清完还要能看见「已清除」这句话）。不可逆，UI 必须二次确认。
-    pub fn clear_local_data(&mut self) {
-        self.contacts.clear();
-        self.encounters.clear();
-        self.directory.clear();
-        self.wallet.clear();
-        self.recent_areas.clear();
-        self.next_encounter_id = 0;
-        self.publishes.clear();
-        self.next_publish_id = 0;
-        self.echo = None;
-        self.save();
-    }
-
-    /// 删除单条回忆（计数相应减少）。
-    pub fn delete_encounter(&mut self, encounter_id: usize) -> bool {
-        let before = self.encounters.len();
-        self.encounters.retain(|e| e.id != encounter_id);
-        let removed = self.encounters.len() != before;
-        if removed {
-            self.save();
-        }
-        removed
-    }
-
-    /// 删除某联系人的全部回忆（含隐藏），联系人保留。
-    pub fn delete_memories_of(&mut self, contact_id: usize) -> usize {
-        let before = self.encounters.len();
-        self.encounters.retain(|e| e.contact_id != Some(contact_id));
-        let removed = before - self.encounters.len();
-        if removed > 0 {
-            self.save();
-        }
-        removed
-    }
-
-    /// 删除联系人（不改系统通讯录）。also_memories=false 时保留回忆：
-    /// contact_id 置 None，用 label_snapshot 独立展示（02 F 节）。
-    pub fn delete_contact(&mut self, contact_id: usize, also_memories: bool) -> bool {
-        let before = self.contacts.len();
-        self.contacts.retain(|c| c.id != contact_id);
-        if self.contacts.len() == before {
-            return false;
-        }
-        if also_memories {
-            self.encounters.retain(|e| e.contact_id != Some(contact_id));
-        } else {
-            for e in self.encounters.iter_mut() {
-                if e.contact_id == Some(contact_id) {
-                    e.contact_id = None;
-                }
-            }
-        }
-        self.save();
-        true
-    }
-
-    /// 发布一条行踪。`day` 是相对今天的偏移。返回这条的 id。
-    pub fn publish(&mut self, day: usize, slot: usize, area: u16, intent: usize) -> usize {
-        self.publish_at(today_days(), day, slot, area, intent)
-    }
-
-    /// 固定「今天」的版本，测试用。
-    pub fn publish_at(&mut self, today: i64, day: usize, slot: usize, area: u16, intent: usize) -> usize {
-        let id = self.next_publish_id;
-        self.next_publish_id += 1;
-        self.publishes.push(Publish {
-            id,
-            date: today + day.min(DAY_SPAN - 1) as i64,
-            slot,
-            area,
-            intent,
-        });
-        self.trim_publishes(today);
-        self.remember_area(area);
-        id
-    }
-
-    /// 修改一条行踪（只有没到期的才给改，界面负责不露出按钮）。
-    pub fn update_publish(&mut self, id: usize, day: usize, slot: usize, area: u16, intent: usize) -> bool {
-        self.update_publish_at(today_days(), id, day, slot, area, intent)
-    }
-
-    pub fn update_publish_at(
-        &mut self,
-        today: i64,
-        id: usize,
-        day: usize,
-        slot: usize,
-        area: u16,
-        intent: usize,
-    ) -> bool {
-        let Some(p) = self.publishes.iter_mut().find(|p| p.id == id) else {
-            return false;
-        };
-        p.date = today + day.min(DAY_SPAN - 1) as i64;
-        p.slot = slot;
-        p.area = area;
-        p.intent = intent;
-        self.remember_area(area);
-        true
-    }
-
-    /// 还没到期的行踪，最先结束的在前。
-    pub fn active_publishes(&self, today: i64, now_min: u32) -> Vec<&Publish> {
-        let mut v: Vec<&Publish> = self
-            .publishes
-            .iter()
-            .filter(|p| !p.expired_at(today, now_min))
-            .collect();
-        v.sort_by_key(|p| (p.date, p.slot));
-        v
-    }
-
-    /// 「我的行踪」的顺序：有效的在前（最先结束的最上），到期的在后（最近的最上）。
-    pub fn publish_history(&self, today: i64, now_min: u32) -> Vec<&Publish> {
-        let mut v = self.active_publishes(today, now_min);
-        let mut gone: Vec<&Publish> = self
-            .publishes
-            .iter()
-            .filter(|p| p.expired_at(today, now_min))
-            .collect();
-        gone.sort_by_key(|p| std::cmp::Reverse((p.date, p.slot)));
-        v.extend(gone);
-        v
-    }
-
-    /// 已经过去的日子只留最近 PUBLISH_HISTORY_MAX 条。
-    fn trim_publishes(&mut self, today: i64) {
-        let mut gone: Vec<(i64, usize, usize)> = self
-            .publishes
-            .iter()
-            .filter(|p| p.date < today)
-            .map(|p| (p.date, p.slot, p.id))
-            .collect();
-        if gone.len() <= PUBLISH_HISTORY_MAX {
-            return;
-        }
-        gone.sort_unstable();
-        let drop: Vec<usize> = gone[..gone.len() - PUBLISH_HISTORY_MAX]
-            .iter()
-            .map(|&(_, _, id)| id)
-            .collect();
-        self.publishes.retain(|p| !drop.contains(&p.id));
-    }
-
-    /// 记一笔「最近去过」（本机，去重，最多 5 条）。
-    pub fn remember_area(&mut self, area: u16) {
-        self.recent_areas.retain(|&a| a != area);
-        self.recent_areas.insert(0, area);
-        self.recent_areas.truncate(5);
-        self.save();
-    }
-
-    /// 删除 / 撤回一条行踪即退出那一条的匹配。最后一条有效行踪没了，
-    /// 回声也一起清除。返回是否真的删掉了什么。
-    pub fn withdraw(&mut self, id: usize) -> bool {
-        self.withdraw_at(today_days(), minutes_of_day(), id)
-    }
-
-    pub fn withdraw_at(&mut self, today: i64, now_min: u32, id: usize) -> bool {
-        let before = self.publishes.len();
-        self.publishes.retain(|p| p.id != id);
-        if self.active_publishes(today, now_min).is_empty() {
-            self.echo = None;
-        }
-        self.save();
-        before != self.publishes.len()
-    }
-
-    /// 留一个轻轻的回声（固定三选，无发送者 / 数量 / 已读）。
-    pub fn set_echo(&mut self, echo: usize) {
-        self.echo = Some(echo.min(ECHOES.len() - 1));
-    }
-
-    /// 确认成功即出券 —— 没有「领取」这一步（02 D 节）。
-    ///
-    /// 券上只有店家、面额、条款、核销码和有效期；没有联系人、没有坐标，
-    /// 也没有「和谁在哪天相遇」这个字段。
-    pub fn issue_reward(&mut self, today: i64, seed: usize) {
-        self.wallet.push(RewardClaim {
-            venue: MERCHANTS[0].name.into(),
-            offer: "¥60 双人满 ¥120 可用".into(),
-            claimed: true,
-            redeemed: false,
-            expires_on: Some(today + REWARD_VALID_DAYS),
-            token: Some(format!("{:06}", 100000 + seed % 900000)),
-            terms: Some(
-                "消费满 ¥120 券后 ¥60 · 不兑现不叠加 · 每对联系人 7 天限领一次".into(),
-            ),
-        });
-        self.save();
-    }
-
-    /// 最新发的那张券（结果屏显示的就是它）。
-    pub fn latest_reward(&self) -> Option<&RewardClaim> {
-        self.wallet.last()
-    }
-
-    /// 手里还有没有能用的券。有就不再发新的。
-    pub fn has_available_reward(&self, today: i64) -> bool {
-        self.wallet.iter().any(|r| r.state(today) == RewardState::Available)
-    }
-
-    /// 按分区取券（券包三个分区）。
-    pub fn rewards_in(&self, today: i64, state: RewardState) -> Vec<&RewardClaim> {
-        self.wallet.iter().rev().filter(|r| r.state(today) == state).collect()
-    }
-
-    /// 模拟核销（幂等：已核销再调不改变状态）。
-    /// 核销券包里的第 `idx` 张。
-    pub fn redeem_at(&mut self, idx: usize) -> bool {
-        match self.wallet.get_mut(idx) {
-            Some(r) if !r.redeemed => {
-                r.redeemed = true;
-                self.save();
-                true
-            }
-            _ => false,
-        }
-    }
-
-    /// 核销最新那张（结果屏上的「到店核销」）。
-    pub fn redeem_reward(&mut self) -> bool {
-        match self.wallet.last_mut() {
-            Some(r) if !r.redeemed => {
-                r.redeemed = true;
-                self.save();
-                true
-            }
-            _ => false,
-        }
-    }
-
-    /// 改一条回忆的备注。备注是这个人自己写的，不参与任何统计和推荐，
-    /// 只在回忆详情里显示、在搜索里被搜到。
-    pub fn set_note(&mut self, encounter_id: usize, note: &str) -> bool {
-        let Some(e) = self.encounters.iter_mut().find(|e| e.id == encounter_id) else {
-            return false;
-        };
-        let note = note.trim();
-        if e.note == note {
-            return false;
-        }
-        e.note = note.to_string();
-        self.save();
-        true
-    }
-
-    /// 手动添一个熟人。
-    ///
-    /// 重名直接拒绝而不是加个「(2)」：称呼是这个人自己起的，两个一模一样的
-    /// 称呼他自己也分不清，不如当场说出来让他改一个。
-    pub fn add_contact(&mut self, label: &str) -> Result<usize, AddContactError> {
-        let label = label.trim();
-        if label.is_empty() {
-            return Err(AddContactError::Empty);
-        }
-        if label.chars().count() > 16 {
-            return Err(AddContactError::TooLong);
-        }
-        if self.contacts.iter().any(|c| c.label == label) {
-            return Err(AddContactError::Duplicate);
-        }
-        let id = self.contacts.iter().map(|c| c.id + 1).max().unwrap_or(0);
-        self.contacts.push(ContactLocal { id, label: label.to_string() });
-        // 通讯录池里同名的那条就不用再提示「可添加」了。
-        self.directory.retain(|d| d != label);
-        self.save();
-        Ok(id)
-    }
-
-    /// 把 `from` 并进 `into`：`from` 名下的回忆全部转过去（连同称呼快照），
-    /// 然后删掉 `from`。
-    ///
-    /// 回忆一条都不丢 —— 合并的是同一个人的两个记法，不是两个人。
-    /// 返回转过去的回忆条数。
-    pub fn merge_contacts(&mut self, from_id: usize, into_id: usize) -> Option<usize> {
-        if from_id == into_id {
-            return None;
-        }
-        let into_label = self.contact(into_id)?.label.clone();
-        self.contact(from_id)?;
-        let mut moved = 0;
-        for e in self.encounters.iter_mut() {
-            if e.contact_id == Some(from_id) {
-                e.contact_id = Some(into_id);
-                e.label_snapshot = into_label.clone();
-                moved += 1;
-            }
-        }
-        self.contacts.retain(|c| c.id != from_id);
-        self.save();
-        Some(moved)
-    }
-
-    /// 把 vCard 导入的名字并入本机通讯录池（与通讯录、熟人双向去重）。
-    /// 返回新并入的人数。
-    pub fn merge_directory(&mut self, names: Vec<String>) -> usize {
-        let mut added = 0;
-        for n in names {
-            let n = n.trim().to_string();
-            if n.is_empty()
-                || self.directory.iter().any(|d| *d == n)
-                || self.contacts.iter().any(|c| c.label == n)
-            {
-                continue;
-            }
-            self.directory.push(n);
-            added += 1;
-        }
-        added
-    }
+/// 删熟人前的快照，给 toast 上的「撤销」用。
+pub struct UndoSnapshot {
+    pub label: String,
+    contacts: Vec<ContactLocal>,
+    directory: Vec<String>,
 }
 
-/// 手动添加熟人时能出的三种错。每一种在界面上都有一句自己的话，
-/// 不共用一句「添加失败」。
+/// 手动添加熟人时能出的三种错。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AddContactError {
     Empty,
@@ -1532,59 +1100,950 @@ impl AddContactError {
     }
 }
 
-/// 删除前的两张表快照（见 `snapshot_for_undo`）。
-pub struct UndoSnapshot {
-    /// Toast 上那句话，例如「已删除 1 条回忆」。
-    pub label: String,
-    contacts: Vec<ContactLocal>,
-    encounters: Vec<EncounterLocal>,
+// ---- 应用状态 ----
+
+pub struct LiyuState {
+    pub contacts: Vec<ContactLocal>,
+    /// 通讯录池（导入候选 / 猜人候选），和熟人不重名。
+    pub directory: Vec<String>,
+    pub gifts: Vec<Gift>,
+    pub pacts: Vec<Pact>,
+    pub ledger: Vec<LedgerEntry>,
+    pub settings: Settings,
+    next_id: u64,
+    /// 读存档失败时给界面的一句话（toast 一次后清掉）。
+    pub load_note: Option<&'static str>,
 }
 
-/// 落盘的部分：contacts、encounters、directory、reward claim（02 G 节边界），
-/// 以及本人的行踪列表。回声 / 会话等短时数据不在这里。
+/// 视图的 `#[rust]` 字段要 Default：启动时读一次存档（没有就是演示数据）。
+impl Default for LiyuState {
+    fn default() -> Self {
+        Self::load(today_days())
+    }
+}
+
+/// 落盘的部分。全是 Option：缺字段不报错。
 #[derive(Clone, Debug, Default, PartialEq, SerJson, DeJson)]
 pub struct PersistedState {
-    pub contacts: Vec<ContactLocal>,
-    pub encounters: Vec<EncounterLocal>,
+    pub version: Option<u32>,
+    pub contacts: Option<Vec<ContactLocal>>,
     pub directory: Option<Vec<String>>,
-    /// 旧版（批次 3 及以前）只存一张券。读到就并进 wallet，写出时不再填。
-    pub reward: Option<RewardClaim>,
-    pub wallet: Option<Vec<RewardClaim>>,
+    pub gifts: Option<Vec<Gift>>,
+    pub pacts: Option<Vec<Pact>>,
+    pub ledger: Option<Vec<LedgerEntry>>,
     pub settings: Option<Settings>,
-    pub next_encounter_id: Option<usize>,
-    pub recent_areas: Option<Vec<u16>>,
-    pub publishes: Option<Vec<Publish>>,
-    pub next_publish_id: Option<usize>,
+    pub next_id: Option<u64>,
 }
 
-/// 旧版（Phase 0）state.json 里仍能认出的联系人字段：name → label。
-/// 其余旧字段（my_windows/cards/stealth/my_pos/intimacy/旧 encounters）
-/// 按要求直接忽略；lenient 模式下未知字段被跳过。
-#[derive(DeJson)]
-struct LegacyContact {
-    id: usize,
-    name: String,
-}
+impl LiyuState {
+    /// 演示数据（05-data-model.md「演示数据」）。
+    pub fn demo(today: i64) -> Self {
+        let mut s = LiyuState {
+            contacts: vec![
+                ContactLocal { id: 0, label: "林舟".into() },
+                ContactLocal { id: 1, label: "陈晓".into() },
+                ContactLocal { id: 2, label: "许宁".into() },
+            ],
+            directory: vec!["周子墨".into(), "林小满".into(), "黄一诺".into(), "吴凯文".into()],
+            gifts: Vec::new(),
+            pacts: Vec::new(),
+            ledger: Vec::new(),
+            settings: Settings::default(),
+            next_id: 1,
+            load_note: None,
+        };
 
-#[derive(DeJson)]
-struct LegacyState {
-    contacts: Option<Vec<LegacyContact>>,
-}
+        // 收到的四份。
+        let mut g = s.new_gift(DIR_RECEIVED, 0, today - 1);
+        g.peer = "林舟/舟舟".into();
+        g.unlock = Unlock::GuessWho.id();
+        g.clue = "上周一起淋雨的那个人".into();
+        g.contract = "下周找时间回请我喝一杯咖啡".into();
+        g.message = "降温了，喝点热的".into();
+        s.gifts.push(g);
 
-impl OuyuState {
-    /// 进程内状态文件：`$MAKEPAD_HOME/ouyu/state.json`（宿主会给子进程设 MAKEPAD_HOME）。
+        let mut g = s.new_gift(DIR_RECEIVED, 4, today - 2);
+        g.peer = "陈晓".into();
+        g.unlock = Unlock::Question.id();
+        g.clue = "我们第一次一起看的电影叫什么？".into();
+        g.answer = "星际穿越".into();
+        g.contract = "周末陪我看一场电影".into();
+        g.message = "这次换我请".into();
+        s.gifts.push(g);
+
+        let mut g = s.new_gift(DIR_RECEIVED, 8, today - 5);
+        g.peer = "许宁".into();
+        g.unlock = Unlock::Passphrase.id();
+        g.clue = "我们宿舍的口头禅".into();
+        g.answer = "月亮不睡我不睡".into();
+        g.message = "抽到隐藏款记得告诉我".into();
+        g.demo_tip = "暗号是：月亮不睡我不睡".into();
+        s.gifts.push(g);
+
+        let mut g = s.new_gift(DIR_RECEIVED, 2, today - 6);
+        g.peer = "陈晓".into();
+        g.unlock = Unlock::Free.id();
+        g.contract = "收下要发一条朋友圈晒一晒".into();
+        g.message = "今天也要开心".into();
+        g.set_state(GiftState::Accepted);
+        g.identity_known = true;
+        g.solved = true;
+        g.opened_on = today - 6;
+        g.revealed_on = today - 6;
+        g.settled_on = today - 6;
+        g.voucher = gen_voucher(g.id);
+        let (gid, gpeer) = (g.id, g.peer_name());
+        s.gifts.push(g);
+        let pid = s.take_id();
+        s.pacts.push(Pact {
+            id: pid,
+            gift_id: gid,
+            text: "收下要发一条朋友圈晒一晒".into(),
+            peer: gpeer,
+            mine: true,
+            made_on: today - 6,
+            due_on: today + 1,
+            state: 0,
+            nudged_on: 0,
+        });
+
+        // 送出的两份。
+        s.push_ledger(today - 10, WELCOME_BONUS, 0, "新人礼金", "欢迎来到礼遇");
+
+        let mut g = s.new_gift(DIR_SENT, 6, today - 8);
+        g.peer = "许宁".into();
+        g.unlock = Unlock::Question.id();
+        g.clue = "我们第一次一起旅行去的是哪座城市？".into();
+        g.answer = "厦门".into();
+        g.contract = "下次见面先给我一个拥抱".into();
+        g.message = "晚上点一支，睡个好觉".into();
+        g.set_state(GiftState::Accepted);
+        g.attempts = 1;
+        g.identity_known = true;
+        g.solved = true;
+        g.opened_on = today - 7;
+        g.revealed_on = today - 7;
+        g.settled_on = today - 6;
+        let (gid, text) = (g.id, g.contract.clone());
+        s.gifts.push(g);
+        s.push_ledger(today - 8, -WELCOME_BONUS, 6800, "送出 · 香薰蜡烛", "余额抵 ¥20 · 模拟支付 ¥68");
+        let pid = s.take_id();
+        s.pacts.push(Pact {
+            id: pid,
+            gift_id: gid,
+            text,
+            peer: "许宁".into(),
+            mine: false,
+            made_on: today - 6,
+            due_on: today + 1,
+            state: 0,
+            nudged_on: 0,
+        });
+
+        let mut g = s.new_gift(DIR_SENT, 1, today - 3);
+        g.peer = "林舟".into();
+        g.unlock = Unlock::GuessWho.id();
+        g.clue = "猜猜是哪个老同学".into();
+        g.answer = DEFAULT_NICKNAME.into();
+        g.message = "加班辛苦啦".into();
+        g.set_state(GiftState::Revealed);
+        g.attempts = 1;
+        g.identity_known = true;
+        g.solved = true;
+        g.opened_on = today - 2;
+        g.revealed_on = today - 2;
+        s.gifts.push(g);
+        s.push_ledger(today - 3, 0, 3500, "送出 · 星巴克中杯拿铁电子券", "模拟支付 ¥35");
+
+        s
+    }
+
+    /// 测试用：固定一个「今天」。
+    #[cfg(test)]
+    pub(crate) fn for_tests() -> Self {
+        Self::demo(TEST_TODAY)
+    }
+
+    fn take_id(&mut self) -> u64 {
+        let id = self.next_id;
+        self.next_id += 1;
+        id
+    }
+
+    fn new_gift(&mut self, dir: u8, item_id: u16, sent_on: i64) -> Gift {
+        let id = self.take_id();
+        let code = gen_code(id.wrapping_mul(7919), |c| self.gifts.iter().any(|g| g.code == c));
+        Gift::blank(id, code, dir, item_id, sent_on)
+    }
+
+    fn push_ledger(&mut self, day: i64, amount: i64, external: i64, title: &str, note: &str) {
+        let id = self.take_id();
+        self.ledger.push(LedgerEntry {
+            id,
+            day,
+            amount,
+            external,
+            title: title.into(),
+            note: note.into(),
+        });
+    }
+
+    // ---- 查询 ----
+
+    /// 余额 = 流水之和。不单独存，避免不一致。
+    pub fn balance(&self) -> i64 {
+        self.ledger.iter().map(|e| e.amount).sum::<i64>().max(0)
+    }
+
+    pub fn gift(&self, id: u64) -> Option<&Gift> {
+        self.gifts.iter().find(|g| g.id == id)
+    }
+
+    fn gift_mut(&mut self, id: u64) -> Option<&mut Gift> {
+        self.gifts.iter_mut().find(|g| g.id == id)
+    }
+
+    pub fn pact(&self, id: u64) -> Option<&Pact> {
+        self.pacts.iter().find(|p| p.id == id)
+    }
+
+    /// 收到的（撤回的不出现），新的在前。
+    pub fn received(&self) -> Vec<&Gift> {
+        let mut v: Vec<&Gift> = self
+            .gifts
+            .iter()
+            .filter(|g| !g.is_sent() && g.state() != GiftState::Withdrawn)
+            .collect();
+        v.sort_by(|a, b| b.sent_on.cmp(&a.sent_on).then(b.id.cmp(&a.id)));
+        v
+    }
+
+    /// 送出的，新的在前。
+    pub fn sent(&self) -> Vec<&Gift> {
+        let mut v: Vec<&Gift> = self.gifts.iter().filter(|g| g.is_sent()).collect();
+        v.sort_by(|a, b| b.sent_on.cmp(&a.sent_on).then(b.id.cmp(&a.id)));
+        v
+    }
+
+    /// 等我处理的收到的礼物（待拆 / 解谜中 / 待决定）。
+    pub fn pending_received(&self) -> usize {
+        self.received().iter().filter(|g| g.tone() == Tone::Pending).count()
+    }
+
+    /// 契约：`mine` 这一侧，待兑现的在前、到期早的在前。
+    pub fn pacts_of(&self, mine: bool) -> Vec<&Pact> {
+        let mut v: Vec<&Pact> = self.pacts.iter().filter(|p| p.mine == mine).collect();
+        v.sort_by(|a, b| {
+            (a.state() != PactState::Pending)
+                .cmp(&(b.state() != PactState::Pending))
+                .then(a.due_on.cmp(&b.due_on))
+                .then(b.id.cmp(&a.id))
+        });
+        v
+    }
+
+    pub fn open_pacts(&self) -> usize {
+        self.pacts.iter().filter(|p| p.state() == PactState::Pending).count()
+    }
+
+    /// 流水，新的在前。
+    pub fn ledger_desc(&self) -> Vec<&LedgerEntry> {
+        let mut v: Vec<&LedgerEntry> = self.ledger.iter().collect();
+        v.sort_by(|a, b| b.day.cmp(&a.day).then(b.id.cmp(&a.id)));
+        v
+    }
+
+    /// 口令查礼物（宽松解析）。
+    pub fn find_code(&self, input: &str) -> Option<&Gift> {
+        let code = normalize_code(input)?;
+        self.gifts.iter().find(|g| g.code == code)
+    }
+
+    /// 送礼的付款拆分：（余额抵扣, 模拟支付）。
+    pub fn pay_split(&self, price: i64, use_balance: bool) -> (i64, i64) {
+        let a = if use_balance { self.balance().min(price) } else { 0 };
+        (a, price - a)
+    }
+
+    /// 和这位熟人之间：（我送出的份数, 我收到且知道是 TA 的份数）。
+    /// 没揭晓 / 身份保密的礼物不算 —— 否则一个计数就把谜底泄露了。
+    pub fn gift_counts(&self, label: &str) -> (usize, usize) {
+        let hit = |g: &Gift| split_aliases(&g.peer).iter().any(|a| a == label);
+        let sent = self
+            .gifts
+            .iter()
+            .filter(|g| g.is_sent() && g.state() != GiftState::Withdrawn && hit(g))
+            .count();
+        let recv = self
+            .gifts
+            .iter()
+            .filter(|g| !g.is_sent() && g.shown_sender() != MYSTERY_FRIEND && hit(g))
+            .count();
+        (sent, recv)
+    }
+
+    /// 猜我是谁的候选人：真送礼人 + 熟人 + 通讯录，去重后取 6 个，
+    /// 按礼物 id 确定性打乱；真送礼人一定在里面。
+    pub fn guess_candidates(&self, g: &Gift) -> Vec<String> {
+        let aliases = split_aliases(g.expected_answer());
+        let Some(real) = aliases.first().cloned() else {
+            return Vec::new();
+        };
+        let mut others: Vec<String> = Vec::new();
+        for n in self.contacts.iter().map(|c| c.label.clone()).chain(self.directory.iter().cloned()) {
+            if !aliases.contains(&n) && !others.contains(&n) && n != self.settings.nickname {
+                others.push(n);
+            }
+        }
+        // 确定性洗牌：按 (id, 名字) 的哈希排序。
+        others.sort_by_key(|n| {
+            let mut h = g.id;
+            for b in n.bytes() {
+                h = mix(h ^ b as u64);
+            }
+            h
+        });
+        others.truncate(CANDIDATE_COUNT - 1);
+        let pos = (mix(g.id) % (others.len() as u64 + 1)) as usize;
+        others.insert(pos, real);
+        others
+    }
+
+    /// 换购可选项：（目录下标, 抵扣额 − 新价格）。除了原来那件，其它都能换。
+    pub fn exchange_options(&self, g: &Gift) -> Vec<(u16, i64)> {
+        let (_, credit) = exchange_credit(g.price);
+        (0..CATALOG.len() as u16)
+            .filter(|&i| i != g.item)
+            .map(|i| (i, credit - item(i).price))
+            .collect()
+    }
+
+    /// 此刻该发哪些通知。每类最多一条；开关是唯一的闸。
+    pub fn due_notices(&self, today: i64) -> Vec<Notice> {
+        let mut out = Vec::new();
+        if self.settings.notify_gift {
+            if let Some(g) = self
+                .received()
+                .into_iter()
+                .filter(|g| g.state().is_unrevealed())
+                .filter(|g| (0..=GIFT_NOTICE_LEAD_DAYS).contains(&g.days_left(today)))
+                .min_by_key(|g| g.days_left(today))
+            {
+                let d = g.days_left(today);
+                out.push(Notice {
+                    kind: NoticeKind::GiftExpiring,
+                    text: if d <= 0 {
+                        "有一份神秘礼物还没拆，今天不拆就退回给 TA 了".into()
+                    } else {
+                        format!("有一份神秘礼物还没拆，{d} 天后会退回给 TA")
+                    },
+                    target: g.id,
+                });
+            }
+        }
+        if self.settings.notify_pact {
+            if let Some(p) = self
+                .pacts_of(true)
+                .into_iter()
+                .filter(|p| p.state() == PactState::Pending)
+                .find(|p| p.due_on - today <= PACT_NOTICE_LEAD_DAYS)
+            {
+                let d = p.due_on - today;
+                let when = if d > 0 {
+                    "明天到期".to_string()
+                } else if d == 0 {
+                    "今天到期".to_string()
+                } else {
+                    format!("已逾期 {} 天", -d)
+                };
+                out.push(Notice {
+                    kind: NoticeKind::PactDue,
+                    text: format!("你答应的「{}」{}", p.text, when),
+                    target: p.id,
+                });
+            }
+        }
+        out
+    }
+
+    // ---- 送礼 ----
+
+    /// 送礼前的校验。只返回第一条错，界面把它放在按钮上方。
+    pub fn validate_draft(&self, d: &SendDraft) -> Result<(), &'static str> {
+        if d.item as usize >= CATALOG.len() {
+            return Err("先挑一件礼物");
+        }
+        let clue = d.clue.trim();
+        let answer = d.answer.trim();
+        match d.unlock {
+            Unlock::GuessWho => {
+                if clue.is_empty() {
+                    return Err("写一句线索，让 TA 有迹可循");
+                }
+                if split_aliases(&self.settings.nickname).is_empty() {
+                    return Err("先在「我」里写好你的称呼");
+                }
+            }
+            Unlock::Question => {
+                if clue.is_empty() {
+                    return Err("写一个只有你们知道答案的问题");
+                }
+                if normalize_answer(answer).is_empty() {
+                    return Err("问题的答案还没写");
+                }
+            }
+            Unlock::Passphrase => {
+                if normalize_answer(answer).is_empty() {
+                    return Err("暗号还没写");
+                }
+            }
+            Unlock::Free => {}
+        }
+        if d.unlock != Unlock::Free {
+            if clue.chars().count() > CLUE_MAX_CHARS {
+                return Err("线索 / 问题最多 30 个字");
+            }
+            if answer.chars().count() > ANSWER_MAX_CHARS {
+                return Err("答案最多 20 个字");
+            }
+        }
+        if let Some(c) = &d.contract {
+            validate_pact(c)?;
+        }
+        if d.message.trim().chars().count() > MESSAGE_MAX_CHARS {
+            return Err("寄语最多 40 个字");
+        }
+        Ok(())
+    }
+
+    /// 送出一份礼物：校验 → 付款（余额优先，余下模拟支付）→ 生成礼卡。返回礼物 id。
+    pub fn send_gift(&mut self, d: &SendDraft, today: i64) -> Result<u64, &'static str> {
+        self.validate_draft(d)?;
+        let mut g = self.new_gift(DIR_SENT, d.item, today);
+        g.peer = d.peer.trim().to_string();
+        g.unlock = d.unlock.id();
+        match d.unlock {
+            Unlock::GuessWho => {
+                g.clue = d.clue.trim().into();
+                g.answer = self.settings.nickname.trim().into();
+            }
+            Unlock::Question | Unlock::Passphrase => {
+                g.clue = d.clue.trim().into();
+                g.answer = d.answer.trim().into();
+            }
+            Unlock::Free => {}
+        }
+        g.contract = match &d.contract {
+            Some(c) => validate_pact(c)?,
+            None => String::new(),
+        };
+        g.message = d.message.trim().into();
+        let (a, b) = self.pay_split(g.price, d.use_balance);
+        let title = format!("送出 · {}", g.catalog().name);
+        let note = match (a > 0, b > 0) {
+            (true, true) => format!("余额抵 {} · 模拟支付 {}", yuan(a), yuan(b)),
+            (true, false) => format!("余额抵 {}", yuan(a)),
+            _ => format!("模拟支付 {}", yuan(b)),
+        };
+        let id = g.id;
+        self.gifts.push(g);
+        self.push_ledger(today, -a, b, &title, &note);
+        self.save();
+        Ok(id)
+    }
+
+    /// 送礼人撤回：只在「待拆」可以，全额退回余额。
+    pub fn withdraw(&mut self, id: u64, today: i64) -> Result<(), &'static str> {
+        let g = self.gift_mut(id).ok_or("找不到这份礼物")?;
+        if !g.is_sent() || g.state() != GiftState::Sealed {
+            return Err("TA 已经打开了，撤不回来了");
+        }
+        g.set_state(GiftState::Withdrawn);
+        g.settled_on = today;
+        let (price, title) = (g.price, format!("退回 · {}", g.catalog().name));
+        self.push_ledger(today, price, 0, &title, "撤回礼物，全额退回");
+        self.save();
+        Ok(())
+    }
+
+    // ---- 收礼 ----
+
+    /// 打开一份收到的礼物：待拆 → 解谜中；直接领取的打开即揭晓。返回打开后的状态。
+    pub fn open(&mut self, id: u64, today: i64) -> Option<GiftState> {
+        let g = self.gift_mut(id)?;
+        if g.is_sent() {
+            return None;
+        }
+        if g.state() == GiftState::Sealed {
+            g.opened_on = today;
+            if g.unlock() == Unlock::Free {
+                g.set_state(GiftState::Revealed);
+                g.identity_known = true;
+                g.solved = true;
+                g.revealed_on = today;
+            } else {
+                g.set_state(GiftState::Opened);
+            }
+            let st = g.state();
+            self.save();
+            return Some(st);
+        }
+        Some(g.state())
+    }
+
+    /// 提交一次答案。空答案不扣机会；3 次用完照样揭晓，身份保密。
+    pub fn submit_answer(&mut self, id: u64, guess: &str, today: i64) -> AnswerOutcome {
+        let Some(g) = self.gift_mut(id) else {
+            return AnswerOutcome::NotOpen;
+        };
+        if g.is_sent() || g.state() != GiftState::Opened {
+            return AnswerOutcome::NotOpen;
+        }
+        if normalize_answer(guess).is_empty() {
+            return AnswerOutcome::Empty;
+        }
+        g.attempts = g.attempts.saturating_add(1);
+        let aliases = g.unlock() == Unlock::GuessWho;
+        let out = if answer_matches(g.expected_answer(), guess, aliases) {
+            g.set_state(GiftState::Revealed);
+            g.identity_known = true;
+            g.solved = true;
+            g.revealed_on = today;
+            AnswerOutcome::Right
+        } else if g.attempts >= MAX_ATTEMPTS {
+            g.set_state(GiftState::Revealed);
+            g.identity_known = false;
+            g.revealed_on = today;
+            AnswerOutcome::Exhausted
+        } else {
+            AnswerOutcome::Wrong { left: g.attempts_left() }
+        };
+        self.save();
+        out
+    }
+
+    fn check_ship(physical: bool, f: &AcceptForm) -> Result<(), &'static str> {
+        if !physical {
+            return Ok(());
+        }
+        if f.name.trim().is_empty() {
+            return Err("收件人还没填");
+        }
+        if !valid_phone(&f.phone) {
+            return Err("手机号要 11 位数字");
+        }
+        if f.addr.trim().is_empty() {
+            return Err("收件地址还没填");
+        }
+        Ok(())
+    }
+
+    fn keep_ship(&mut self, id: u64, physical: bool, f: &AcceptForm) {
+        if !physical {
+            return;
+        }
+        let (n, p, a) = (f.name.trim().to_string(), f.phone.trim().to_string(), f.addr.trim().to_string());
+        if let Some(g) = self.gift_mut(id) {
+            g.ship_name = n.clone();
+            g.ship_phone = p.clone();
+            g.ship_addr = a.clone();
+        }
+        self.settings.ship_name = n;
+        self.settings.ship_phone = p;
+        self.settings.ship_addr = a;
+    }
+
+    fn revealed_received(&self, id: u64) -> Result<&Gift, &'static str> {
+        let g = self.gift(id).ok_or("找不到这份礼物")?;
+        if g.is_sent() || g.state() != GiftState::Revealed {
+            return Err("这份礼物已经处理过了");
+        }
+        Ok(g)
+    }
+
+    /// 开心收下：有契约必须同意（同意即揭晓 TA）；实物要地址；电子券给券码。
+    pub fn accept(&mut self, id: u64, f: &AcceptForm, today: i64) -> Result<(), &'static str> {
+        let g = self.revealed_received(id)?;
+        if g.has_contract() && !f.agree {
+            return Err("先勾选同意契约，才能收下");
+        }
+        let physical = g.catalog().physical;
+        Self::check_ship(physical, f)?;
+        let pact = g.has_contract().then(|| (g.contract.clone(), g.peer_name()));
+        self.keep_ship(id, physical, f);
+        let g = self.gift_mut(id).unwrap();
+        g.set_state(GiftState::Accepted);
+        g.settled_on = today;
+        if !physical {
+            g.voucher = gen_voucher(g.id);
+        }
+        if let Some((text, peer)) = pact {
+            g.identity_known = true;
+            let pid = self.take_id();
+            self.pacts.push(Pact {
+                id: pid,
+                gift_id: id,
+                text,
+                peer,
+                mine: true,
+                made_on: today,
+                due_on: today + PACT_DAYS,
+                state: 0,
+                nudged_on: 0,
+            });
+        }
+        self.save();
+        Ok(())
+    }
+
+    /// 折成余额：扣 8% 手续费（至少 ¥1），契约作废。返回退回的金额。
+    pub fn cash_out(&mut self, id: u64, today: i64) -> Result<i64, &'static str> {
+        let g = self.revealed_received(id)?;
+        let (f, refund) = cashout_quote(g.price);
+        let title = format!("折现 · {}", g.catalog().name);
+        let g = self.gift_mut(id).unwrap();
+        g.set_state(GiftState::CashedOut);
+        g.settled_on = today;
+        g.refund = refund;
+        self.push_ledger(today, refund, 0, &title, &format!("手续费 {}（{}%）", yuan(f), CASHOUT_FEE_PCT));
+        self.save();
+        Ok(refund)
+    }
+
+    /// 换一份：抵扣额 = 价格 − 5% 手续费，多退少补（余额先补，不够的模拟支付）。
+    pub fn exchange(&mut self, id: u64, new_item: u16, f: &AcceptForm, today: i64) -> Result<ExchangeResult, &'static str> {
+        let g = self.revealed_received(id)?;
+        if new_item as usize >= CATALOG.len() {
+            return Err("先选一件要换的礼物");
+        }
+        if new_item == g.item {
+            return Err("换一件不一样的吧");
+        }
+        let physical = item(new_item).physical;
+        Self::check_ship(physical, f)?;
+        let (fe, credit) = exchange_credit(g.price);
+        let diff = credit - item(new_item).price;
+        let names = format!("{} → {}", g.catalog().name, item(new_item).name);
+        let fee_note = format!("手续费 {}（{}%）", yuan(fe), EXCHANGE_FEE_PCT);
+        let res = if diff >= 0 {
+            self.push_ledger(today, diff, 0, &format!("换购退差 · {names}"), &fee_note);
+            ExchangeResult { diff, from_balance: 0, external: 0 }
+        } else {
+            let need = -diff;
+            let a = self.balance().min(need);
+            let b = need - a;
+            let mut note = fee_note;
+            if a > 0 {
+                note.push_str(&format!(" · 余额补 {}", yuan(a)));
+            }
+            if b > 0 {
+                note.push_str(&format!(" · 模拟支付 {}", yuan(b)));
+            }
+            self.push_ledger(today, -a, b, &format!("换购补差 · {names}"), &note);
+            ExchangeResult { diff, from_balance: a, external: b }
+        };
+        self.keep_ship(id, physical, f);
+        let g = self.gift_mut(id).unwrap();
+        g.set_state(GiftState::Exchanged);
+        g.settled_on = today;
+        g.swap_item = new_item;
+        g.refund = diff.max(0);
+        if !physical {
+            g.voucher = gen_voucher(g.id ^ 0xE5);
+        }
+        self.save();
+        Ok(res)
+    }
+
+    // ---- 过期 ----
+
+    /// 7 天没揭晓的礼物过期：收到的退回给 TA，送出的全额退回我的余额。幂等。
+    /// 返回这次过期了几份。
+    pub fn sweep(&mut self, today: i64) -> usize {
+        let due: Vec<u64> = self
+            .gifts
+            .iter()
+            .filter(|g| g.state().is_unrevealed() && g.days_left(today) <= 0)
+            .map(|g| g.id)
+            .collect();
+        for id in &due {
+            let g = self.gift_mut(*id).unwrap();
+            g.set_state(GiftState::Expired);
+            g.settled_on = g.sent_on + EXPIRE_DAYS;
+            if g.is_sent() {
+                let (day, price, title) = (g.settled_on, g.price, format!("退回 · {}", g.catalog().name));
+                self.push_ledger(day, price, 0, &title, "7 天没拆开，全额退回");
+            }
+        }
+        if !due.is_empty() {
+            self.save();
+        }
+        due.len()
+    }
+
+    // ---- 契约 ----
+
+    /// 标记 / 确认已兑现。逾期了也可以，没有惩罚。
+    pub fn fulfil_pact(&mut self, id: u64) -> Result<(), &'static str> {
+        let p = self.pacts.iter_mut().find(|p| p.id == id).ok_or("找不到这条契约")?;
+        if p.state() != PactState::Pending {
+            return Err("这条契约已经了结了");
+        }
+        p.state = 1;
+        self.save();
+        Ok(())
+    }
+
+    /// 「免了吧」：只有答应我的那一侧能放过对方。
+    pub fn waive_pact(&mut self, id: u64) -> Result<(), &'static str> {
+        let p = self.pacts.iter_mut().find(|p| p.id == id).ok_or("找不到这条契约")?;
+        if p.mine {
+            return Err("答应了就是答应了");
+        }
+        if p.state() != PactState::Pending {
+            return Err("这条契约已经了结了");
+        }
+        p.state = 2;
+        self.save();
+        Ok(())
+    }
+
+    /// 「提醒 TA」：每条每天一次。
+    pub fn nudge_pact(&mut self, id: u64, today: i64) -> Result<(), &'static str> {
+        let p = self.pacts.iter_mut().find(|p| p.id == id).ok_or("找不到这条契约")?;
+        if p.mine || p.state() != PactState::Pending {
+            return Err("这条契约不用提醒");
+        }
+        if p.nudged_on == today {
+            return Err("今天已经提醒过啦");
+        }
+        p.nudged_on = today;
+        self.save();
+        Ok(())
+    }
+
+    // ---- 钱包 ----
+
+    pub fn top_up(&mut self, today: i64) {
+        self.push_ledger(today, TOP_UP_AMOUNT, 0, "充值（模拟）", "演示用，不是真钱");
+        self.save();
+    }
+
+    // ---- 演示模拟器 ----
+
+    /// 替「对方」推进一步（只对送出的礼物）。结果只由礼物 id 决定，方便复现。
+    pub fn simulate_step(&mut self, id: u64, today: i64) -> Option<SimStep> {
+        // Knuth 乘法散列：低位只是 id 本身的余数（乘数 ≡ 1 mod 3、mod 4），
+        // 所以三个判断各取乘积高处的一段，互不相关。
+        let seed = id.wrapping_mul(2_654_435_761);
+        let (r_guess, r_decide, r_return) = ((seed >> 16) % 4, (seed >> 20) % 3, (seed >> 24) % 2);
+        let mut g = self.gift(id)?.clone();
+        if !g.is_sent() {
+            return None;
+        }
+        // 先在副本上推进，再一次写回：新契约、回礼要取新 id，不能和礼物的借用叠在一起。
+        let mut new_pact: Option<(String, String)> = None;
+        let mut return_gift: Option<(u16, String)> = None;
+        let step = match g.state() {
+            GiftState::Sealed if g.unlock() == Unlock::Free => {
+                g.set_state(GiftState::Revealed);
+                g.identity_known = true;
+                g.solved = true;
+                g.opened_on = today;
+                g.revealed_on = today;
+                SimStep::Revealed { known: true }
+            }
+            GiftState::Sealed => {
+                g.set_state(GiftState::Opened);
+                g.attempts = 1;
+                g.opened_on = today;
+                SimStep::Opened
+            }
+            GiftState::Opened => {
+                let known = r_guess != 0;
+                g.set_state(GiftState::Revealed);
+                g.attempts = if known { 2 } else { MAX_ATTEMPTS };
+                g.identity_known = known;
+                g.solved = known;
+                g.revealed_on = today;
+                SimStep::Revealed { known }
+            }
+            GiftState::Revealed => {
+                g.settled_on = today;
+                match r_decide {
+                    0 => {
+                        g.set_state(GiftState::Accepted);
+                        let pact = g.has_contract();
+                        if pact {
+                            // 同意契约即揭晓：契约要有对象。
+                            g.identity_known = true;
+                            new_pact = Some((g.contract.clone(), g.shown_recipient()));
+                        }
+                        SimStep::Accepted { pact }
+                    }
+                    1 => {
+                        g.set_state(GiftState::Exchanged);
+                        g.swap_item = (g.item + 1) % CATALOG.len() as u16;
+                        SimStep::Exchanged
+                    }
+                    _ => {
+                        g.set_state(GiftState::CashedOut);
+                        let (_, refund) = cashout_quote(g.price);
+                        g.refund = refund;
+                        let best = best_item_within(refund).filter(|_| r_return == 0);
+                        if let Some(best) = best {
+                            let peer = if g.peer.is_empty() { "一位朋友".to_string() } else { g.peer.clone() };
+                            return_gift = Some((best, peer));
+                        }
+                        SimStep::CashedOut { returned: best.is_some() }
+                    }
+                }
+            }
+            _ => return None,
+        };
+        *self.gift_mut(id)? = g;
+        if let Some((text, peer)) = new_pact {
+            let pid = self.take_id();
+            self.pacts.push(Pact {
+                id: pid,
+                gift_id: id,
+                text,
+                peer,
+                mine: false,
+                made_on: today,
+                due_on: today + PACT_DAYS,
+                state: 0,
+                nudged_on: 0,
+            });
+        }
+        if let Some((best, peer)) = return_gift {
+            // 「反击礼物」：同一个人、不超过刚折现金额的最贵一件、直接领取。
+            let mut r = self.new_gift(DIR_RECEIVED, best, today);
+            r.peer = peer;
+            r.unlock = Unlock::Free.id();
+            r.message = RETURN_MESSAGE.into();
+            self.gifts.push(r);
+        }
+        self.save();
+        Some(step)
+    }
+
+    // ---- 熟人 ----
+
+    pub fn contact(&self, id: usize) -> Option<&ContactLocal> {
+        self.contacts.iter().find(|c| c.id == id)
+    }
+
+    /// 手动添一个熟人。重名直接拒绝。
+    pub fn add_contact(&mut self, label: &str) -> Result<usize, AddContactError> {
+        let label = label.trim();
+        if label.is_empty() {
+            return Err(AddContactError::Empty);
+        }
+        if label.chars().count() > NICKNAME_MAX_CHARS {
+            return Err(AddContactError::TooLong);
+        }
+        if self.contacts.iter().any(|c| c.label == label) {
+            return Err(AddContactError::Duplicate);
+        }
+        let id = self.contacts.iter().map(|c| c.id + 1).max().unwrap_or(0);
+        self.contacts.push(ContactLocal { id, label: label.to_string() });
+        self.directory.retain(|d| d != label);
+        self.save();
+        Ok(id)
+    }
+
+    /// 一批名字加成熟人（导入用）。重名、太长的跳过。返回加了几位。
+    pub fn adopt_names(&mut self, names: Vec<String>) -> usize {
+        let mut n = 0;
+        for name in names {
+            let name = name.trim().to_string();
+            if name.is_empty()
+                || name.chars().count() > NICKNAME_MAX_CHARS
+                || self.contacts.iter().any(|c| c.label == name)
+            {
+                continue;
+            }
+            let id = self.contacts.iter().map(|c| c.id + 1).max().unwrap_or(0);
+            self.contacts.push(ContactLocal { id, label: name.clone() });
+            self.directory.retain(|d| *d != name);
+            n += 1;
+        }
+        if n > 0 {
+            self.save();
+        }
+        n
+    }
+
+    /// 把 vCard 导入的名字并入通讯录池（与通讯录、熟人双向去重）。返回新并入的人数。
+    pub fn merge_directory(&mut self, names: Vec<String>) -> usize {
+        let mut added = 0;
+        for n in names {
+            let n = n.trim().to_string();
+            if n.is_empty()
+                || self.directory.iter().any(|d| *d == n)
+                || self.contacts.iter().any(|c| c.label == n)
+            {
+                continue;
+            }
+            self.directory.push(n);
+            added += 1;
+        }
+        added
+    }
+
+    /// 删一位熟人。礼物和契约里的称呼是快照，不受影响。返回撤销用的快照。
+    pub fn remove_contact(&mut self, id: usize) -> Option<UndoSnapshot> {
+        let label = self.contact(id)?.label.clone();
+        let snap = UndoSnapshot {
+            label: format!("已删除「{label}」"),
+            contacts: self.contacts.clone(),
+            directory: self.directory.clone(),
+        };
+        self.contacts.retain(|c| c.id != id);
+        self.save();
+        Some(snap)
+    }
+
+    pub fn restore(&mut self, snap: UndoSnapshot) {
+        self.contacts = snap.contacts;
+        self.directory = snap.directory;
+        self.save();
+    }
+
+    /// 改我的称呼。可以写多个别名（用 / 分隔）。
+    pub fn set_nickname(&mut self, name: &str) -> Result<(), &'static str> {
+        let t = name.trim();
+        if split_aliases(t).is_empty() {
+            return Err("称呼不能是空的");
+        }
+        if t.chars().count() > NICKNAME_MAX_CHARS * 2 {
+            return Err("称呼太长了");
+        }
+        self.settings.nickname = t.to_string();
+        self.save();
+        Ok(())
+    }
+
+    // ---- 持久化 ----
+
+    /// `$MAKEPAD_HOME/liyu/state.json`（宿主会给子进程设 MAKEPAD_HOME）。
     pub fn state_file() -> Option<std::path::PathBuf> {
         std::env::var_os("MAKEPAD_HOME")
-            .map(|h| std::path::Path::new(&h).join("ouyu").join("state.json"))
+            .map(|h| std::path::Path::new(&h).join("liyu").join("state.json"))
     }
 
-    /// vCard 导入文件：`<MAKEPAD_HOME>/ouyu/contacts.vcf`。
+    /// 状态目录（礼卡图片、导出都放这里）。
+    pub fn data_dir() -> Option<std::path::PathBuf> {
+        Self::state_file().and_then(|p| p.parent().map(|d| d.to_path_buf()))
+    }
+
+    /// vCard 导入文件：`<MAKEPAD_HOME>/liyu/contacts.vcf`。
     pub fn contacts_vcf() -> Option<std::path::PathBuf> {
-        Self::state_file().and_then(|p| p.parent().map(|d| d.join("contacts.vcf")))
+        Self::data_dir().map(|d| d.join("contacts.vcf"))
     }
 
-    /// 演示便利：状态目录里没有 contacts.vcf 时写一份示例（4 个虚构联系人，
-    /// 含续行折叠与 N 兜底两种写法），让「导入 vCard」按钮开箱可点。
+    /// 状态目录里没有 contacts.vcf 时写一份示例，让「导入 vCard」开箱可点。
     pub fn ensure_sample_vcard() {
         let Some(path) = Self::contacts_vcf() else {
             return;
@@ -1600,73 +2059,79 @@ impl OuyuState {
 
     pub fn persisted(&self) -> PersistedState {
         PersistedState {
-            contacts: self.contacts.clone(),
-            encounters: self.encounters.clone(),
+            version: Some(2),
+            contacts: Some(self.contacts.clone()),
             directory: Some(self.directory.clone()),
-            reward: None,
-            wallet: Some(self.wallet.clone()),
+            gifts: Some(self.gifts.clone()),
+            pacts: Some(self.pacts.clone()),
+            ledger: Some(self.ledger.clone()),
             settings: Some(self.settings.clone()),
-            next_encounter_id: Some(self.next_encounter_id),
-            recent_areas: Some(self.recent_areas.clone()),
-            publishes: Some(self.publishes.clone()),
-            next_publish_id: Some(self.next_publish_id),
+            next_id: Some(self.next_id),
         }
     }
 
     pub fn apply_persisted(&mut self, p: PersistedState) {
-        self.contacts = p.contacts;
-        self.encounters = p.encounters;
-        if let Some(dir) = p.directory {
-            self.directory = dir;
+        if let Some(v) = p.contacts {
+            self.contacts = v;
         }
-        // 旧文件里的那一张券并进券包；两边都有时以 wallet 为准。
-        self.wallet = p.wallet.unwrap_or_else(|| p.reward.into_iter().collect());
-        if let Some(st) = p.settings {
-            self.settings = st;
+        if let Some(v) = p.directory {
+            self.directory = v;
         }
-        self.next_encounter_id = p.next_encounter_id.unwrap_or_else(|| {
-            self.encounters.iter().map(|e| e.id + 1).max().unwrap_or(0)
-        });
-        if let Some(r) = p.recent_areas {
-            self.recent_areas = r.into_iter().filter(|&a| crate::areas::area(a).is_some()).collect();
+        if let Some(v) = p.gifts {
+            self.gifts = v;
         }
-        if let Some(list) = p.publishes {
-            // 从没发布过任何一条（空列表、id 也没走过）就留着演示行踪；
-            // 发过再删光的，列表是空的但 id 已经走过，照样清空。
-            let never_published = list.is_empty() && p.next_publish_id.unwrap_or(0) == 0;
-            if !never_published {
-                // 换过区域库的话，指向不存在片区的那几条直接丢掉。
-                self.publishes = list
-                    .into_iter()
-                    .filter(|q| crate::areas::area(q.area).is_some())
-                    .collect();
-            }
+        if let Some(v) = p.pacts {
+            self.pacts = v;
         }
-        self.next_publish_id = p
-            .next_publish_id
-            .filter(|&n| n > 0)
-            .unwrap_or_else(|| self.publishes.iter().map(|q| q.id + 1).max().unwrap_or(0));
+        if let Some(v) = p.ledger {
+            self.ledger = v;
+        }
+        if let Some(v) = p.settings {
+            self.settings = v;
+        }
+        // 自增 id 至少要比现有的都大，存档里的数字不可信时也不会撞号。
+        let max_id = self
+            .gifts
+            .iter()
+            .map(|g| g.id)
+            .chain(self.pacts.iter().map(|p| p.id))
+            .chain(self.ledger.iter().map(|e| e.id))
+            .max()
+            .unwrap_or(0);
+        self.next_id = p.next_id.unwrap_or(0).max(max_id + 1);
     }
 
-    /// 从 state_file 加载并覆盖在 demo 底座上；文件不存在或损坏时用 demo 数据。
-    pub fn load() -> Self {
-        let mut s = Self::demo();
+    /// 读存档并覆盖在演示数据上；没有存档用演示数据，存档坏了也用演示数据并留一句话。
+    pub fn load(today: i64) -> Self {
+        let mut s = Self::demo(today);
         if let Some(path) = Self::state_file() {
-            if let Some(p) = Self::load_from(&path) {
-                s.apply_persisted(p);
+            if path.exists() {
+                match Self::load_from(&path) {
+                    Some(p) => s.apply_persisted(p),
+                    None => s.load_note = Some("数据读不出来，已用演示数据"),
+                }
             }
         }
         s
     }
 
-    /// 只把落盘的深浅选择读出来。注册预设（`theme::install`）比建视图早，
-    /// 那时还没有 `OuyuState`，所以这里单独读一次状态文件。
+    /// 读取状态文件。不是礼遇格式（没有 gifts）或解析不了都算读不出来。
+    pub fn load_from(path: &std::path::Path) -> Option<PersistedState> {
+        let text = std::fs::read_to_string(path).ok()?;
+        let p = PersistedState::deserialize_json_lenient(&text).ok()?;
+        p.gifts.is_some().then_some(p)
+    }
+
+    /// 只把落盘的深浅选择读出来：注册预设比建视图早，那时还没有 `LiyuState`。
     pub fn persisted_theme() -> Option<String> {
         let path = Self::state_file()?;
         Self::load_from(&path)?.settings?.theme
     }
 
     pub fn save(&self) {
+        if cfg!(test) {
+            return;
+        }
         if let Some(path) = Self::state_file() {
             let _ = self.save_to(&path);
         }
@@ -1679,30 +2144,31 @@ impl OuyuState {
         std::fs::write(path, self.persisted().serialize_json())
     }
 
-    /// 读取状态文件。三种结果：
-    /// - 新格式：完整解析；
-    /// - 旧格式（Phase 0 结伴卡时代）：只迁出联系人（name→label），行踪历史 /
-    ///   结伴卡 / 隐身 / 亲密度等旧字段直接忽略，下次保存后自然消失；
-    /// - 读不到或完全无法解析：None（回退 demo 数据）。
-    pub fn load_from(path: &std::path::Path) -> Option<PersistedState> {
-        let text = std::fs::read_to_string(path).ok()?;
-        if let Ok(p) = PersistedState::deserialize_json_lenient(&text) {
-            return Some(p);
-        }
-        if let Ok(legacy) = LegacyState::deserialize_json_lenient(&text) {
-            if let Some(contacts) = legacy.contacts {
-                return Some(PersistedState {
-                    contacts: contacts
-                        .into_iter()
-                        .map(|c| ContactLocal { id: c.id, label: c.name })
-                        .collect(),
-                    ..Default::default()
-                });
-            }
-        }
-        None
+    /// 导出本机数据：落盘的那份原样写到 `liyu/export-<日期>.json`（含收件地址 —— 本机数据归用户）。
+    pub fn export_data(&self) -> Option<std::path::PathBuf> {
+        let dir = Self::data_dir()?;
+        let path = dir.join(format!("export-{}.json", fmt_days(today_days())));
+        std::fs::create_dir_all(&dir).ok()?;
+        std::fs::write(&path, self.persisted().serialize_json()).ok()?;
+        Some(path)
+    }
+
+    /// 恢复演示数据。深浅和「看过引导」留着 —— 那是偏好，不是数据。
+    pub fn reset_demo(&mut self, today: i64) {
+        let theme = self.settings.theme.clone();
+        let onboarded = self.settings.onboarded;
+        *self = Self::demo(today);
+        self.settings.theme = theme;
+        self.settings.onboarded = onboarded;
+        self.save();
     }
 }
+
+#[cfg(test)]
+pub(crate) const TEST_TODAY: i64 = 20_720; // 2026-09-24
+
+
+// ---- vCard ----
 
 /// 演示示例 vCard：FN、带参数的 FN、续行折叠、N 兜底各一份。
 pub const SAMPLE_VCARD: &str = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:周子墨\r\nEND:VCARD\r\nBEGIN:VCARD\r\nVERSION:4.0\r\nFN:林小\r\n 满\r\nEND:VCARD\r\nBEGIN:VCARD\r\nVERSION:3.0\r\nN:黄;一诺;;;\r\nEND:VCARD\r\nBEGIN:VCARD\r\nVERSION:4.0\r\nFN;CHARSET=UTF-8:吴凯文\r\nEND:VCARD\r\n";
@@ -1783,1071 +2249,697 @@ fn parse_vcard_n(value: &str) -> String {
 mod tests {
     use super::*;
 
-    /// 2026-09-19 是个周六，用固定日期跑排序，结果与「今天」无关。
-    const SAT: i64 = 20715;
+    const T: i64 = TEST_TODAY;
+
+    fn received_by_unlock(s: &LiyuState, u: Unlock) -> u64 {
+        s.gifts
+            .iter()
+            .find(|g| !g.is_sent() && g.unlock() == u && g.state() == GiftState::Sealed)
+            .map(|g| g.id)
+            .expect("演示数据里应有这种玩法的待拆礼物")
+    }
+
+    fn draft(item_id: u16) -> SendDraft {
+        SendDraft {
+            item: item_id,
+            peer: "林舟".into(),
+            unlock: Unlock::Question,
+            clue: "我们在哪认识的？".into(),
+            answer: "图书馆".into(),
+            contract: None,
+            message: String::new(),
+            use_balance: true,
+        }
+    }
+
+    // ---- 日期 ----
 
     #[test]
-    fn the_ranking_covers_every_area_exactly_once() {
-        let r = opportunity_ranking_at(SAT, 0);
-        assert_eq!(r.len(), crate::areas::AREAS.len());
-        let mut ids: Vec<u16> = r.iter().map(|o| o.area).collect();
-        ids.sort_unstable();
-        ids.dedup();
-        assert_eq!(ids.len(), crate::areas::AREAS.len());
+    fn test_today_is_2026_09_24() {
+        assert_eq!(fmt_days(T), "2026-09-24");
+        assert_eq!(rel_day(T, T), "今天");
+        assert_eq!(rel_day(T - 1, T), "昨天");
+        assert_eq!(rel_day(T - 3, T), "9 月 21 日");
     }
 
     #[test]
-    fn the_same_day_always_ranks_the_same_way() {
-        // 同一天内反复进发现页，顺序必须一致，否则「排行」就没有意义。
-        let a = opportunity_ranking_at(SAT, 2);
-        let b = opportunity_ranking_at(SAT, 2);
-        assert_eq!(a, b);
+    fn civil_round_trip() {
+        for d in [-1000, 0, 19_000, T, 30_000] {
+            let (y, m, dd) = days_to_civil(d);
+            assert_eq!(civil_to_days(y, m, dd), d);
+        }
+        assert_eq!(parse_iso_days("2026-09-24"), Some(T));
+        assert_eq!(parse_iso_days("09/24"), None);
+    }
+
+    // ---- 目录与金额 ----
+
+    #[test]
+    fn catalog_has_twelve_items_in_five_categories() {
+        assert_eq!(CATALOG.len(), 12);
+        for c in Category::ALL {
+            assert!(!catalog_in(Some(c)).is_empty(), "{} 没有礼物", c.label());
+        }
+        assert_eq!(catalog_in(None).len(), 12);
+        assert_eq!(item(0).price, 10900);
+        assert_eq!(item(999).name, CATALOG[0].name, "越界退回第一件");
     }
 
     #[test]
-    fn a_different_day_gives_a_different_ranking() {
-        let a: Vec<u16> = opportunity_ranking_at(SAT, 0).iter().map(|o| o.area).collect();
-        let b: Vec<u16> = opportunity_ranking_at(SAT, 3).iter().map(|o| o.area).collect();
-        assert_ne!(a, b);
+    fn fee_rules() {
+        // ¥109 折现：8.72 → 9，退 ¥100。
+        assert_eq!(cashout_quote(10900), (900, 10000));
+        // ¥109 换购：5.45 → 6，抵扣 ¥103。
+        assert_eq!(exchange_credit(10900), (600, 10300));
+        // ¥10 的手续费最低 ¥1。
+        assert_eq!(fee(1000, CASHOUT_FEE_PCT), 100);
+        assert_eq!(fee(1000, EXCHANGE_FEE_PCT), 100);
+        // 正好整元不多收。
+        assert_eq!(fee(10000, 8), 800);
     }
 
     #[test]
-    fn the_ranking_is_sorted_by_level_high_to_low() {
-        let order = |l: OppLevel| match l {
-            OppLevel::Likely => 0,
-            OppLevel::Possible => 1,
-            OppLevel::Few => 2,
-            OppLevel::BelowThreshold => 3,
-        };
-        for day in 0..DAY_SPAN {
-            let r = opportunity_ranking_at(SAT, day);
-            for w in r.windows(2) {
-                assert!(order(w[0].level) <= order(w[1].level), "第 {day} 天的排序乱了");
-            }
+    fn yuan_formatting() {
+        assert_eq!(yuan(10900), "¥109");
+        assert_eq!(yuan(872), "¥8.72");
+        assert_eq!(yuan(-600), "-¥6");
+        assert_eq!(yuan(5), "¥0.05");
+    }
+
+    #[test]
+    fn best_item_within_budget() {
+        assert_eq!(best_item_within(10000), Some(11)); // 向日葵 ¥99
+        assert_eq!(best_item_within(2900), Some(2));
+        assert_eq!(best_item_within(2899), None);
+    }
+
+    // ---- 解谜 ----
+
+    #[test]
+    fn answers_are_normalized() {
+        assert!(answer_matches("星际穿越", " 星际 穿越！", false));
+        assert!(answer_matches("Interstellar", "interstellar.", false));
+        assert!(answer_matches("ABC123", "ａｂｃ１２３", false), "全角转半角");
+        assert!(answer_matches("月亮不睡我不睡", "月亮不睡，我不睡。", false));
+        assert!(!answer_matches("星际穿越", "", false));
+        assert!(!answer_matches("星际穿越", " ！ ", false));
+    }
+
+    #[test]
+    fn guess_who_accepts_any_alias() {
+        assert_eq!(split_aliases("林舟 / 舟舟、阿舟，Zhou"), vec!["林舟", "舟舟", "阿舟", "Zhou"]);
+        assert!(answer_matches("林舟/舟舟", "林舟", true));
+        assert!(answer_matches("林舟/舟舟", "舟舟", true));
+        assert!(!answer_matches("林舟/舟舟", "陈晓", true));
+    }
+
+    #[test]
+    fn right_answer_reveals_with_identity() {
+        let mut s = LiyuState::for_tests();
+        let id = received_by_unlock(&s, Unlock::GuessWho);
+        assert_eq!(s.open(id, T), Some(GiftState::Opened));
+        assert_eq!(s.submit_answer(id, "舟舟", T), AnswerOutcome::Right);
+        let g = s.gift(id).unwrap();
+        assert_eq!(g.state(), GiftState::Revealed);
+        assert!(g.identity_known);
+        assert_eq!(g.shown_sender(), "林舟");
+        assert_eq!(g.title(), "三顿半精品咖啡礼盒");
+    }
+
+    #[test]
+    fn three_wrong_answers_reveal_without_identity() {
+        let mut s = LiyuState::for_tests();
+        let id = received_by_unlock(&s, Unlock::Question);
+        s.open(id, T);
+        assert_eq!(s.submit_answer(id, "   ", T), AnswerOutcome::Empty);
+        assert_eq!(s.gift(id).unwrap().attempts, 0, "空答案不扣机会");
+        assert_eq!(s.submit_answer(id, "泰坦尼克号", T), AnswerOutcome::Wrong { left: 2 });
+        assert_eq!(s.submit_answer(id, "盗梦空间", T), AnswerOutcome::Wrong { left: 1 });
+        assert_eq!(s.submit_answer(id, "阿凡达", T), AnswerOutcome::Exhausted);
+        let g = s.gift(id).unwrap();
+        assert_eq!(g.state(), GiftState::Revealed);
+        assert!(!g.identity_known);
+        assert_eq!(g.shown_sender(), MYSTERY_FRIEND);
+        // 揭晓后再答不算。
+        assert_eq!(s.submit_answer(id, "星际穿越", T), AnswerOutcome::NotOpen);
+    }
+
+    #[test]
+    fn unrevealed_gift_hides_everything() {
+        let s = LiyuState::for_tests();
+        let id = received_by_unlock(&s, Unlock::GuessWho);
+        let g = s.gift(id).unwrap();
+        assert_eq!(g.title(), MYSTERY_GIFT);
+        assert_eq!(g.shown_sender(), MYSTERY_FRIEND);
+        // 熟人统计也不能把没揭晓的礼物算到林舟头上。
+        assert_eq!(s.gift_counts("林舟").1, 0);
+    }
+
+    #[test]
+    fn free_gift_opens_straight_to_reveal() {
+        let mut s = LiyuState::for_tests();
+        let mut g = s.new_gift(DIR_RECEIVED, 3, T);
+        g.peer = "陈晓".into();
+        let id = g.id;
+        s.gifts.push(g);
+        assert_eq!(s.open(id, T), Some(GiftState::Revealed));
+        assert!(s.gift(id).unwrap().identity_known);
+    }
+
+    #[test]
+    fn candidates_include_real_sender_and_are_stable() {
+        let s = LiyuState::for_tests();
+        let id = received_by_unlock(&s, Unlock::GuessWho);
+        let g = s.gift(id).unwrap();
+        let a = s.guess_candidates(g);
+        assert_eq!(a.len(), CANDIDATE_COUNT);
+        assert!(a.contains(&"林舟".to_string()));
+        assert!(!a.contains(&"舟舟".to_string()), "别名不另占一个位置");
+        let mut uniq = a.clone();
+        uniq.sort();
+        uniq.dedup();
+        assert_eq!(uniq.len(), a.len(), "候选不重复");
+        assert_eq!(a, s.guess_candidates(g), "同一份礼物顺序一致");
+    }
+
+    // ---- 契约 ----
+
+    #[test]
+    fn pact_validation() {
+        assert_eq!(validate_pact("  下周请我喝咖啡 ").unwrap(), "下周请我喝咖啡");
+        assert!(validate_pact("").is_err());
+        let long: String = "约".repeat(25);
+        assert_eq!(validate_pact(&long), Err("契约最多 24 个字"));
+        assert!(validate_pact(&"约".repeat(24)).is_ok());
+        assert_eq!(validate_pact("收下要给我发个红包"), Err("契约只写轻约定，不涉及钱"));
+        for (_, text) in PACT_PRESETS {
+            assert!(validate_pact(text).is_ok(), "{text}");
         }
     }
 
     #[test]
-    fn below_threshold_areas_never_leak_a_best_slot() {
-        // 未达阈值就完全不展示为熟人机会：连时段都不给（02 B）。
-        for day in 0..DAY_SPAN {
-            for o in opportunity_ranking_at(SAT, day) {
-                if !o.level.shown() {
-                    assert_eq!(o.best_slot, None);
+    fn accept_with_contract_needs_agreement_and_creates_pact() {
+        let mut s = LiyuState::for_tests();
+        let id = received_by_unlock(&s, Unlock::Question);
+        s.open(id, T);
+        s.submit_answer(id, "星际穿越", T);
+        let pacts = s.pacts.len();
+        assert_eq!(s.accept(id, &AcceptForm::default(), T), Err("先勾选同意契约，才能收下"));
+        let f = AcceptForm { agree: true, ..Default::default() };
+        s.accept(id, &f, T).unwrap();
+        let g = s.gift(id).unwrap();
+        assert_eq!(g.state(), GiftState::Accepted);
+        assert!(!g.voucher.is_empty(), "电子券收下就有券码");
+        assert_eq!(s.pacts.len(), pacts + 1);
+        let p = s.pacts.last().unwrap();
+        assert!(p.mine);
+        assert_eq!(p.peer, "陈晓");
+        assert_eq!(p.due_on, T + PACT_DAYS);
+    }
+
+    #[test]
+    fn contract_agreement_reveals_hidden_sender() {
+        let mut s = LiyuState::for_tests();
+        let id = received_by_unlock(&s, Unlock::GuessWho);
+        s.open(id, T);
+        for w in ["a", "b", "c"] {
+            s.submit_answer(id, w, T);
+        }
+        assert!(!s.gift(id).unwrap().identity_known);
+        let f = AcceptForm {
+            agree: true,
+            name: "阿岚".into(),
+            phone: "13800138000".into(),
+            addr: "上海市徐汇区某路 1 号".into(),
+        };
+        s.accept(id, &f, T).unwrap();
+        assert!(s.gift(id).unwrap().identity_known, "同意契约即揭晓");
+        assert_eq!(s.settings.ship_phone, "13800138000", "地址记住，下次预填");
+    }
+
+    #[test]
+    fn physical_gift_needs_valid_address() {
+        let mut s = LiyuState::for_tests();
+        let id = received_by_unlock(&s, Unlock::Passphrase);
+        s.open(id, T);
+        assert_eq!(s.submit_answer(id, "月亮不睡 我不睡！", T), AnswerOutcome::Right);
+        let mut f = AcceptForm { agree: true, name: "阿岚".into(), phone: "1380013800".into(), addr: "某地".into() };
+        assert_eq!(s.accept(id, &f, T), Err("手机号要 11 位数字"));
+        f.phone = "13800138000".into();
+        f.addr = " ".into();
+        assert_eq!(s.accept(id, &f, T), Err("收件地址还没填"));
+        f.addr = "某地".into();
+        s.accept(id, &f, T).unwrap();
+        assert!(s.gift(id).unwrap().voucher.is_empty(), "实物没有券码");
+    }
+
+    #[test]
+    fn pact_actions() {
+        let mut s = LiyuState::for_tests();
+        let mine = s.pacts_of(true)[0].id;
+        let theirs = s.pacts_of(false)[0].id;
+        assert_eq!(s.waive_pact(mine), Err("答应了就是答应了"));
+        assert!(s.nudge_pact(mine, T).is_err());
+        s.nudge_pact(theirs, T).unwrap();
+        assert_eq!(s.nudge_pact(theirs, T), Err("今天已经提醒过啦"));
+        s.nudge_pact(theirs, T + 1).unwrap();
+        s.waive_pact(theirs).unwrap();
+        assert_eq!(s.pact(theirs).unwrap().state(), PactState::Waived);
+        s.fulfil_pact(mine).unwrap();
+        assert_eq!(s.pact(mine).unwrap().due_text(T), "已兑现");
+        assert!(s.fulfil_pact(mine).is_err());
+    }
+
+    #[test]
+    fn pact_due_text() {
+        let s = LiyuState::for_tests();
+        let p = s.pacts_of(true)[0];
+        assert_eq!(p.due_text(T), "还有 1 天");
+        assert_eq!(p.due_text(T + 1), "今天到期");
+        assert_eq!(p.due_text(T + 3), "已逾期 2 天");
+    }
+
+    // ---- 折现 / 换购 / 余额 ----
+
+    fn reveal(s: &mut LiyuState, u: Unlock) -> u64 {
+        let id = received_by_unlock(s, u);
+        s.open(id, T);
+        let ans = s.gift(id).unwrap().expected_answer().to_string();
+        let ans = split_aliases(&ans).remove(0);
+        assert_eq!(s.submit_answer(id, &ans, T), AnswerOutcome::Right);
+        id
+    }
+
+    #[test]
+    fn cash_out_refunds_minus_fee_and_voids_contract() {
+        let mut s = LiyuState::for_tests();
+        let before = s.balance();
+        let pacts = s.pacts.len();
+        let id = reveal(&mut s, Unlock::GuessWho); // ¥109
+        assert_eq!(s.cash_out(id, T), Ok(10000));
+        assert_eq!(s.balance(), before + 10000);
+        assert_eq!(s.pacts.len(), pacts, "折现不生成契约");
+        assert_eq!(s.gift(id).unwrap().status_text(T), "已折现 ¥100");
+        assert!(s.cash_out(id, T).is_err(), "不能折两次");
+        assert!(s.accept(id, &AcceptForm::default(), T).is_err());
+    }
+
+    #[test]
+    fn exchange_refunds_or_charges_difference() {
+        // 更便宜：¥109 → 抵扣 ¥103 → 换 ¥35 → 退 ¥68。
+        let mut s = LiyuState::for_tests();
+        let id = reveal(&mut s, Unlock::GuessWho);
+        let before = s.balance();
+        let r = s.exchange(id, 1, &AcceptForm::default(), T).unwrap();
+        assert_eq!(r, ExchangeResult { diff: 6800, from_balance: 0, external: 0 });
+        assert_eq!(s.balance(), before + 6800);
+        let g = s.gift(id).unwrap();
+        assert_eq!(g.state(), GiftState::Exchanged);
+        assert_eq!(g.final_item().name, "星巴克中杯拿铁电子券");
+        assert!(!g.voucher.is_empty());
+
+        // 更贵：¥98 → 抵扣 ¥93 → 换 ¥128 → 补 ¥35，余额 0 时全部模拟支付。
+        let mut s = LiyuState::for_tests();
+        assert_eq!(s.balance(), 0);
+        let id = reveal(&mut s, Unlock::Question);
+        let r = s.exchange(id, 10, &AcceptForm::default(), T).unwrap();
+        assert_eq!(r, ExchangeResult { diff: -3500, from_balance: 0, external: 3500 });
+        assert_eq!(s.balance(), 0, "余额永不为负");
+
+        // 余额部分够：先扣余额，不够的模拟支付。
+        let mut s = LiyuState::for_tests();
+        s.push_ledger(T, 2000, 0, "测试", "");
+        let id = reveal(&mut s, Unlock::Question);
+        let r = s.exchange(id, 10, &AcceptForm::default(), T).unwrap();
+        assert_eq!(r, ExchangeResult { diff: -3500, from_balance: 2000, external: 1500 });
+        assert_eq!(s.balance(), 0);
+    }
+
+    #[test]
+    fn exchange_to_physical_needs_address() {
+        let mut s = LiyuState::for_tests();
+        let id = reveal(&mut s, Unlock::Question);
+        assert_eq!(s.exchange(id, 4, &AcceptForm::default(), T), Err("换一件不一样的吧"));
+        assert_eq!(s.exchange(id, 11, &AcceptForm::default(), T), Err("收件人还没填"));
+        assert_eq!(s.exchange_options(s.gift(id).unwrap()).len(), 11);
+    }
+
+    #[test]
+    fn send_uses_balance_first_then_simulated_payment() {
+        let mut s = LiyuState::for_tests();
+        s.top_up(T);
+        assert_eq!(s.balance(), TOP_UP_AMOUNT);
+        let id = s.send_gift(&draft(0), T).unwrap(); // ¥109
+        assert_eq!(s.balance(), 0);
+        let e = s.ledger.last().unwrap();
+        assert_eq!((e.amount, e.external), (-5000, 5900));
+        assert_eq!(e.note, "余额抵 ¥50 · 模拟支付 ¥59");
+        let g = s.gift(id).unwrap();
+        assert!(g.is_sent());
+        assert_eq!(g.state(), GiftState::Sealed);
+        assert!(g.code.starts_with("LY-"));
+
+        // 关掉余额抵扣：全部模拟支付。
+        s.top_up(T);
+        let mut d = draft(2);
+        d.use_balance = false;
+        s.send_gift(&d, T).unwrap();
+        assert_eq!(s.balance(), TOP_UP_AMOUNT);
+    }
+
+    #[test]
+    fn send_validation() {
+        let mut s = LiyuState::for_tests();
+        let mut d = draft(0);
+        d.answer = "  ".into();
+        assert_eq!(s.send_gift(&d, T), Err("问题的答案还没写"));
+        let mut d = draft(0);
+        d.unlock = Unlock::GuessWho;
+        d.clue.clear();
+        assert_eq!(s.validate_draft(&d), Err("写一句线索，让 TA 有迹可循"));
+        let mut d = draft(0);
+        d.unlock = Unlock::Passphrase;
+        d.clue.clear();
+        d.answer.clear();
+        assert_eq!(s.validate_draft(&d), Err("暗号还没写"));
+        d.answer = "芝麻开门".into();
+        assert!(s.validate_draft(&d).is_ok(), "暗号提示可以不写");
+        let mut d = draft(0);
+        d.contract = Some("给我转账".into());
+        assert_eq!(s.validate_draft(&d), Err("契约只写轻约定，不涉及钱"));
+        let mut d = draft(0);
+        d.message = "字".repeat(41);
+        assert_eq!(s.validate_draft(&d), Err("寄语最多 40 个字"));
+        let mut d = draft(0);
+        d.unlock = Unlock::Free;
+        d.clue.clear();
+        d.answer.clear();
+        assert!(s.validate_draft(&d).is_ok());
+        // 猜我是谁：答案就是我的称呼。
+        let mut d = draft(0);
+        d.unlock = Unlock::GuessWho;
+        let id = s.send_gift(&d, T).unwrap();
+        assert_eq!(s.gift(id).unwrap().answer, DEFAULT_NICKNAME);
+    }
+
+    #[test]
+    fn withdraw_only_while_sealed() {
+        let mut s = LiyuState::for_tests();
+        let id = s.send_gift(&draft(3), T).unwrap(); // ¥49 全部模拟支付
+        assert_eq!(s.balance(), 0);
+        s.withdraw(id, T).unwrap();
+        assert_eq!(s.balance(), 4900, "撤回全额退回余额");
+        assert_eq!(s.gift(id).unwrap().state(), GiftState::Withdrawn);
+        assert!(s.withdraw(id, T).is_err());
+
+        let id = s.send_gift(&draft(3), T).unwrap();
+        s.simulate_step(id, T);
+        assert_eq!(s.withdraw(id, T), Err("TA 已经打开了，撤不回来了"));
+    }
+
+    // ---- 过期 ----
+
+    #[test]
+    fn sweep_expires_once() {
+        let mut s = LiyuState::for_tests();
+        let sent = s.send_gift(&draft(0), T).unwrap();
+        let passphrase = received_by_unlock(&s, Unlock::Passphrase); // today − 5
+        assert_eq!(s.sweep(T), 0);
+        assert_eq!(s.sweep(T + 2), 1, "收到的暗号礼物第 7 天过期");
+        assert_eq!(s.gift(passphrase).unwrap().status_text(T + 2), "已过期，已退回给 TA");
+        let before = s.balance();
+        let n = s.sweep(T + EXPIRE_DAYS);
+        assert!(n >= 1);
+        assert_eq!(s.gift(sent).unwrap().state(), GiftState::Expired);
+        assert_eq!(s.balance(), before + 10900, "送出的过期全额退回");
+        let after = s.balance();
+        assert_eq!(s.sweep(T + EXPIRE_DAYS), 0, "幂等");
+        assert_eq!(s.sweep(T + 30), 0);
+        assert_eq!(s.balance(), after, "只退一次");
+    }
+
+    // ---- 模拟器 ----
+
+    #[test]
+    fn simulator_reaches_terminal_in_three_steps() {
+        let mut s = LiyuState::for_tests();
+        for (k, unlock) in [Unlock::GuessWho, Unlock::Question, Unlock::Passphrase, Unlock::Free]
+            .into_iter()
+            .cycle()
+            .take(24)
+            .enumerate()
+        {
+            let mut d = draft((k % 12) as u16);
+            d.unlock = unlock;
+            d.contract = (k % 2 == 0).then(|| "周末陪我看一场电影".to_string());
+            if unlock == Unlock::Passphrase {
+                d.answer = "芝麻开门".into();
+            }
+            let id = s.send_gift(&d, T).unwrap();
+            let mut steps = 0;
+            while s.simulate_step(id, T).is_some() {
+                steps += 1;
+                assert!(steps <= 3, "礼物 {id} 超过 3 步");
+            }
+            assert!(s.gift(id).unwrap().state().is_terminal());
+            assert_eq!(s.simulate_step(id, T), None, "终态后不动");
+        }
+    }
+
+    #[test]
+    fn simulator_is_deterministic_and_covers_outcomes() {
+        let run = || {
+            let mut s = LiyuState::for_tests();
+            let mut outcomes = Vec::new();
+            for k in 0..12u16 {
+                let mut d = draft(k);
+                d.contract = Some("见面先给我一个拥抱".into());
+                let id = s.send_gift(&d, T).unwrap();
+                while let Some(step) = s.simulate_step(id, T) {
+                    outcomes.push(step);
                 }
             }
-        }
+            (outcomes, s.gifts.len(), s.pacts.len())
+        };
+        let a = run();
+        assert_eq!(a, run());
+        let has = |f: &dyn Fn(&SimStep) -> bool| a.0.iter().any(f);
+        assert!(has(&|s| matches!(s, SimStep::Accepted { pact: true })));
+        assert!(has(&|s| matches!(s, SimStep::Exchanged)));
+        assert!(has(&|s| matches!(s, SimStep::CashedOut { .. })));
+        assert!(has(&|s| matches!(s, SimStep::Revealed { known: false })));
     }
 
     #[test]
-    fn most_areas_stay_below_the_threshold_on_any_given_day() {
-        // 如果几乎所有片区都「有机会」，分档就退化成装饰了。
-        for day in 0..DAY_SPAN {
-            let r = opportunity_ranking_at(SAT, day);
-            let shown = r.iter().filter(|o| o.level.shown()).count();
-            // 「有机会」必须稀有：满城都是机会的话，分档和阈值都没意义了。
-            assert!(shown * 5 < r.len() * 2, "第 {day} 天有 {shown} 个片区达到阈值，太多了");
-            assert!(shown > 0, "第 {day} 天一个片区都不亮，排行页会一直是空的");
+    fn simulator_return_gift_fits_refund() {
+        let mut s = LiyuState::for_tests();
+        let mut found = false;
+        for k in 0..40 {
+            let id = s.send_gift(&draft((k % 12) as u16), T).unwrap();
+            let before = s.gifts.len();
+            let mut last = None;
+            while let Some(step) = s.simulate_step(id, T) {
+                last = Some(step);
+            }
+            if last == Some(SimStep::CashedOut { returned: true }) {
+                assert_eq!(s.gifts.len(), before + 1);
+                let r = s.gifts.last().unwrap();
+                let refund = s.gift(id).unwrap().refund;
+                assert!(!r.is_sent());
+                assert_eq!(r.unlock(), Unlock::Free);
+                assert_eq!(r.message, RETURN_MESSAGE);
+                assert!(r.price <= refund);
+                assert_eq!(r.peer, "林舟");
+                found = true;
+            }
         }
+        assert!(found, "40 份里应该至少有一份回礼");
     }
 
     #[test]
-    fn a_single_lookup_matches_what_the_ranking_says() {
-        // 发布向导里的行内分档与发现页的排行是两条调用，结果不能对不上。
-        for day in 0..DAY_SPAN {
-            for o in opportunity_ranking_at(SAT, day) {
-                assert_eq!(area_opportunity_at(SAT, day, o.area), o);
+    fn simulator_ignores_received_gifts() {
+        let mut s = LiyuState::for_tests();
+        let id = received_by_unlock(&s, Unlock::GuessWho);
+        assert_eq!(s.simulate_step(id, T), None);
+    }
+
+    // ---- 口令 ----
+
+    #[test]
+    fn codes_use_safe_charset_and_are_unique() {
+        let mut s = LiyuState::for_tests();
+        for k in 0..200 {
+            s.send_gift(&draft((k % 12) as u16), T).unwrap();
+        }
+        let mut codes: Vec<&str> = s.gifts.iter().map(|g| g.code.as_str()).collect();
+        for c in &codes {
+            assert_eq!(c.len(), 7);
+            assert!(c.starts_with("LY-"));
+            assert!(!c[3..].contains(['0', 'O', '1', 'I']), "{c}");
+        }
+        let n = codes.len();
+        codes.sort();
+        codes.dedup();
+        assert_eq!(codes.len(), n, "口令唯一");
+    }
+
+    #[test]
+    fn code_input_is_lenient() {
+        assert_eq!(normalize_code("ly-7k3m").as_deref(), Some("LY-7K3M"));
+        assert_eq!(normalize_code(" 7K3M ").as_deref(), Some("LY-7K3M"));
+        assert_eq!(normalize_code("LY 7K 3M").as_deref(), Some("LY-7K3M"));
+        assert_eq!(normalize_code("LY7K3M").as_deref(), Some("LY-7K3M"));
+        assert_eq!(normalize_code("7K3O"), None, "O 不在字符集");
+        assert_eq!(normalize_code(""), None);
+        let s = LiyuState::for_tests();
+        let g = &s.gifts[0];
+        assert_eq!(s.find_code(&g.code.to_lowercase()).map(|x| x.id), Some(g.id));
+    }
+
+    // ---- 通知 ----
+
+    #[test]
+    fn demo_triggers_both_notices() {
+        let mut s = LiyuState::for_tests();
+        let n = s.due_notices(T);
+        assert_eq!(n.len(), 2);
+        assert_eq!(n[0].kind, NoticeKind::GiftExpiring);
+        assert_eq!(n[0].text, "有一份神秘礼物还没拆，2 天后会退回给 TA");
+        assert_eq!(n[1].kind, NoticeKind::PactDue);
+        assert!(n[1].text.contains("明天到期"), "{}", n[1].text);
+        s.settings.notify_gift = false;
+        s.settings.notify_pact = false;
+        assert!(s.due_notices(T).is_empty(), "开关是唯一的闸");
+    }
+
+    #[test]
+    fn notices_never_name_the_sender() {
+        let s = LiyuState::for_tests();
+        for n in s.due_notices(T) {
+            if n.kind == NoticeKind::GiftExpiring {
+                assert!(!n.text.contains("许宁"), "{}", n.text);
             }
         }
     }
 
-    #[test]
-    fn offices_are_busier_on_weekdays_and_parks_on_weekends() {
-        let weekend = SAT;
-        let weekday = SAT + 2; // 周一
-        assert!(is_weekend(weekend) && !is_weekend(weekday));
-        let count = |today: i64, kind: crate::areas::AreaKind| {
-            crate::areas::AREAS
-                .iter()
-                .filter(|a| a.kind == kind)
-                .filter(|a| level_of(candidate_count(a, today)).shown())
-                .count()
-        };
-        assert!(count(weekday, crate::areas::AreaKind::Office) >= count(weekend, crate::areas::AreaKind::Office));
-        assert!(count(weekend, crate::areas::AreaKind::Park) >= count(weekday, crate::areas::AreaKind::Park));
-    }
+    // ---- 熟人 ----
 
     #[test]
-    fn a_publish_line_names_the_area_by_id_not_by_index() {
-        let p = Publish {
-            id: 0,
-            date: SAT,
-            slot: 1,
-            area: crate::areas::AREAS[0].id,
-            intent: 0,
-        };
-        let line = p.text_at(SAT);
-        assert!(line.starts_with("今天下午 · "));
-        assert!(line.contains(crate::areas::AREAS[0].name));
-        // 一行文案里不能出现昵称、日期或时间戳。
-        assert!(!line.contains('-') && !line.contains(':'));
-        // 过了一周它成了历史：用「x月x日」而不是「周六」——那会被读成下周六。
-        let later = p.text_at(SAT + 9);
-        assert!(later.contains("月") && later.contains("日下午 · "));
-        assert!(!later.starts_with("周"));
-    }
-
-    #[test]
-    fn day_labels_run_today_tomorrow_then_weekdays() {
-        assert_eq!(day_label_at(SAT, 0), "今天");
-        assert_eq!(day_label_at(SAT, 1), "明天");
-        assert_eq!(day_label_at(SAT, 2), "后天");
-        assert_eq!(day_label_at(SAT, 3), "周二");
-    }
-
-    #[test]
-    fn recent_areas_dedupe_and_cap_at_five() {
-        let mut st = OuyuState::demo();
-        for a in [1u16, 2, 3, 4, 5, 6] {
-            st.remember_area(a);
-        }
-        assert_eq!(st.recent_areas.len(), 5);
-        assert_eq!(st.recent_areas[0], 6);
-        st.remember_area(3);
-        assert_eq!(st.recent_areas[0], 3);
-        assert_eq!(st.recent_areas.iter().filter(|&&a| a == 3).count(), 1);
-    }
-
-    fn state() -> OuyuState {
-        OuyuState::for_tests()
-    }
-
-    #[test]
-    fn the_demo_ships_with_live_and_expired_trips() {
-        let s = OuyuState::demo();
-        let today = today_days();
-        assert!(s.active_publishes(today, 9 * 60).len() >= 3);
-        assert!(s.publish_history(today, 9 * 60).len() > s.active_publishes(today, 9 * 60).len());
-        // 全部落盘再读回来，演示行踪原样在；从没发布过的空列表盖不掉它们。
-        let mut back = OuyuState::demo();
-        back.apply_persisted(PersistedState {
-            publishes: Some(Vec::new()),
-            next_publish_id: Some(0),
-            ..s.persisted()
-        });
-        assert_eq!(back.publishes.len(), s.publishes.len());
-        // 发过再删光的：列表空、id 走过，就是真的空。
-        let mut gone = OuyuState::demo();
-        gone.apply_persisted(PersistedState {
-            publishes: Some(Vec::new()),
-            next_publish_id: Some(6),
-            ..s.persisted()
-        });
-        assert!(gone.publishes.is_empty());
-        assert_eq!(gone.next_publish_id, 6);
-    }
-
-    // ---- 相遇次数口径 ----
-
-    #[test]
-    fn meeting_count_includes_hidden() {
-        let mut s = state();
-        assert_eq!(s.meeting_count(0), 1);
-        // 隐藏仍计入次数。
-        assert!(s.push_memory(0, "林舟", MemoryChoice::Hidden));
-        assert_eq!(s.meeting_count(0), 2);
-        // 不保存不累计。
-        assert!(!s.push_memory(0, "林舟", MemoryChoice::Skip));
-        assert_eq!(s.meeting_count(0), 2);
-    }
-
-    #[test]
-    fn meeting_count_decreases_after_delete() {
-        let mut s = state();
-        let id = s.encounters[0].id;
-        assert!(s.delete_encounter(id));
-        assert_eq!(s.meeting_count(0), 0);
-        assert!(!s.delete_encounter(id)); // 再删返回 false
-    }
-
-    // ---- 隐藏 / 恢复 / 删除 ----
-
-    #[test]
-    fn hide_restore_delete() {
-        let mut s = state();
-        let id = s.encounters[0].id;
-        assert!(s.set_hidden(id, true));
-        assert!(s.encounters[0].hidden);
-        assert_eq!(s.meeting_count(0), 1); // 隐藏仍计数
-        assert!(s.set_hidden(id, false));
-        assert!(!s.encounters[0].hidden);
-        assert!(!s.set_hidden(999, true));
-    }
-
-    #[test]
-    fn hidden_choice_writes_hidden_record() {
-        let mut s = state();
-        assert!(s.push_memory(2, "许宁", MemoryChoice::Hidden));
-        let e = s.encounters.last().unwrap();
-        assert!(e.hidden);
-        assert_eq!(e.label_snapshot, "许宁");
-        assert_eq!(e.contact_id, Some(2));
-        // 新记录写真实 ISO 日期（不再是「今天」这类字符串）。
-        assert_eq!(e.date, today_iso());
-        assert!(parse_iso_days(&e.date).is_some());
-        assert!(e.note.is_empty());
-    }
-
-    // ---- 日期与周桶 ----
-
-    #[test]
-    fn civil_roundtrip() {
-        for (y, m, d) in [(1970, 1, 1), (2026, 9, 17), (2000, 2, 29), (2024, 2, 29), (1999, 12, 31)] {
-            let days = civil_to_days(y, m, d);
-            assert_eq!(days_to_civil(days), (y, m, d), "{y}-{m}-{d}");
-        }
-        assert_eq!(civil_to_days(1970, 1, 1), 0);
-    }
-
-    #[test]
-    fn parse_iso_strict() {
-        assert!(parse_iso_days("2026-09-17").is_some());
-        assert!(parse_iso_days("09/12").is_none());
-        assert!(parse_iso_days("今天").is_none());
-        assert!(parse_iso_days("2026-9-7").is_none());
-        assert!(parse_iso_days("2026-13-01").is_none());
-        assert!(parse_iso_days("2026-09-32").is_none());
-        assert!(parse_iso_days("2026-09-17x").is_none());
-    }
-
-    #[test]
-    fn week_start_is_monday() {
-        // 1970-01-01 周四；1970-01-05 是周一。
-        assert_eq!(week_start(0), -3);
-        assert_eq!(week_start(3), -3); // 周日
-        assert_eq!(week_start(4), 4); // 周一
-        assert_eq!(week_start(10), 4); // 同一个周日
-        assert_eq!(week_start(11), 11); // 下一个周一
-    }
-
-    #[test]
-    fn fmt_helpers() {
-        assert_eq!(fmt_days(civil_to_days(2026, 9, 7)), "2026-09-07");
-        assert_eq!(fmt_md(civil_to_days(2026, 9, 7)), "09/07");
-    }
-
-    // ---- 成就统计口径（06 节）----
-
-    fn enc(id: usize, date: &str, hidden: bool) -> EncounterLocal {
-        EncounterLocal {
-            id,
-            contact_id: Some(0),
-            label_snapshot: "甲".into(),
-            date: date.into(),
-            hidden,
-            note: String::new(),
-        }
-    }
-
-    #[test]
-    fn stats_only_count_visible_saved() {
-        let today = civil_to_days(2026, 9, 17); // 周四
-        let list = vec![
-            enc(0, "2026-09-16", false),
-            enc(1, "2026-09-10", false),
-            enc(2, "2026-09-10", true), // 隐藏：退出统计
-        ];
-        let s = achievement_stats(&list, 8, today);
-        assert_eq!(s.remembered, 2);
-        assert_eq!(s.days, 2);
-        assert_eq!(s.recent(), 2);
-        assert_eq!(s.weekly.len(), 8);
-        // 09-16 在本周（周一 09-14），09-10 在上一周。
-        assert_eq!(s.weekly[7].count, 1);
-        assert_eq!(s.weekly[6].count, 1);
-    }
-
-    #[test]
-    fn stats_unparseable_dates_fall_into_this_week() {
-        let today = civil_to_days(2026, 9, 17);
-        let list = vec![enc(0, "今天", false), enc(1, "09/06", false)];
-        let s = achievement_stats(&list, 4, today);
-        assert_eq!(s.weekly[3].count, 2); // 都归入本周
-        assert_eq!(s.days, 1); // 有效日期都是今天
-    }
-
-    #[test]
-    fn stats_week_window_changes_sum() {
-        let today = civil_to_days(2026, 9, 17);
-        let list = vec![enc(0, "2026-08-10", false), enc(1, "2026-09-16", false)];
-        let s8 = achievement_stats(&list, 8, today);
-        assert_eq!(s8.recent(), 2); // 08-10 在近 8 周内
-        let s4 = achievement_stats(&list, 4, today);
-        assert_eq!(s4.recent(), 1); // 但不在近 4 周内（窗口从 08-24 起）
-    }
-
-    #[test]
-    fn stats_hide_restore_delete_recalculate() {
-        let mut s = state();
-        let today = today_days();
-        let stats = achievement_stats(&s.encounters, 8, today);
-        assert_eq!(stats.remembered, 2);
-        // 隐藏退出统计。
-        assert!(s.set_hidden(0, true));
-        let stats = achievement_stats(&s.encounters, 8, today);
-        assert_eq!(stats.remembered, 1);
-        // 恢复计入。
-        assert!(s.set_hidden(0, false));
-        assert_eq!(achievement_stats(&s.encounters, 8, today).remembered, 2);
-        // 删除重算；熟人页口径（含隐藏）不受隐藏影响。
-        assert_eq!(s.meeting_count(0), 1);
-        assert!(s.delete_encounter(0));
-        let stats = achievement_stats(&s.encounters, 8, today);
-        assert_eq!(stats.remembered, 1);
-        assert_eq!(s.meeting_count(0), 0);
-    }
-
-    // ---- 里程碑 ----
-
-    #[test]
-    fn milestones_thresholds() {
-        let today = civil_to_days(2026, 9, 17);
-        let empty: Vec<EncounterLocal> = vec![];
-        let m = milestones(&achievement_stats(&empty, 8, today));
-        assert!(!m[0].lit && !m[1].lit && !m[2].lit);
-
-        let one = vec![enc(0, "2026-09-16", false)];
-        let m = milestones(&achievement_stats(&one, 8, today));
-        assert!(m[0].lit && !m[1].lit && !m[2].lit);
-        assert_eq!(m[0].title, "第一次刚刚好");
-
-        let three: Vec<_> = (0..3).map(|i| enc(i, "2026-09-16", false)).collect();
-        let m = milestones(&achievement_stats(&three, 8, today));
-        assert!(m[1].lit);
-        assert!(!m[2].lit); // 同一天三次 ≠ 七个日子
-
-        let seven_days: Vec<_> = (0..7)
-            .map(|i| enc(i, &fmt_days(today - i as i64), false))
-            .collect();
-        let m = milestones(&achievement_stats(&seven_days, 8, today));
-        assert!(m[2].lit);
-        assert_eq!(m[2].desc, "七个有相遇的日子");
-    }
-
-    // ---- 删除联系人 ----
-
-    #[test]
-    fn delete_contact_keeps_memories_by_default() {
-        let mut s = state();
-        assert!(s.delete_contact(0, false));
-        assert!(s.contact(0).is_none());
-        // 回忆保留：contact_id 置 None，label_snapshot 独立展示。
-        assert_eq!(s.encounters.len(), 2);
-        let e = &s.encounters[0];
-        assert_eq!(e.contact_id, None);
-        assert_eq!(e.label_snapshot, "林舟");
-        assert_eq!(s.meeting_count(0), 0); // 已删联系人次数归零（无关联）
-        assert!(!s.delete_contact(0, false)); // 已不存在
-    }
-
-    #[test]
-    fn delete_contact_with_memories() {
-        let mut s = state();
-        assert!(s.delete_contact(0, true));
-        assert_eq!(s.encounters.len(), 1);
-        assert_eq!(s.encounters[0].label_snapshot, "陈晓");
-    }
-
-    #[test]
-    fn delete_memories_of_keeps_contact() {
-        let mut s = state();
-        assert_eq!(s.delete_memories_of(0), 1);
-        assert_eq!(s.meeting_count(0), 0);
-        assert!(s.contact(0).is_some()); // 联系人保留
-        assert_eq!(s.delete_memories_of(0), 0);
-    }
-
-    // ---- 发布 ----
-
-    #[test]
-    fn several_trips_coexist_and_each_expires_on_its_own() {
-        let mut s = state();
-        let a = s.publish_at(SAT, 0, 1, 0, 0);
-        let b = s.publish_at(SAT, 1, 2, 2, 1);
-        assert_ne!(a, b);
-        assert_eq!(s.publishes.len(), 2);
-        let texts: Vec<String> = s.active_publishes(SAT, 9 * 60).iter().map(|p| p.text_at(SAT)).collect();
-        assert_eq!(texts, ["今天下午 · 三里屯一带 · 随意走走", "明天晚间 · 国贸公共街区 · 顺路办事"]);
-        // 今天下午那条 18:00 到期，明天晚间那条还在。
-        let left = s.active_publishes(SAT, 18 * 60);
-        assert_eq!(left.len(), 1);
-        assert_eq!(left[0].id, b);
-        // 历史顺序：有效的在前，到期的在后。
-        let hist = s.publish_history(SAT, 18 * 60);
-        assert_eq!(hist.iter().map(|p| p.id).collect::<Vec<_>>(), [b, a]);
-        // 修改只动那一条。
-        assert!(s.update_publish_at(SAT, b, 2, 0, 1, 2));
-        let pb = s.publishes.iter().find(|p| p.id == b).unwrap();
-        assert_eq!(pb.date, SAT + 2);
-        assert_eq!((pb.slot, pb.area, pb.intent), (0, 1, 2));
-        assert_eq!(s.publishes.iter().find(|p| p.id == a).unwrap().slot, 1);
-        assert!(!s.update_publish_at(SAT, 99, 0, 0, 0, 0));
-    }
-
-    #[test]
-    fn withdraw_removes_one_trip_and_the_echo_goes_with_the_last_one() {
-        let mut s = state();
-        let a = s.publish_at(SAT, 0, 0, 1, 2);
-        let b = s.publish_at(SAT, 1, 1, 1, 2);
-        s.set_echo(0);
-        assert!(s.withdraw_at(SAT, 9 * 60, a));
-        assert_eq!(s.publishes.len(), 1);
-        assert_eq!(s.echo, Some(0), "还有一条有效行踪，回声留着");
-        assert!(!s.withdraw_at(SAT, 9 * 60, a), "删过的再删一次什么都不发生");
-        assert!(s.withdraw_at(SAT, 9 * 60, b));
-        assert!(s.publishes.is_empty());
-        assert!(s.echo.is_none()); // 回声与最后一条行踪一同清除
-    }
-
-    #[test]
-    fn expired_history_is_capped() {
-        let mut s = state();
-        for i in 0..(PUBLISH_HISTORY_MAX + 5) {
-            s.publish_at(SAT - 40 + i as i64, 0, 1, 0, 0);
-        }
-        s.publish_at(SAT, 0, 1, 0, 0);
-        let old = s.publishes.iter().filter(|p| p.date < SAT).count();
-        assert_eq!(old, PUBLISH_HISTORY_MAX);
-        // 丢的是最早的那几条。
-        assert!(s.publishes.iter().all(|p| p.date >= SAT - 40 + 5));
-    }
-
-    // ---- 现场互认状态机 ----
-
-    #[test]
-    fn recog_happy_path() {
-        let mut s = RecogSession::new(0, "林舟".into(), 42);
-        assert_eq!(s.code, "1042");
-        // 一开始停在定位门槛，会话尚未建立。
-        assert_eq!(s.stage, RecogStage::LocationGate);
-        assert!(!s.session_open());
-        // 没过定位门槛，对方确认无效 —— 硬门槛。
-        assert!(!s.peer_confirm());
-        assert!(s.grant_location());
-        assert!(s.session_open());
-        assert_eq!(s.stage, RecogStage::Waiting);
-        assert!(s.peer_confirm());
-        assert_eq!(s.stage, RecogStage::Success);
-        assert!(s.stage.is_result());
-    }
-
-    #[test]
-    fn location_is_a_hard_gate() {
-        let mut s = RecogSession::new(0, "林舟".into(), 3);
-        assert!(s.deny_location());
-        assert_eq!(s.stage, RecogStage::NoLocation);
-        // 未授权就没有会话：对方怎么点都不成立。
-        assert!(!s.session_open());
-        assert!(!s.peer_confirm());
-        assert!(!s.peer_mismatch());
-        assert!(!s.tick());
-        // 之后再开定位仍然可以走下去。
-        assert!(s.grant_location());
-        assert_eq!(s.stage, RecogStage::Waiting);
-    }
-
-    #[test]
-    fn recog_mismatch_retries_up_to_three() {
-        let mut s = RecogSession::new(0, "林舟".into(), 7);
-        s.grant_location();
-        assert!(s.peer_mismatch()); // 1
-        assert_eq!(s.stage, RecogStage::Mismatch); // 停在结果屏
-        assert_eq!(s.retries_left(), 2);
-        assert!(s.retry());
-        assert!(s.peer_mismatch()); // 2
-        assert!(s.retry());
-        assert!(!s.peer_mismatch()); // 3 → 达上限
-        assert_eq!(s.attempts, 3);
-        assert!(!s.can_retry());
-        assert!(!s.retry()); // 用尽后不再给重试
-    }
-
-    #[test]
-    fn countdown_runs_out_into_expired() {
-        let mut s = RecogSession::new(0, "林舟".into(), 9);
-        s.grant_location();
-        assert_eq!(s.remaining_secs(), RECOG_WINDOW_SECS);
-        assert_eq!(countdown_label(s.remaining_secs()), "10:00");
-        for _ in 0..(RECOG_WINDOW_SECS - 1) {
-            assert!(s.tick());
-        }
-        assert_eq!(s.stage, RecogStage::Waiting);
-        assert_eq!(countdown_label(s.remaining_secs()), "0:01");
-        s.tick();
-        assert_eq!(s.stage, RecogStage::Expired);
-        assert_eq!(s.remaining_secs(), 0);
-        assert!((s.progress() - 1.0).abs() < 1e-6);
-        assert!(!s.tick()); // 过期后不再走表
-    }
-
-    #[test]
-    fn same_place_and_out_of_stock_are_different_outcomes() {
-        // 两条异常必须分得开：无库存不能谎称「同地不成立」。
-        let mut a = RecogSession::new(0, "林舟".into(), 1);
-        a.grant_location();
-        assert!(a.not_same_place());
-        assert_eq!(a.stage, RecogStage::Ordinary);
-
-        let mut b = RecogSession::new(0, "林舟".into(), 2);
-        b.grant_location();
-        assert!(b.no_stock());
-        assert_eq!(b.stage, RecogStage::NoStock);
-        assert_ne!(a.stage, b.stage);
-        // 六条路径都落在同一张结果屏上。
-        for st in [
-            RecogStage::Success,
-            RecogStage::Ordinary,
-            RecogStage::Expired,
-            RecogStage::Mismatch,
-            RecogStage::NoStock,
-        ] {
-            assert!(st.is_result());
-        }
-        assert!(!RecogStage::Waiting.is_result());
-        assert!(!RecogStage::LocationGate.is_result());
-    }
-
-    #[test]
-    fn session_memory_written_once_on_leave() {
-        let mut st = state();
-        let mut s = RecogSession::new(0, "林舟".into(), 5);
-        s.grant_location();
-        s.peer_confirm();
-        s.choice = MemoryChoice::Save;
-        let before = st.encounters.len();
-        st.write_session_memory(&mut s);
-        st.write_session_memory(&mut s); // 重复离页不再写
-        assert_eq!(st.encounters.len(), before + 1);
-        assert!(!st.encounters.last().unwrap().hidden);
-        // 本次选不保存：标记已处理但不写入。
-        let mut s2 = RecogSession::new(0, "林舟".into(), 6);
-        s2.choice = MemoryChoice::Skip;
-        st.write_session_memory(&mut s2);
-        assert!(s2.memory_written);
-        assert_eq!(st.encounters.len(), before + 1);
-    }
-
-    // ---- 相遇礼 ----
-
-    #[test]
-    fn reward_is_issued_on_success_and_redeemed_once() {
-        let mut s = state();
-        assert!(!s.redeem_reward()); // 没有券不能核销
-        let today = civil_to_days(2026, 9, 17);
-        s.issue_reward(today, 42);
-        let r = s.latest_reward().cloned().unwrap();
-        // 确认成功即出券 —— 没有「领取」这一步。
-        assert!(!r.redeemed);
-        assert_eq!(r.offer, "¥60 双人满 ¥120 可用");
-        assert_eq!(r.expires_on, Some(today + REWARD_VALID_DAYS));
-        assert_eq!(r.expiry_label(), "有效期至 9 月 24 日");
-        assert!(s.redeem_reward());
-        assert!(s.latest_reward().unwrap().redeemed);
-        assert!(!s.redeem_reward()); // 幂等
-    }
-
-    #[test]
-    fn a_coupon_carries_no_contact_place_or_date_of_the_encounter() {
-        // 红线：券上不得出现联系人、坐标、相遇日期（03 红线表第 7 行）。
-        let mut s = state();
-        s.issue_reward(civil_to_days(2026, 9, 17), 8);
-        let r = s.latest_reward().cloned().unwrap();
-        let text = format!(
-            "{} {} {} {} {}",
-            r.venue,
-            r.offer,
-            r.terms.clone().unwrap_or_default(),
-            r.token.clone().unwrap_or_default(),
-            r.expiry_label()
-        );
-        for name in s.contacts.iter().map(|c| c.label.clone()) {
-            assert!(!text.contains(&name), "券上出现了联系人「{name}」");
-        }
-        assert!(!text.contains("9 月 17 日"), "券上出现了相遇日期");
-        for a in crate::areas::AREAS.iter() {
-            assert!(!text.contains(a.name), "券上出现了相遇片区「{}」", a.name);
-        }
-    }
-
-    #[test]
-    fn an_old_state_file_without_the_new_coupon_fields_still_loads() {
-        // 新增字段全是 Option：旧 state.json 不能因为一次改版被整个丢掉。
-        let json = r#"{"contacts":[],"encounters":[],"reward":{"venue":"禾间小馆","offer":"¥60","claimed":true,"redeemed":false}}"#;
-        let p = PersistedState::deserialize_json(json).expect("旧券结构应仍可读");
-        let r = p.reward.expect("券应还在");
-        assert_eq!(r.expires_on, None);
-        assert_eq!(r.expiry_label(), "有效期以券面为准");
-    }
-
-    // ---- 券包 ----
-
-    #[test]
-    fn the_wallet_sorts_into_available_redeemed_and_expired() {
-        let today = civil_to_days(2026, 9, 17);
-        let mut s = state();
-        s.issue_reward(today - 10, 1); // 十天前发的，早过期了
-        s.issue_reward(today, 2); // 今天发的，可用
-        s.issue_reward(today, 3); // 今天发的，等下核销
-        assert!(s.redeem_at(2));
-
-        assert_eq!(s.rewards_in(today, RewardState::Available).len(), 1);
-        assert_eq!(s.rewards_in(today, RewardState::Redeemed).len(), 1);
-        assert_eq!(s.rewards_in(today, RewardState::Expired).len(), 1);
-        // 核销过的券不会又被算成过期。
-        let mut old = s.wallet[0].clone();
-        old.redeemed = true;
-        assert_eq!(old.state(today), RewardState::Redeemed);
-    }
-
-    #[test]
-    fn an_expiring_coupon_says_how_long_is_left() {
-        let today = civil_to_days(2026, 9, 17);
-        let mut s = state();
-        s.issue_reward(today - 5, 1); // 还剩 2 天
-        let r = s.latest_reward().unwrap();
-        assert_eq!(r.remaining_label(today).as_deref(), Some("还剩 2 天"));
-        s.issue_reward(today - 7, 2); // 今天到期
-        assert_eq!(
-            s.latest_reward().unwrap().remaining_label(today).as_deref(),
-            Some("今天最后一天")
-        );
-        // 刚发的券不催。
-        s.issue_reward(today, 3);
-        assert_eq!(s.latest_reward().unwrap().remaining_label(today), None);
-    }
-
-    #[test]
-    fn deleting_can_be_undone_within_the_window() {
-        let mut s = state();
-        let before_contacts = s.contacts.len();
-        let before_memories = s.encounters.len();
-        let snap = s.snapshot_for_undo("已删除 林舟");
-        assert!(s.delete_contact(0, true));
-        assert!(s.contacts.len() < before_contacts);
+    fn contacts_add_remove_restore() {
+        let mut s = LiyuState::for_tests();
+        assert_eq!(s.add_contact(" "), Err(AddContactError::Empty));
+        assert_eq!(s.add_contact("林舟"), Err(AddContactError::Duplicate));
+        assert_eq!(s.add_contact(&"长".repeat(17)), Err(AddContactError::TooLong));
+        let id = s.add_contact("周子墨").unwrap();
+        assert!(!s.directory.contains(&"周子墨".to_string()));
+        let snap = s.remove_contact(id).unwrap();
+        assert!(s.contact(id).is_none());
         s.restore(snap);
-        assert_eq!(s.contacts.len(), before_contacts);
-        assert_eq!(s.encounters.len(), before_memories);
+        assert!(s.contact(id).is_some());
+        assert_eq!(s.adopt_names(vec!["林小满".into(), "林舟".into(), "".into()]), 1);
     }
 
     #[test]
-    fn clearing_local_data_leaves_nothing_behind() {
-        let mut s = state();
-        s.issue_reward(today_days(), 1);
-        s.publish(0, 1, crate::areas::AREAS[0].id, 0);
-        s.clear_local_data();
-        assert!(s.contacts.is_empty());
-        assert!(s.encounters.is_empty());
-        assert!(s.wallet.is_empty());
-        assert!(s.recent_areas.is_empty());
-        assert!(s.publishes.is_empty());
-        // 清完再写一条回忆，id 不会和旧的撞上。
-        s.push_memory(0, "林舟", MemoryChoice::Save);
-        assert_eq!(s.encounters.len(), 1);
-    }
-
-    #[test]
-    fn an_old_single_coupon_file_becomes_a_one_card_wallet() {
-        let json = r#"{"contacts":[],"encounters":[],"reward":{"venue":"禾间小馆","offer":"¥60","claimed":true,"redeemed":false}}"#;
-        let p = PersistedState::deserialize_json(json).expect("旧结构应仍可读");
-        let mut s = state();
-        s.apply_persisted(p);
-        assert_eq!(s.wallet.len(), 1);
-        assert_eq!(s.wallet[0].venue, "禾间小馆");
-        // 写出去的时候不再填旧字段。
-        assert!(s.persisted().reward.is_none());
-    }
-
-    #[test]
-    fn notifications_are_off_until_asked_for() {
-        // 02-features 七.4：两类通知都是 opt-in。
-        let s = state();
-        assert!(!s.settings.notify_publish);
-        assert!(!s.settings.notify_reward);
+    fn gift_counts_per_contact() {
+        let s = LiyuState::for_tests();
+        // 许宁：送过一份香薰蜡烛；收到的暗号礼物还没拆，不算。
+        assert_eq!(s.gift_counts("许宁"), (1, 0));
+        // 陈晓：收到一份喜茶（已收下）；电影票还没拆。
+        assert_eq!(s.gift_counts("陈晓"), (0, 1));
+        assert_eq!(s.gift_counts("林舟"), (1, 0));
     }
 
     // ---- 持久化 ----
 
     #[test]
-    fn persist_roundtrip() {
-        let mut s = state();
-        s.push_memory(2, "许宁", MemoryChoice::Hidden);
-        s.issue_reward(today_days(), 1);
-        let id = s.publish(1, 2, crate::areas::AREAS[0].id, 0);
-        s.set_echo(1);
-        let p = s.persisted();
-        let json = p.serialize_json();
-        let back = PersistedState::deserialize_json(&json).expect("反序列化应成功");
-        assert_eq!(p, back);
-        // 行踪跟着落盘（「我的行踪」要回看），回声不落盘。
-        assert_eq!(back.publishes.as_ref().unwrap().len(), 1);
-        assert_eq!(back.publishes.as_ref().unwrap()[0].id, id);
-        assert!(!json.contains("\"echo\""));
+    fn serde_round_trip() {
+        let mut s = LiyuState::for_tests();
+        let id = reveal(&mut s, Unlock::GuessWho);
+        s.cash_out(id, T).unwrap();
+        s.settings.set_theme_mode(crate::theme::ThemeMode::default());
+        let json = s.persisted().serialize_json();
+        let back = PersistedState::deserialize_json_lenient(&json).unwrap();
+        assert_eq!(back, s.persisted());
+        let mut t = LiyuState::demo(T);
+        t.apply_persisted(back);
+        assert_eq!(t.gifts, s.gifts);
+        assert_eq!(t.balance(), s.balance());
+        assert_eq!(t.next_id, s.next_id);
     }
 
     #[test]
-    fn persist_file_roundtrip() {
-        let path = std::env::temp_dir().join(format!("ouyu-test-{}/state.json", std::process::id()));
-        let mut s = state();
-        s.delete_contact(1, false);
-        s.save_to(&path).expect("写盘应成功");
-        let loaded = OuyuState::load_from(&path).expect("读盘应成功");
-        assert_eq!(s.persisted(), loaded);
-        let mut t = state();
-        t.apply_persisted(loaded);
-        assert!(t.contact(1).is_none());
-        assert_eq!(t.encounters[1].contact_id, None); // 保留的回忆靠快照
-        assert_eq!(t.encounters[1].label_snapshot, "陈晓");
-        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    fn save_and_load_file() {
+        let dir = std::env::temp_dir().join(format!("liyu-test-{}", std::process::id()));
+        let path = dir.join("state.json");
+        let s = LiyuState::for_tests();
+        s.save_to(&path).unwrap();
+        let p = LiyuState::load_from(&path).expect("能读回来");
+        assert_eq!(p.gifts.as_ref().map(|g| g.len()), Some(s.gifts.len()));
+        // 不是礼遇格式的文件（旧版偶遇存档）算读不出来。
+        std::fs::write(&path, r#"{"contacts":[{"id":0,"label":"林舟"}],"encounters":[]}"#).unwrap();
+        assert!(LiyuState::load_from(&path).is_none());
+        std::fs::write(&path, "not json").unwrap();
+        assert!(LiyuState::load_from(&path).is_none());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
-    fn persist_bad_json_is_none() {
-        let path = std::env::temp_dir().join(format!("ouyu-bad-{}.json", std::process::id()));
-        std::fs::write(&path, "{oops").unwrap();
-        assert!(OuyuState::load_from(&path).is_none());
-        let _ = std::fs::remove_file(&path);
-        assert!(OuyuState::load_from(&path).is_none());
+    fn next_id_never_collides_after_load() {
+        let s = LiyuState::for_tests();
+        let mut p = s.persisted();
+        p.next_id = Some(1);
+        let mut t = LiyuState::demo(T);
+        t.apply_persisted(p);
+        let id = t.send_gift(&draft(0), T).unwrap();
+        assert_eq!(t.gifts.iter().filter(|g| g.id == id).count(), 1);
     }
 
     #[test]
-    fn persist_legacy_file_migrates_contacts_only() {
-        // Phase 0 旧格式：my_windows/cards/stealth/my_pos/亲密度全部忽略，
-        // 只迁出联系人 name → label；保存后旧字段自然消失。
-        let json = r#"{
-            "contacts":[{"id":0,"name":"老王","intimacy":80,"last_met":"3个月前","area":0,"free_start":14.0,"free_end":17.0,"in_circle":true}],
-            "my_windows":[{"day":"今天","start":14.0,"end":18.0,"area":0}],
-            "cards":[{"contact":0,"template":0,"time":15.5,"status":{"Sent":[]},"venue":null}],
-            "encounters":[{"date":"9/20","who":"老王","place":"壹碗面","note":""}],
-            "directory":["张伟"],
-            "stealth":true,
-            "my_pos_x":123.0,
-            "my_pos_y":456.0
-        }"#;
-        let path = std::env::temp_dir().join(format!("ouyu-legacy-{}.json", std::process::id()));
-        std::fs::write(&path, json).unwrap();
-        let p = OuyuState::load_from(&path).expect("旧文件应能迁移");
-        assert_eq!(p.contacts.len(), 1);
-        assert_eq!(p.contacts[0].label, "老王");
-        assert!(p.encounters.is_empty()); // 旧记录（含地点）不带入新模型
-        let _ = std::fs::remove_file(&path);
-        // 保存后的新文件不再含任何旧字段。
-        let mut s = state();
-        s.apply_persisted(p);
-        let out = s.persisted().serialize_json();
-        for key in ["my_windows", "cards", "stealth", "my_pos", "intimacy", "place"] {
-            assert!(!out.contains(key), "key {key} should be gone");
-        }
+    fn reset_demo_keeps_preferences() {
+        let mut s = LiyuState::for_tests();
+        s.settings.onboarded = true;
+        s.settings.theme = Some("light".into());
+        s.top_up(T);
+        s.reset_demo(T);
+        assert_eq!(s.balance(), 0);
+        assert!(s.settings.onboarded);
+        assert_eq!(s.settings.theme.as_deref(), Some("light"));
+    }
+
+    // ---- 状态文案与时间线 ----
+
+    #[test]
+    fn status_texts() {
+        let s = LiyuState::for_tests();
+        let texts: Vec<String> = s.received().iter().map(|g| g.status_text(T)).collect();
+        assert!(texts.contains(&"待拆 · 还剩 6 天".to_string()), "{texts:?}");
+        assert!(texts.contains(&"已收下".to_string()));
+        let sent: Vec<String> = s.sent().iter().map(|g| g.status_text(T)).collect();
+        assert_eq!(sent, vec!["已揭晓 · 等 TA 决定", "TA 收下了"]);
     }
 
     #[test]
-    fn persist_new_file_ignores_unknown_fields() {
-        // 新版文件混入未知字段（比如未来版本）也能加载。
-        let json = r#"{"contacts":[],"encounters":[],"directory":[],"reward":null,"next_encounter_id":0,"future_field":123}"#;
-        let path = std::env::temp_dir().join(format!("ouyu-future-{}.json", std::process::id()));
-        std::fs::write(&path, json).unwrap();
-        let p = OuyuState::load_from(&path).expect("未知字段应被忽略");
-        assert!(p.contacts.is_empty());
-        let _ = std::fs::remove_file(&path);
-    }
-
-    // ---- vCard ----
-
-    #[test]
-    fn vcard_basic() {
-        let names = parse_vcard("BEGIN:VCARD\nVERSION:3.0\nFN:周子墨\nEND:VCARD\n");
-        assert_eq!(names, vec!["周子墨".to_string()]);
+    fn timeline_is_short_and_ordered() {
+        let mut s = LiyuState::for_tests();
+        let mut d = draft(0);
+        d.contract = Some("周末陪我看一场电影".into());
+        let id = s.send_gift(&d, T).unwrap();
+        while s.simulate_step(id, T).is_some() {}
+        let t = s.gift(id).unwrap().timeline();
+        assert!(t.len() >= 3 && t.len() <= 5, "{t:?}");
+        assert!(t[0].1.starts_with("送出礼卡"));
     }
 
     #[test]
-    fn vcard_multiple_and_params() {
-        let text = "BEGIN:VCARD\nVERSION:4.0\nFN;CHARSET=UTF-8:吴凯文\nEND:VCARD\n\
-                    BEGIN:VCARD\nVERSION:3.0\nFN:赵四\nTEL:123\nEND:VCARD\n";
-        let mut names = parse_vcard(text);
-        names.sort();
-        assert_eq!(names, vec!["吴凯文".to_string(), "赵四".to_string()]);
-    }
-
-    #[test]
-    fn vcard_line_folding() {
-        let names = parse_vcard("BEGIN:VCARD\nFN:林小\n 满\nEND:VCARD\n");
-        assert_eq!(names, vec!["林小满".to_string()]);
-        let names = parse_vcard("BEGIN:VCARD\nFN:林\n\t小满\nEND:VCARD\n");
-        assert_eq!(names, vec!["林小满".to_string()]);
-    }
-
-    #[test]
-    fn vcard_n_fallback() {
-        let names = parse_vcard("BEGIN:VCARD\nN:黄;一诺;;;\nEND:VCARD\n");
-        assert_eq!(names, vec!["黄一诺".to_string()]);
-        let names = parse_vcard("BEGIN:VCARD\nN:Doe;John;;;\nEND:VCARD\n");
-        assert_eq!(names, vec!["John Doe".to_string()]);
-        let names = parse_vcard("BEGIN:VCARD\nN:黄;一诺;;;\nFN:黄一诺（小号）\nEND:VCARD\n");
-        assert_eq!(names, vec!["黄一诺（小号）".to_string()]);
-    }
-
-    #[test]
-    fn vcard_sample_file_parses() {
-        assert_eq!(
-            parse_vcard(SAMPLE_VCARD),
-            vec![
-                "周子墨".to_string(),
-                "林小满".to_string(),
-                "黄一诺".to_string(),
-                "吴凯文".to_string()
-            ]
-        );
-    }
-
-    // ---- 批次 5：分组、搜索、字母索引 ----
-
-    #[test]
-    fn a_memory_falls_into_the_month_of_its_date() {
-        assert_eq!(month_head("2026-09-17"), "2026 年 9 月");
-        assert_eq!(month_head("2025-01-03"), "2025 年 1 月");
-        // 认不出来的日期归到「更早」，不是被丢掉。
-        assert_eq!(month_head(""), "更早");
-        assert_eq!(month_head("去年夏天"), "更早");
-    }
-
-    #[test]
-    fn the_alphabet_index_reads_the_surname_not_the_nickname() {
+    fn alpha_key_groups_names() {
         assert_eq!(alpha_key("林舟"), 'L');
         assert_eq!(alpha_key("老陈"), 'C');
-        assert_eq!(alpha_key("小林"), 'L');
-        assert_eq!(alpha_key("阿黄"), 'H');
         assert_eq!(alpha_key("Anna"), 'A');
-        assert_eq!(alpha_key("bob"), 'B');
-        // 认不出来的不猜，进 # 那一格。
-        assert_eq!(alpha_key("喵喵"), '#');
-        assert_eq!(alpha_key(""), '#');
-        // 「小」本身是姓氏表里没有的字，剥掉之后也认不出，仍进 #。
-        assert_eq!(alpha_key("小"), '#');
+        assert_eq!(alpha_key("？"), '#');
     }
 
     #[test]
-    fn hidden_memories_never_show_up_in_search() {
-        // 02 F：隐藏记录不进入提醒、搜索、AI 或推荐。
-        let mut s = state();
-        s.encounters[0].note = "在书店门口".into();
-        let id = s.encounters[0].id;
-        let hit = search_memories(&s.encounters, "书店", None);
-        assert_eq!(hit.len(), 1);
-
-        assert!(s.set_hidden(id, true));
-        assert!(
-            search_memories(&s.encounters, "书店", None).is_empty(),
-            "隐藏之后还能搜到，这一条红线就破了"
-        );
-        // 连称呼也搜不到。
-        let label = s.encounters.iter().find(|e| e.id == id).unwrap().label_snapshot.clone();
-        assert!(search_memories(&s.encounters, &label, None)
-            .iter()
-            .all(|e| e.id != id));
-    }
-
-    #[test]
-    fn search_only_looks_at_the_name_and_the_note() {
-        let mut s = state();
-        s.encounters[0].note = "聊了很久".into();
-        assert_eq!(search_memories(&s.encounters, "聊了", None).len(), 1);
-        // 日期不是搜索目标 —— 按日期找东西是分组头的活。
-        let date = s.encounters[0].date.clone();
-        assert!(search_memories(&s.encounters, &date, None).is_empty());
-    }
-
-    #[test]
-    fn search_and_the_person_filter_stack() {
-        let mut s = state();
-        s.push_memory(0, "林舟", MemoryChoice::Save);
-        let all = search_memories(&s.encounters, "", None).len();
-        let only = search_memories(&s.encounters, "", Some("林舟")).len();
-        assert!(only <= all);
-        assert!(search_memories(&s.encounters, "", Some("林舟"))
-            .iter()
-            .all(|e| e.label_snapshot == "林舟"));
-    }
-
-    // ---- 批次 5：备注、手动添加、合并 ----
-
-    #[test]
-    fn a_note_can_be_written_and_rewritten() {
-        let mut s = state();
-        let id = s.encounters[0].id;
-        assert!(s.set_note(id, "  在地铁口碰上的  "));
-        assert_eq!(s.encounters[0].note, "在地铁口碰上的");
-        // 写成一样的不算改动。
-        assert!(!s.set_note(id, "在地铁口碰上的"));
-        assert!(!s.set_note(9999, "不存在的那条"));
-    }
-
-    #[test]
-    fn adding_a_contact_rejects_blank_and_duplicate_names() {
-        let mut s = state();
-        let n = s.contacts.len();
-        assert_eq!(s.add_contact("   "), Err(AddContactError::Empty));
-        assert_eq!(
-            s.add_contact("这个称呼实在是太长了根本写不完还在写"),
-            Err(AddContactError::TooLong)
-        );
-        let existing = s.contacts[0].label.clone();
-        assert_eq!(s.add_contact(&existing), Err(AddContactError::Duplicate));
-        assert_eq!(s.contacts.len(), n);
-
-        let id = s.add_contact(" 沈思远 ").unwrap();
-        assert_eq!(s.contacts.len(), n + 1);
-        assert_eq!(s.contact(id).unwrap().label, "沈思远");
-    }
-
-    #[test]
-    fn adding_a_contact_takes_them_out_of_the_directory_pool() {
-        let mut s = state();
-        let name = s.directory[0].clone();
-        s.add_contact(&name).unwrap();
-        assert!(!s.directory.contains(&name), "加过的人不该还挂在「可添加」里");
-    }
-
-    #[test]
-    fn merging_two_contacts_keeps_every_memory() {
-        let mut s = state();
-        let keep = s.contacts[0].id;
-        let gone = s.add_contact("老陈").unwrap();
-        s.push_memory(gone, "老陈", MemoryChoice::Save);
-        s.push_memory(gone, "老陈", MemoryChoice::Hidden);
-        let before = s.encounters.len();
-        let keep_label = s.contact(keep).unwrap().label.clone();
-        let keep_before = s.meeting_count(keep);
-
-        let moved = s.merge_contacts(gone, keep).unwrap();
-        assert_eq!(moved, 2);
-        assert_eq!(s.encounters.len(), before, "合并不该丢掉任何一条回忆");
-        assert!(s.contact(gone).is_none());
-        assert_eq!(s.meeting_count(keep), keep_before + 2);
-        // 称呼快照一起转过去，回忆页上不会留着一个已经不存在的名字。
-        assert!(s
-            .encounters
-            .iter()
-            .all(|e| e.label_snapshot != "老陈"));
-        assert!(s
-            .encounters
-            .iter()
-            .filter(|e| e.contact_id == Some(keep))
-            .all(|e| e.label_snapshot == keep_label));
-    }
-
-    #[test]
-    fn merging_refuses_nonsense() {
-        let mut s = state();
-        let a = s.contacts[0].id;
-        assert_eq!(s.merge_contacts(a, a), None, "自己并进自己");
-        assert_eq!(s.merge_contacts(a, 9999), None, "并进一个不存在的人");
-        assert_eq!(s.merge_contacts(9999, a), None, "从一个不存在的人并出来");
-    }
-
-    // ---- 批次 5：通知 ----
-
-    #[test]
-    fn notifications_stay_silent_until_you_turn_them_on() {
-        let mut s = state();
-        s.publish_at(SAT, 0, 1, crate::areas::AREAS[0].id, 0);
-        s.issue_reward(SAT, 1);
-        // 两个开关都是关的 —— 默认关闭是 02 七.4 写死的。
-        assert!(!s.settings.notify_publish);
-        assert!(!s.settings.notify_reward);
-        assert!(due_notices(&s, SAT, 17 * 60 + 45).is_empty());
-    }
-
-    #[test]
-    fn the_trip_notice_fires_only_in_the_last_half_hour() {
-        let mut s = state();
-        s.settings.notify_publish = true;
-        s.publish_at(SAT, 0, 1, crate::areas::AREAS[0].id, 0); // 下午，18:00 结束
-        assert!(due_notices(&s, SAT, 15 * 60).is_empty(), "还早");
-        assert!(due_notices(&s, SAT, 18 * 60).is_empty(), "已经过了");
-        let n = due_notices(&s, SAT, 17 * 60 + 45);
-        assert_eq!(n.len(), 1);
-        assert_eq!(n[0].kind, NoticeKind::PublishExpiring);
-        assert!(n[0].text.contains("15 分钟"));
-    }
-
-    #[test]
-    fn the_trip_notice_ignores_a_trip_that_is_not_today() {
-        let mut s = state();
-        s.settings.notify_publish = true;
-        s.publish_at(SAT, 3, 1, crate::areas::AREAS[0].id, 0);
-        assert!(due_notices(&s, SAT, 17 * 60 + 45).is_empty());
-    }
-
-    #[test]
-    fn the_coupon_notice_fires_in_the_last_two_days() {
-        let mut s = state();
-        s.settings.notify_reward = true;
-        s.issue_reward(SAT, 1);
-        let exp = s.wallet[0].expires_on.unwrap();
-        assert!(due_notices(&s, SAT, 9 * 60).is_empty(), "刚发的券不提醒");
-        let n = due_notices(&s, exp - 2, 9 * 60);
-        assert_eq!(n.len(), 1);
-        assert_eq!(n[0].kind, NoticeKind::RewardExpiring);
-        // 最后一天换一句话。
-        let n = due_notices(&s, exp, 9 * 60);
-        assert!(n[0].text.contains("今天最后一天"));
-        // 过期之后不再提醒 —— 提醒一张已经没用的券只会让人白跑一趟。
-        assert!(due_notices(&s, exp + 1, 9 * 60).is_empty());
-    }
-
-    #[test]
-    fn a_redeemed_coupon_stops_nagging() {
-        let mut s = state();
-        s.settings.notify_reward = true;
-        s.issue_reward(SAT, 1);
-        let exp = s.wallet[0].expires_on.unwrap();
-        assert_eq!(due_notices(&s, exp - 1, 9 * 60).len(), 1);
-        assert!(s.redeem_at(0));
-        assert!(due_notices(&s, exp - 1, 9 * 60).is_empty());
-    }
-
-    #[test]
-    fn notifications_never_mention_another_person_or_a_place_of_theirs() {
-        // 02 B 的红线：通知不能变成实时位置广播。
-        let mut s = state();
-        s.settings.notify_publish = true;
-        s.settings.notify_reward = true;
-        s.publish_at(SAT, 0, 1, crate::areas::AREAS[0].id, 0);
-        s.issue_reward(SAT, 1);
-        let exp = s.wallet[0].expires_on.unwrap();
-        let mut all: Vec<Notice> = due_notices(&s, SAT, 17 * 60 + 45);
-        all.extend(due_notices(&s, exp - 1, 17 * 60 + 45));
-        assert!(!all.is_empty());
-        for n in &all {
-            for bad in ["附近", "熟人", "有人", "米", "公里", "正在"] {
-                assert!(!n.text.contains(bad), "通知里出现了「{bad}」：{}", n.text);
-            }
-            for c in &s.contacts {
-                assert!(!n.text.contains(&c.label), "通知里出现了联系人：{}", n.text);
-            }
-        }
-    }
-
-    #[test]
-    fn merge_directory_dedups() {
-        let mut s = state();
-        let added = s.merge_directory(vec![
-            "沈思远".into(), // 新
-            "周子墨".into(), // 通讯录已有
-            "林舟".into(),   // 熟人已有
-            "  ".into(),     // 空白忽略
-            "沈思远".into(), // 同批重复
-        ]);
-        assert_eq!(added, 1);
-        assert_eq!(s.directory.last().unwrap(), "沈思远");
+    fn vcard_parsing() {
+        assert_eq!(parse_vcard(SAMPLE_VCARD), vec!["周子墨", "林小满", "黄一诺", "吴凯文"]);
     }
 }

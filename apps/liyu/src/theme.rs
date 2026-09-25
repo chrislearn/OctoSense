@@ -1,10 +1,10 @@
-//! 偶遇的色板：一份角色表，两套取值（夜 / 昼）。
+//! 礼遇的色板：一份角色表，两套取值（夜 / 昼）。
 //!
-//! 全应用不再写颜色字面量。写法是 `ouyu.<角色>`，角色名说的是「这是什么」
+//! 全应用不再写颜色字面量。写法是 `liyu.<角色>`，角色名说的是「这是什么」
 //! （正文 / 次文 / 主卡 / 分隔线 / 暖色强调），不是「它多深」—— 换一套主题
 //! 只是同一批角色换一组取值，界面的层级关系不跟着变。
 //!
-//! 切换的路径：`set_mode()` 改进程内的选择 → `OuyuView::restyle` 在自己的
+//! 切换的路径：`set_mode()` 改进程内的选择 → `LiyuView::restyle` 在自己的
 //! 隔离 VM 里重跑 `install` + 两个 `script_mod`，再用 `Apply::ScriptReapply`
 //! 把整棵树按新色板刷一遍（宿主换外观时走的是同一条路，见 `module_host.rs`
 //! 的 `apply_style`）。
@@ -21,7 +21,7 @@ script_mod! {
     //
     // 底色是夜蓝，强调色是暖杏。暖杏在夜里可以直接当文字色用；到了昼版
     // 它在白底上读不出来，所以「暖色文字」和「暖色面」是两个角色。
-    mod.ouyu_themes.dark = {
+    mod.liyu_themes.dark = {
         // 面
         bg: #x0b1220           // 页面底
         bg_chrome: #x0d1626    // 侧栏 / 底部导航
@@ -112,7 +112,7 @@ script_mod! {
     // 同一批角色，白纸取值。三条硬约束：正文对底不低于 7:1，次文不低于
     // 4.5:1，暖色和蓝色一旦当文字用就压深 —— 夜版那两个亮调在白底上是看
     // 不见的（输入框占位符就是这么糊掉的）。
-    mod.ouyu_themes.light = {
+    mod.liyu_themes.light = {
         bg: #xf2f5fa
         bg_chrome: #xe7ecf5
         card: #xffffff
@@ -187,9 +187,9 @@ script_mod! {
 
     // ---- 圆角角色表(与深浅无关)----
     //
-    // 圆角不随深浅变,所以不进 `ouyu_themes`:它只定义一次,两套主题共用,
+    // 圆角不随深浅变,所以不进 `liyu_themes`:它只定义一次,两套主题共用,
     // 由结构保证 dark/light 不可能出现两份对不上的圆角。
-    mod.ouyu_radius = {
+    mod.liyu_radius = {
         card: 8.0     // 卡片、券面、弹窗、首字圆底
         button: 6.0   // 按钮、输入、通知、开关轨道
         chip: 4.0     // 小控件、knob、分段
@@ -233,7 +233,7 @@ impl ThemeMode {
 }
 
 /// 进程内的当前选择。`install` 在每个 VM（宿主下每个实例一个隔离 VM）里
-/// 读它，所以同一进程里的几扇偶遇窗口共用一套深浅 —— 这是设置，不是每扇
+/// 读它，所以同一进程里的几扇礼遇窗口共用一套深浅 —— 这是设置，不是每扇
 /// 窗口各自的状态。
 static MODE: AtomicU8 = AtomicU8::new(0);
 
@@ -259,34 +259,34 @@ fn load_persisted_once() {
     if LOADED.swap(true, Ordering::Relaxed) {
         return;
     }
-    if let Some(name) = crate::data::OuyuState::persisted_theme() {
+    if let Some(name) = crate::data::LiyuState::persisted_theme() {
         set_mode(ThemeMode::parse(&name));
     }
 }
 
-/// 把两套色板装进这个 VM，再把选中的那套绑到 `mod.ouyu`，最后拼出偶遇自己
-/// 的 prelude —— 之后所有预设里写的 `ouyu.ink` 都从这里解析。
+/// 把两套色板装进这个 VM，再把选中的那套绑到 `mod.liyu`，最后拼出礼遇自己
+/// 的 prelude —— 之后所有预设里写的 `liyu.ink` 都从这里解析。
 ///
-/// 重跑一次（`vm.with_reload` 里）就是换一套主题：`mod.ouyu` 重新指向另一
+/// 重跑一次（`vm.with_reload` 里）就是换一套主题：`mod.liyu` 重新指向另一
 /// 张表，后面 `canvas::script_mod` / `crate::script_mod` 重建的预设自然带上
 /// 新颜色。
 pub fn install(vm: &mut ScriptVm) {
     load_persisted_once();
-    vm.bx.heap.new_module(id!(ouyu_themes));
+    vm.bx.heap.new_module(id!(liyu_themes));
     script_mod(vm);
     match mode() {
         ThemeMode::Dark => {
-            script_eval!(vm, { mod.ouyu = mod.ouyu_themes.dark });
+            script_eval!(vm, { mod.liyu = mod.liyu_themes.dark });
         }
         ThemeMode::Light => {
-            script_eval!(vm, { mod.ouyu = mod.ouyu_themes.light });
+            script_eval!(vm, { mod.liyu = mod.liyu_themes.light });
         }
     }
     script_eval!(vm, {
-        mod.prelude.ouyu = {
+        mod.prelude.liyu = {
             ..mod.prelude.widgets,
-            ouyu: mod.ouyu,
-            r: mod.ouyu_radius,
+            liyu: mod.liyu,
+            r: mod.liyu_radius,
         }
     });
 }
@@ -294,7 +294,7 @@ pub fn install(vm: &mut ScriptVm) {
 /// Rust 侧要用到的那几个角色。
 ///
 /// 界面里绝大多数颜色写在预设里，换主题跟着 reapply 一起变；只有「跟数据走」
-/// 的那几处（选中的 Tab、强度分档、开关轨道、券的可用与否）是 Rust 每次刷新
+/// 的那几处（选中的 Tab、礼物状态色、开关轨道、礼卡的可用与否）是 Rust 每次刷新
 /// 时才知道该用哪一个，所以这里把它们从同一张表里读出来缓存着。
 ///
 /// 读不到的角色（表里少写了一个）退回夜版取值，不会画出一块透明。
@@ -308,6 +308,7 @@ pub struct Pal {
     pub warm: Vec4f,
     pub blue: Vec4f,
     pub bad: Vec4f,
+    pub good: Vec4f,
     pub coupon: Vec4f,
     pub coupon_off: Vec4f,
     pub track_off: Vec4f,
@@ -336,6 +337,7 @@ impl Default for Pal {
             warm: rgba(0xffca91ff),
             blue: rgba(0x82b5ffff),
             bad: rgba(0xff9eabff),
+            good: rgba(0x9be2bfff),
             coupon: rgba(0xffca91ff),
             coupon_off: rgba(0x8f7c66ff),
             track_off: rgba(0x24354fff),
@@ -346,13 +348,13 @@ impl Default for Pal {
 }
 
 impl Pal {
-    /// 从当前 VM 的 `mod.ouyu` 里读一遍。
+    /// 从当前 VM 的 `mod.liyu` 里读一遍。
     pub fn read(cx: &mut Cx) -> Self {
         let mut p = Self::default();
         cx.with_vm(|vm| {
             let mut role = |name: LiveId, slot: &mut Vec4f| {
-                let ouyu = vm.module(id!(ouyu));
-                if let Some(c) = vm.bx.heap.value(ouyu, name.into(), NoTrap).as_color() {
+                let liyu = vm.module(id!(liyu));
+                if let Some(c) = vm.bx.heap.value(liyu, name.into(), NoTrap).as_color() {
                     *slot = rgba(c);
                 }
             };
@@ -364,6 +366,7 @@ impl Pal {
             role(live_id!(warm), &mut p.warm);
             role(live_id!(blue), &mut p.blue);
             role(live_id!(bad), &mut p.bad);
+            role(live_id!(good), &mut p.good);
             role(live_id!(coupon), &mut p.coupon);
             role(live_id!(coupon_off), &mut p.coupon_off);
             role(live_id!(track_off), &mut p.track_off);
@@ -383,7 +386,7 @@ mod tests {
     /// 那天，测试反而是绿的。
     fn roles(table: &str) -> Vec<String> {
         let src = include_str!("theme.rs");
-        let head = format!("mod.ouyu_themes.{} = {{", table);
+        let head = format!("mod.liyu_themes.{} = {{", table);
         let start = src.find(&head).expect("色板没找到") + head.len();
         let end = start + src[start..].find("
     }").expect("色板没收尾");
@@ -412,10 +415,10 @@ mod tests {
         let mut cx = Cx::new(Box::new(|_, _| {}));
         cx.with_vm(|vm| {
             makepad_widgets::script_mod(vm);
-            vm.bx.heap.new_module(id!(ouyu_themes));
+            vm.bx.heap.new_module(id!(liyu_themes));
             script_mod(vm);
             for table in ["dark", "light"] {
-                let themes = vm.module(id!(ouyu_themes));
+                let themes = vm.module(id!(liyu_themes));
                 for name in &dark {
                     let color = vm
                         .bx
@@ -432,7 +435,7 @@ mod tests {
         });
     }
 
-    /// 两套主题下整份 DSL 都要能跑干净：预设里写错一个角色名（`ouyu.lnk`）
+    /// 两套主题下整份 DSL 都要能跑干净：预设里写错一个角色名（`liyu.lnk`）
     /// 只是一条运行时错误，cargo check 照样通过，界面上那一处变透明。
     #[test]
     fn every_preset_evaluates_in_both_themes() {
@@ -450,13 +453,13 @@ mod tests {
                 let errors = vm.take_errors();
                 assert!(errors.is_empty(), "{:?} 下有脚本错误: {:?}", mode, errors);
                 assert!(
-                    script_eval!(vm, { mod.ouyu.ink }).as_color().is_some(),
-                    "{:?} 下 mod.ouyu 没绑上",
+                    script_eval!(vm, { mod.liyu.ink }).as_color().is_some(),
+                    "{:?} 下 mod.liyu 没绑上",
                     mode
                 );
                 assert!(
-                    script_eval!(vm, { mod.widgets.OuyuInput }).as_object().is_some(),
-                    "{:?} 下 OuyuInput 没注册",
+                    script_eval!(vm, { mod.widgets.LiyuInput }).as_object().is_some(),
+                    "{:?} 下 LiyuInput 没注册",
                     mode
                 );
             }
@@ -468,7 +471,7 @@ mod tests {
     /// 会和表对不上 —— 对不上的那天测试反而是绿的。
     fn radius_roles() -> Vec<String> {
         let src = include_str!("theme.rs");
-        let head = "mod.ouyu_radius = {";
+        let head = "mod.liyu_radius = {";
         let start = src.find(head).expect("圆角表没找到") + head.len();
         let end = start + src[start..].find("\n    }").expect("圆角表没收尾");
         let mut out: Vec<String> = src[start..end]
@@ -485,7 +488,7 @@ mod tests {
     }
 
     /// 圆角角色表：每个角色在**两套主题**下都要能解析成数字，且要经过预设里
-    /// 真正走的那条路径 `mod.prelude.ouyu.r`。
+    /// 真正走的那条路径 `mod.prelude.liyu.r`。
     ///
     /// 圆角不随深浅变(表只定义一次),所以这条测试同时钉住两件事:表本身没写漏,
     /// 以及并入 prelude 的那条路没断 —— 后者断了,`r.card` 在预设里就成了一条
@@ -512,12 +515,12 @@ mod tests {
                     install(vm);
                 });
 
-                let table = script_eval!(vm, { mod.ouyu_radius })
+                let table = script_eval!(vm, { mod.liyu_radius })
                     .as_object()
-                    .expect("mod.ouyu_radius 不是对象");
-                let prelude_r = script_eval!(vm, { mod.prelude.ouyu.r })
+                    .expect("mod.liyu_radius 不是对象");
+                let prelude_r = script_eval!(vm, { mod.prelude.liyu.r })
                     .as_object()
-                    .expect("mod.prelude.ouyu.r 不是对象");
+                    .expect("mod.prelude.liyu.r 不是对象");
                 for name in &names {
                     let direct = vm
                         .bx
@@ -526,7 +529,7 @@ mod tests {
                         .as_number();
                     assert!(
                         direct.is_some(),
-                        "mod.ouyu_radius.{} 解析不出数字 ({:?})",
+                        "mod.liyu_radius.{} 解析不出数字 ({:?})",
                         name,
                         mode
                     );
@@ -538,7 +541,7 @@ mod tests {
                         .as_number();
                     assert!(
                         via_prelude.is_some(),
-                        "mod.prelude.ouyu.r.{} 解析不出数字 ({:?})",
+                        "mod.prelude.liyu.r.{} 解析不出数字 ({:?})",
                         name,
                         mode
                     );

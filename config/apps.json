@@ -8,11 +8,11 @@
     "policy": "new"
   },
   {
-    "id": "ouyu",
-    "label": "偶遇 OuYu",
-    "manifest": "../apps/ouyu/Cargo.toml",
-    "package": "octosense-ouyu",
-    "bin": "octosense-ouyu",
+    "id": "liyu",
+    "label": "礼遇 LiYu",
+    "manifest": "../apps/liyu/Cargo.toml",
+    "package": "octosense-liyu",
+    "bin": "octosense-liyu",
     "policy": "new"
   },
   {

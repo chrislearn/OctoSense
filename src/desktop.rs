@@ -906,7 +906,7 @@ pub fn app_icon(id: &str) -> Ico {
         "fabric" => Ico::Shirt,
         "fab" => Ico::Refresh,
         "studio" => Ico::Moon,
-        "ouyu" => Ico::Encounter,
+        "liyu" => Ico::Gift,
         _ => Ico::Monitor,
     }
 }

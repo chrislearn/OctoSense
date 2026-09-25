@@ -14,7 +14,7 @@ script_mod! {
         d +: {text.text_style: theme.font_regular text_bold.text_style: theme.font_bold}
         // A phone family names its own `latin` face, which replaces the theme
         // family whole — the CJK and emoji members the font policy put on
-        // `theme.font_*` go with it, and an app label like "偶遇 OuYu" draws
+        // `theme.font_*` go with it, and an app label like "礼遇 LiYu" draws
         // tofu. Name the fallbacks here too; both faces ship in the
         // International asset package this app declares.
         ios_font: theme.font_regular{
@@ -531,7 +531,7 @@ mod tests {
 
     /// A phone family names its own `latin` face, which replaces the theme
     /// family whole — the CJK and emoji members the font policy puts on
-    /// `theme.font_*` do not survive into it. An app label like "偶遇 OuYu"
+    /// `theme.font_*` do not survive into it. An app label like "礼遇 LiYu"
     /// drew tofu on both phone styles until they named the fallbacks
     /// themselves.
     #[test]
