@@ -4904,8 +4904,12 @@ impl LiyuView {
     /// 返回值连同来源说明一起给状态行用。
     fn avatar_preview_bytes(&self) -> Option<(Vec<u8>, &'static str)> {
         if let Some(session) = &self.avatar_session {
-            if let Ok(enc) = session.encode_final(avatar::AvatarFormat::Png) {
-                return Some((enc.bytes, "预览中，未确认"));
+            // 按当前锚点从原图即时裁切预览(原图保留,锚点切换不破坏)。
+            let cropped = session.crop_anchor(self.avatar_crop_anchor).ok();
+            if let Some(s) = cropped {
+                if let Ok(enc) = s.encode_final(avatar::AvatarFormat::Png) {
+                    return Some((enc.bytes, "预览中，未确认"));
+                }
             }
         }
         if let Some(bytes) = &self.avatar_pending_bytes {
@@ -4990,6 +4994,15 @@ impl LiyuView {
                 return self.avatar_upload_bytes(cx, bytes, "image/png");
             }
             return;
+        };
+        // 确认时按当前锚点从原图裁切编码(原图已按需旋转,此处取最终裁图)。
+        let session = match session.crop_anchor(self.avatar_crop_anchor) {
+            Ok(s) => s,
+            Err(e) => {
+                self.profile_err = Some(Self::avatar_err(&e));
+                self.refresh_avatar(cx);
+                return;
+            }
         };
         // 默认输出 JPEG（体积小、服务端与 UI 的 512×512 约束一致）；保留 alpha 的图用 PNG。
         let enc = match session.encode_final(avatar::AvatarFormat::Jpeg) {
@@ -5791,28 +5804,13 @@ impl LiyuView {
                 }
             }
             if self.clicked(cx, ids!(pf_avatar_anchor), actions) {
-                // 九宫格位置循环:0 左上 → 4 居中 → 8 右下,按位置裁最大正方形。
+                // 九宫格位置循环:0 左上 → 4 居中 → 8 右下。只更新锚点标记,
+                // 不破坏 avatar_session(未裁原图保留);预览/编码按锚点从原图即时裁切。
                 self.avatar_crop_anchor = (self.avatar_crop_anchor + 1) % 9;
-                let a = self.avatar_crop_anchor;
-                if let Some(session) = self.avatar_session.take() {
-                    let (w, h) = session.dimensions();
-                    let side = w.min(h);
-                    let col = (a % 3) as u32;
-                    let row = (a / 3) as u32;
-                    let x = (w - side) * col / 2;
-                    let y = (h - side) * row / 2;
-                    match session.crop(x, y, side, side) {
-                        Ok(s) => {
-                            self.avatar_session = Some(s);
-                            self.profile_err = None;
-                            let name = ["左上","上中","右上","左中","居中","右中","左下","下中","右下"][a as usize];
-                            self.set_text(cx, ids!(pf_avatar_anchor), &format!("裁切位置:{name}"));
-                        }
-                        Err(e) => {
-                            self.avatar_session = None;
-                            self.profile_err = Some(Self::avatar_err(&e));
-                        }
-                    }
+                if self.avatar_session.is_some() {
+                    let name = ["左上","上中","右上","左中","居中","右中","左下","下中","右下"][self.avatar_crop_anchor as usize];
+                    self.set_text(cx, ids!(pf_avatar_anchor), &format!("裁切位置:{name}"));
+                    self.profile_err = None;
                     self.refresh_avatar(cx);
                 }
             }

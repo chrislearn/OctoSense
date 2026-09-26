@@ -113,6 +113,12 @@ pub struct AvatarEditSession {
     image: RgbaImage,
 }
 
+impl Clone for AvatarEditSession {
+    fn clone(&self) -> Self {
+        Self { image: self.image.clone() }
+    }
+}
+
 impl std::fmt::Debug for AvatarEditSession {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (w, h) = self.image.dimensions();
@@ -189,6 +195,23 @@ impl AvatarEditSession {
         let x = (w - side) / 2;
         let y = (h - side) / 2;
         self.crop(x, y, side, side)
+    }
+
+    /// 非消耗裁切:从当前图按九宫格锚点(0-8,0 左上/4 居中/8 右下)取最大正方形,
+    /// 返回新会话,本会话(原图)不变。用于预览时锚点切换不破坏未裁原图。
+    pub fn crop_anchor(&self, anchor: u8) -> Result<Self, AvatarError> {
+        let (w, h) = self.image.dimensions();
+        let side = w.min(h);
+        if side == 0 {
+            return Err(AvatarError::InvalidCrop);
+        }
+        let a = anchor % 9;
+        let col = (a % 3) as u32;
+        let row = (a / 3) as u32;
+        let x = (w - side) * col / 2;
+        let y = (h - side) * row / 2;
+        let image = image::imageops::crop_imm(&self.image, x, y, side, side).to_image();
+        Ok(Self { image })
     }
 
     /// 顺时针旋转 `quarter_turns` 个 90°(取模 4)。
@@ -667,6 +690,29 @@ mod tests {
             .crop_square_center()
             .expect("square");
         assert_eq!(session.dimensions(), (60, 60));
+    }
+
+    #[test]
+    fn crop_anchor_two_positions_give_different_pixels() {
+        // 非纯色渐变图(每像素 = 坐标),不同锚点裁出的区域像素必须不同。
+        let mut img = RgbaImage::new(90, 60);
+        for y in 0..60 {
+            for x in 0..90 {
+                img.put_pixel(x, y, Rgba([x as u8, y as u8, (x + y) as u8, 255]));
+            }
+        }
+        let bytes = png_bytes(&img);
+        let session = AvatarEditSession::load_bytes(&bytes).unwrap();
+        // 原图保留:连续两次锚点裁切都从原图取,不是在上一次结果上再裁。
+        let left = session.crop_anchor(0).expect("左上").encode_final(AvatarFormat::Png).unwrap().bytes;
+        let right = session.crop_anchor(2).expect("右上").encode_final(AvatarFormat::Png).unwrap().bytes;
+        let center = session.crop_anchor(4).expect("居中").encode_final(AvatarFormat::Png).unwrap().bytes;
+        assert_ne!(left, right, "左上与右上裁切像素应不同");
+        assert_ne!(left, center, "左上与居中裁切像素应不同");
+        assert_ne!(right, center, "右上与居中裁切像素应不同");
+        // 同一锚点重复裁切结果一致(原图未被破坏)。
+        let left2 = session.crop_anchor(0).expect("左上再裁").encode_final(AvatarFormat::Png).unwrap().bytes;
+        assert_eq!(left, left2, "同一锚点重复裁切应从原图得到相同结果");
     }
 
     #[test]
