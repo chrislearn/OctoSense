@@ -5046,9 +5046,17 @@ impl LiyuView {
         self.profile_err = None;
         self.profile_edit_address = None;
         // 联网且有会话时,若上次断网删除留下了「待删除」意图,先重试服务端同步。
+        // 重试失败(仍断网/服务端错)时不再用远端资料覆盖——保留待删除状态与提示,
+        // 避免旧 avatar_url 重新显示却标「已同步」。
         if profile_client::avatar_delete_pending() {
-            profile_client::retry_delete_avatar();
-            self.profile = profile_client::load(&self.state.settings.nickname);
+            let synced = profile_client::retry_delete_avatar();
+            if synced {
+                self.profile = profile_client::load(&self.state.settings.nickname);
+            } else {
+                // 待删除未同步:本地视图为「已删除待同步」,不显示服务端旧头像。
+                self.profile.avatar_url = String::new();
+                self.profile_err = Some("头像删除待同步:联网后自动重试");
+            }
         }
         // 重启后恢复待上传预览：本机还有未同步字节就显示出来并明示。
         self.avatar_session = None;
