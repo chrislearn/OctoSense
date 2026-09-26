@@ -27,6 +27,7 @@ mod wishui;
 
 use canvas::LiyuShareCard;
 use data::*;
+use makepad_widgets::makepad_platform::file_dialogs::{FileDialog, FileDialogAction};
 use commerce_client::{Commerce, ProductDetail};
 use gift_client::GiftClient;
 use profile_client::Profile;
@@ -1194,8 +1195,7 @@ script_mod! {
                                             width: Fill height: Fit
                                             flow: Right
                                             spacing: 8.0
-                                            pf_avatar_path := LiyuInput { empty_text: "本机图片文件路径，如 /Users/你/Pictures/me.jpg" }
-                                            pf_avatar_load := LiyuBtn { width: Fit text: "载入" }
+                                            pf_avatar_load := LiyuBtn { width: Fit text: "选择图片…" }
                                         }
                                     }
                                 }
@@ -4887,7 +4887,7 @@ impl LiyuView {
         }
     }
 
-    /// 当前应显示的头像字节：编辑中 > 待上传本地字节 > 已上传（服务端标识暂无法回显，用占位）。
+    /// 当前应显示的头像字节：编辑中 > 待上传本地字节 > 已上传（GET 服务端图像）。
     /// 返回值连同来源说明一起给状态行用。
     fn avatar_preview_bytes(&self) -> Option<(Vec<u8>, &'static str)> {
         if let Some(session) = &self.avatar_session {
@@ -4897,6 +4897,12 @@ impl LiyuView {
         }
         if let Some(bytes) = &self.avatar_pending_bytes {
             return Some((bytes.clone(), "未同步"));
+        }
+        // 已上传头像:GET 服务端图像字节回显(avatar_url 是 /api/v1/media/avatars/<hex>)。
+        if !self.profile.avatar_url.is_empty() && !profile_client::avatar_pending(&self.profile) {
+            if let Some(bytes) = profile_client::fetch_avatar_bytes(&self.profile.avatar_url) {
+                return Some((bytes, "已同步"));
+            }
         }
         None
     }
@@ -5017,6 +5023,11 @@ impl LiyuView {
         self.profile = profile_client::load(&self.state.settings.nickname);
         self.profile_err = None;
         self.profile_edit_address = None;
+        // 联网且有会话时,若上次断网删除留下了「待删除」意图,先重试服务端同步。
+        if profile_client::avatar_delete_pending() {
+            profile_client::retry_delete_avatar();
+            self.profile = profile_client::load(&self.state.settings.nickname);
+        }
         // 重启后恢复待上传预览：本机还有未同步字节就显示出来并明示。
         self.avatar_session = None;
         self.avatar_busy = false;
@@ -5027,7 +5038,6 @@ impl LiyuView {
         };
         let p = self.profile.clone();
         self.set_text(cx, ids!(pf_name), &p.display_name);
-        self.set_text(cx, ids!(pf_avatar_path), "");
         self.set_text(cx, ids!(pf_phone), &p.phone);
         self.set_text(cx, ids!(pf_email), &p.email);
         self.set_text(cx, ids!(pf_phone_code), "");
@@ -5134,6 +5144,33 @@ impl LiyuView {
 
     fn handle_actions(&mut self, cx: &mut Cx, actions: &Actions) {
         let today = today_days();
+
+        // ---- 头像文件选择对话框结果：选中 → 载入编辑会话；取消 → 不动状态、不上传 ----
+        for action in actions {
+            if let Some(fda) = action.downcast_ref::<FileDialogAction>() {
+                if fda.id() == live_id!(avatar_pick) {
+                    match fda {
+                        FileDialogAction::FileSelected { .. } => {
+                            if let Some(path) = fda.path() {
+                                match avatar::AvatarEditSession::load_path(path) {
+                                    Ok(session) => {
+                                        self.avatar_session = Some(session);
+                                        self.profile_err = None;
+                                    }
+                                    Err(e) => {
+                                        self.profile_err = Some(Self::avatar_err(&e));
+                                        self.avatar_session = None;
+                                    }
+                                }
+                            }
+                        }
+                        FileDialogAction::FileCancelled { .. } => {}
+                        _ => {}
+                    }
+                    self.refresh_avatar(cx);
+                }
+            }
+        }
 
         // ---- 认证闸：全屏时只处理自己的几个按钮，别的一律不响应 ----
         if self.auth_gate {
@@ -5703,24 +5740,15 @@ impl LiyuView {
                     // 待上传状态下「重试上传」：直接读本地字节重新上传，不需要再选图。
                     self.avatar_upload(cx);
                 } else {
-                    let path = self.input_text(cx, ids!(pf_avatar_path));
-                    let trimmed = path.trim().to_string();
-                    if trimmed.is_empty() {
-                        self.profile_err = Some("请输入本机图片文件路径");
-                    } else {
-                        match avatar::AvatarEditSession::load_path(std::path::Path::new(&trimmed)) {
-                            Ok(session) => {
-                                self.avatar_session = Some(session);
-                                self.profile_err = None;
-                                // 载入后自动预览原图。
-                            }
-                            Err(e) => {
-                                self.profile_err = Some(Self::avatar_err(&e));
-                                self.avatar_session = None;
-                            }
-                        }
-                    }
-                    self.refresh_avatar(cx);
+                    // 原生 OS 文件选择对话框（取消 → FileCancelled，不动状态、不上传）。
+                    let dialog = FileDialog::new()
+                        .set_id(live_id!(avatar_pick))
+                        .set_title("选择头像".into())
+                        .add_filter(
+                            "图片".into(),
+                            vec!["jpg".into(), "jpeg".into(), "png".into(), "webp".into()],
+                        );
+                    cx.open_select_file_dialog(dialog);
                 }
             }
             if self.clicked(cx, ids!(pf_avatar_crop), actions) {
