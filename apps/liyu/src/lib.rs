@@ -60,7 +60,7 @@ script_mod! {
                 width: Fill height: Fit
                 flow: Down
                 spacing: 2.0
-                margin: Inset{left: 6.0, bottom: 18.0}
+                margin: Inset{left: 6.0, bottom: 16.0}
                 title := Label {
                     flow: Right{wrap: true}
                     text: "礼遇 LiYu"
@@ -113,7 +113,7 @@ script_mod! {
                         width: Fill height: Fill
                         flow: Right
                         align: Align{x: 0.0, y: 0.5}
-                        padding: Inset{left: 18.0, right: 12.0}
+                        padding: Inset{left: 16.0, right: 12.0}
                         spacing: 8.0
                         tb_back := LiyuLink {
                             visible: false
@@ -151,7 +151,7 @@ script_mod! {
                             visible: false
                             width: Fill height: Fit
                             flow: Down
-                            padding: Inset{left: 16.0, right: 16.0, bottom: 10.0}
+                            padding: Inset{left: 16.0, right: 16.0, bottom: 8.0}
                             nt_card := LiyuCard {
                                 width: Fill height: Fit
                                 flow: Right
@@ -171,7 +171,7 @@ script_mod! {
                                         flow: Right{wrap: true}
                                         width: Fill
                                         text: ""
-                                        draw_text +: { wrap: Words color: liyu.ink text_style +: { font_size: 13.5 line_spacing: 1.35 } }
+                                        draw_text +: { wrap: Words color: liyu.ink text_style +: { font_size: 13.0 line_spacing: 1.35 } }
                                     }
                                     nt_text := Label {
                                         flow: Right{wrap: true}
@@ -256,7 +256,7 @@ script_mod! {
                                     pc32 := LiyuProductCard { }
                                 }
                                 gf_note := LiyuMuted {
-                                    text: "点一件看详情。礼卡上不会出现礼物名和价格，TA 解开谜题才揭晓。"
+                                    text: "点一件看详情。礼卡不出现礼物名和价格，解开谜题才揭晓。"
                                 }
                             }
                             gf_wish := View {
@@ -286,7 +286,7 @@ script_mod! {
                                     }
                                 }
                                 gw_note := LiyuMuted {
-                                    text: "谁送了哪一件，心愿单主人在揭晓之前都不知道。你送出的那件，别人会看到「已有人送」，不会撞礼。"
+                                    text: "谁送了哪一件，揭晓前心愿单主人都不知道。你送出的那件，别人只会看到「已有人送」，不会撞礼。"
                                 }
                             }
                         }
@@ -387,7 +387,7 @@ script_mod! {
                                 }
                             }
                             pt_note := LiyuMuted {
-                                text: "契约是收礼时答应的一件小事。逾期没有惩罚，兑现了记得标记一下。"
+                                text: "契约是收礼时答应的一件小事。逾期无惩罚，兑现了记得标记。"
                             }
                         }
 
@@ -400,7 +400,7 @@ script_mod! {
                             ct_card := LiyuCard {
                                 width: Fill height: Fit
                                 flow: Down
-                                padding: 18.0
+                                padding: 16.0
                                 spacing: 12.0
                                 ct_head := LiyuH2 { text: "我的熟人" }
                                 ct_add := View {
@@ -447,7 +447,7 @@ script_mod! {
                             me_bal := LiyuCard {
                                 width: Fill height: Fit
                                 flow: Down
-                                padding: 18.0
+                                padding: 16.0
                                 spacing: 6.0
                                 me_bal_l := LiyuMuted { text: "礼遇余额" }
                                 me_bal_v := LiyuH1 { text: "¥0" }
@@ -456,7 +456,7 @@ script_mod! {
                                     flow: Right
                                     align: Align{x: 0.0, y: 0.5}
                                     spacing: 8.0
-                                    me_bal_n := LiyuMuted { text: "只在礼遇内使用 · 折现和换购退差都进这里" }
+                                    me_bal_n := LiyuMuted { text: "只在礼遇内使用 · 折现、换购退差都进这里" }
                                     me_wallet := LiyuBtnSm { width: Fit text: "钱包与流水" }
                                 }
                             }
@@ -638,7 +638,7 @@ script_mod! {
                                         sd_ans := LiyuInput { empty_text: "" }
                                     }
                                     sd_nick := LiyuMuted { text: "" }
-                                    sd_free := LiyuMuted { visible: false text: "TA 打开礼卡就能直接领取，不用答题。惊喜少一点，但一定拆得开。" }
+                                    sd_free := LiyuMuted { visible: false text: "TA 打开礼卡直接领取，不用答题。惊喜少一点，但一定拆得开。" }
                                 }
 
                                 // 开关行自带 12 的左右内边距（给悬停底色留位），这里往外挪 12，文字和各段标题对齐。
@@ -659,11 +659,11 @@ script_mod! {
                                         pp3 := LiyuChip { text: "见面拥抱" }
                                     }
                                     sd_pact_in := LiyuInput { empty_text: "自定义契约，最多 24 字" }
-                                    sd_pact_note := LiyuMuted { text: "契约只写轻约定，不涉及钱。TA 收下即表示答应，折现或换购则作废。" }
+                                    sd_pact_note := LiyuMuted { text: "契约只写轻约定，不涉及钱。收下即答应，折现或换购作废。" }
                                 }
 
                                 sd_s3 := LiyuH3 { margin: Inset{top: 6.0} text: "3 · 寄语" }
-                                sd_msg := LiyuInput { empty_text: "写一句话给 TA，最多 40 字（揭晓后才看得到）" }
+                                sd_msg := LiyuInput { empty_text: "给 TA 的一句话，最多 40 字（揭晓后才看得到）" }
 
                             }
                             // 固定底栏只留一句小结和「去结算」，别和表单抢高度；怎么付在结算页里选。
@@ -718,7 +718,7 @@ script_mod! {
                                         cd_peek := LiyuBtn { width: Fit text: "以 TA 的视角看看" draw_icon +: { svg: crate_resource("self:resources/icons/eye.svg") } }
                                     }
                                     cd_saved := LiyuMuted { visible: false text: "" }
-                                    cd_note := LiyuMuted { text: "礼卡上只有玩法和线索：不出现礼物名、价格，也不出现你的名字。" }
+                                    cd_note := LiyuMuted { text: "礼卡上只有玩法和线索，礼物名、价格和你的名字都不出现。" }
                                     cd_done := LiyuBtnPrimary { width: Fill text: "完成" }
                                 }
                             }
@@ -734,7 +734,7 @@ script_mod! {
                             flow: Down
                             spacing: 14.0
 
-                            op_preview := LiyuBadgeBlue { visible: false text: "这是 TA 打开礼卡时看到的样子（预览，不能作答）" draw_text +: { text_style +: { font_size: 13.0 } } }
+                            op_preview := LiyuBadgeBlue { visible: false text: "TA 打开礼卡时看到的样子（预览，不能作答）" draw_text +: { text_style +: { font_size: 13.0 } } }
 
                             // ---- 解密 ----
                             op_decrypt := View {
@@ -786,7 +786,7 @@ script_mod! {
                                     od_left := LiyuMuted { text: "" }
                                     od_submit := LiyuBtnPrimary { width: Fit text: "提交答案" }
                                 }
-                                od_note := LiyuMuted { text: "猜错了礼物也不会消失哦 —— 机会用完照样拆开，只是不告诉你是谁。" }
+                                od_note := LiyuMuted { text: "猜错了礼物也不会消失 —— 机会用完照样拆开，只是不说是谁。" }
                                 od_tip := LiyuMuted { visible: false text: "" draw_text +: { color: liyu.ink_3 } }
                             }
 
@@ -837,7 +837,7 @@ script_mod! {
                                     width: Fill height: Fit
                                     flow: Down
                                     spacing: 8.0
-                                    oa_ship_l := LiyuMuted { text: "收件信息只给这一单用，也会留在本机方便下次预填。" }
+                                    oa_ship_l := LiyuMuted { text: "收件信息只给这一单用，也留在本机方便下次预填。" }
                                     oa_name := LiyuInput { empty_text: "收件人" }
                                     oa_phone := LiyuInput { empty_text: "手机号（11 位）" }
                                     oa_addr := LiyuInput { empty_text: "收件地址" }
@@ -931,7 +931,7 @@ script_mod! {
                                     width: Fill height: Fit
                                     flow: Down
                                     spacing: 4.0
-                                    odn_hint_t := LiyuWarmText { text: "" draw_text +: { text_style +: { font_size: 14.5 } } }
+                                    odn_hint_t := LiyuWarmText { text: "" draw_text +: { text_style +: { font_size: 14.0 } } }
                                 }
                                 odn_bar := View {
                                     width: Fill height: Fit
@@ -1025,7 +1025,7 @@ script_mod! {
                                 flow: Down
                                 spacing: 8.0
                                 ss_sim_t := LiyuWarmText { text: "演示" }
-                                ss_sim_n := LiyuMuted { text: "收礼人不在这台设备上。点一下，替 TA 推进一步，看看你这边会收到什么。" }
+                                ss_sim_n := LiyuMuted { text: "收礼人不在这台设备上。点一下替 TA 推进一步，看看你会收到什么。" }
                                 ss_sim_go := LiyuBtn { width: Fit text: "模拟 TA 的下一步" draw_icon +: { svg: crate_resource("self:resources/icons/sparkle.svg") } }
                             }
                         }
@@ -1115,14 +1115,14 @@ script_mod! {
                             ntf_card := LiyuCard {
                                 width: Fill height: Fit
                                 flow: Down
-                                padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 10.0}
+                                padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 8.0}
                                 spacing: 0.0
                                 row_ntf_gift := LiyuSwitchRow { }
                                 row_ntf_pact := LiyuSwitchRow { }
                                 row_ntf_wish := LiyuSwitchRow { }
                                 ntf_note := LiyuMuted {
                                     margin: Inset{left: 12.0, right: 12.0, top: 6.0}
-                                    text: "不做「TA 刚打开了你的礼卡」这类实时提醒 —— 悬念留给 TA，也留给你。"
+                                    text: "不做「TA 刚打开了你的礼卡」这类实时提醒 —— 悬念留给对方。"
                                 }
                             }
 
@@ -1130,7 +1130,7 @@ script_mod! {
                             data_card := LiyuCard {
                                 width: Fill height: Fit
                                 flow: Down
-                                padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 10.0}
+                                padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 8.0}
                                 spacing: 0.0
                                 row_export := LiyuSetRow { }
                                 row_reset := LiyuSetRow { }
@@ -1140,7 +1140,7 @@ script_mod! {
                                     flow: Down
                                     margin: Inset{left: 12.0, right: 12.0, top: 4.0}
                                     spacing: 8.0
-                                    rc_text := LiyuBad { text: "会清掉本机的礼物、契约、流水和熟人，换回一套演示数据。深浅和称呼以外的设置也会复原。" }
+                                    rc_text := LiyuBad { text: "会清掉本机的礼物、契约、流水和熟人，换回演示数据；深浅、称呼以外的设置也会复原。" }
                                     rc_row := View {
                                         width: Fill height: Fit
                                         flow: Right{wrap: true}
@@ -1166,7 +1166,7 @@ script_mod! {
                                 flow: Down
                                 padding: 14.0
                                 spacing: 10.0
-                                pf_auth_note := LiyuMuted { text: "服务器上的演示密码和注册验证码都固定为 123456，不发送短信或邮件。" }
+                                pf_auth_note := LiyuMuted { text: "演示密码和注册验证码固定为 123456，不发短信或邮件。" }
                                 pf_identifier := LiyuInput { empty_text: "邮箱或手机号作为账号标识" }
                                 pf_password := LiyuInput { empty_text: "测试密码 123456" is_password: true }
                                 pf_register_code := LiyuInput { empty_text: "注册验证码 123456" }
@@ -1198,7 +1198,7 @@ script_mod! {
                                 flow: Down
                                 padding: 14.0
                                 spacing: 10.0
-                                pf_contact_note := LiyuMuted { text: "测试阶段不发送短信或邮件，验证码统一填 123456。" }
+                                pf_contact_note := LiyuMuted { text: "测试阶段不发短信或邮件，验证码统一填 123456。" }
                                 pf_phone := LiyuInput { empty_text: "手机号（11 位）" }
                                 pf_phone_code := LiyuInput { empty_text: "验证码 123456" }
                                 pf_phone_save := LiyuBtn { width: Fit text: "绑定 / 修改手机号" }
@@ -1453,7 +1453,7 @@ script_mod! {
                                             pm2 := LiyuChip { text: "银行卡" }
                                         }
                                     }
-                                    co_demo := LiyuMuted { text: "演示环境：不会真的扣款。余额抵扣和付款都会记进「钱包与流水」。" draw_text +: { color: liyu.ink_3 } }
+                                    co_demo := LiyuMuted { text: "演示环境：不会真的扣款。抵扣和付款都记进「钱包与流水」。" draw_text +: { color: liyu.ink_3 } }
                                 }
                             }
                             co_bar := View {
@@ -1506,7 +1506,7 @@ script_mod! {
                                 }
                             }
                             mw_note := LiyuMuted {
-                                text: "心愿单只给熟人看。谁认领了哪一件，礼物揭晓之前你都不知道 —— 只知道「已有人送」。"
+                                text: "心愿单只给熟人看。谁认领了哪一件，揭晓前你都不知道 —— 只知道「已有人送」。"
                             }
                         }
 
@@ -1536,7 +1536,7 @@ script_mod! {
                                         wd_initial := Label {
                                             flow: Right{wrap: true}
                                             text: ""
-                                            draw_text +: { color: liyu.warm text_style +: { font_size: 17.0 } }
+                                            draw_text +: { color: liyu.warm text_style +: { font_size: 16.0 } }
                                         }
                                     }
                                     wd_col := View {
@@ -1680,8 +1680,8 @@ script_mod! {
                                     ei6 := LiyuWishItemRow { }
                                     ei7 := LiyuWishItemRow { }
                                     we_items_empty := LiyuMuted {
-                                        margin: Inset{left: 12.0, right: 12.0, top: 10.0, bottom: 10.0}
-                                        text: "还没放东西。可以挑一件具体的，也可以只说个大概 —— 比如「一台电视，55 寸以上」，送礼的人会看到符合要求的商品。"
+                                        margin: Inset{left: 12.0, right: 12.0, top: 8.0, bottom: 8.0}
+                                        text: "还没放东西。挑一件具体的，或只说个大概 —— 如「一台电视，55 寸以上」，送礼的人会看到符合要求的商品。"
                                     }
                                 }
                                 we_add := View {
@@ -1926,7 +1926,7 @@ script_mod! {
                                     flow: Right{wrap: true}
                                     width: Fill
                                     text: ""
-                                    draw_text +: { wrap: Words color: liyu.ink text_style +: { font_size: 22.0 line_spacing: 1.35 } }
+                                    draw_text +: { wrap: Words color: liyu.ink text_style +: { font_size: 24.0 line_spacing: 1.35 } }
                                 }
                                 in_body := Label {
                                     flow: Right{wrap: true}
@@ -2000,7 +2000,7 @@ script_mod! {
                                 padding: 16.0
                                 spacing: 8.0
                                 ag3_t := LiyuH3 { text: "心愿单" }
-                                ag3_b := LiyuMuted { text: "生日、结婚、搬新家…… 把想要的列出来，熟人就知道送什么。可以写具体哪一件，也可以只说个大概，比如「一台电视，55 寸以上」。" }
+                                ag3_b := LiyuMuted { text: "生日、结婚、搬新家…… 列出想要的，熟人就知道送什么。可写具体哪一件，也可只说大概，如「一台电视，55 寸以上」。" }
                                 ag3_go := LiyuBtnSm { width: Fit text: "我的心愿单" }
                             }
                         }
@@ -2023,7 +2023,7 @@ script_mod! {
                                 padding: 16.0
                                 spacing: 8.0
                                 ab2_t := LiyuH3 { text: "7 天没拆会自动退回" }
-                                ab2_b := LiyuMuted { text: "收到的礼物 7 天内不揭晓，全额退回给送礼人；你送出的也一样，钱回到你的余额。" }
+                                ab2_b := LiyuMuted { text: "收到的礼物 7 天内不揭晓，全额退回送礼人；你送出的也一样，钱回到你的余额。" }
                             }
                         }
                         aside_pact := View {
@@ -2051,7 +2051,7 @@ script_mod! {
                                 padding: 16.0
                                 spacing: 8.0
                                 ac1_t := LiyuH3 { text: "熟人只在本机" }
-                                ac1_b := LiyuMuted { text: "熟人是送礼时的快捷选项，也是「猜我是谁」的候选名字来源。删掉一位不影响已经送出的礼物。" }
+                                ac1_b := LiyuMuted { text: "熟人是送礼的快捷选项，也是「猜我是谁」的候选名字来源。删掉一位不影响已送出的礼物。" }
                             }
                         }
                         aside_me := View {
