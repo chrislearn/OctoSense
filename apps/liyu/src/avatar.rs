@@ -142,12 +142,17 @@ impl AvatarEditSession {
             _ => return Err(AvatarError::UnsupportedFormat),
         }
         let orientation = exif_orientation(bytes, format).unwrap_or(1);
-        let image = load_from_memory_with_format(bytes, format)
+        // 先读头部尺寸再完整解码:压缩炸弹(超大名义尺寸)在分配像素内存前就被拒。
+        let (hw, hh) = image::ImageReader::new(std::io::Cursor::new(bytes))
+            .with_guessed_format()
+            .map_err(|_| AvatarError::CorruptImage)?
+            .into_dimensions()
             .map_err(|_| AvatarError::CorruptImage)?;
-        let (w, h) = image.dimensions();
-        if w > MAX_INPUT_DIM || h > MAX_INPUT_DIM {
+        if hw > MAX_INPUT_DIM || hh > MAX_INPUT_DIM {
             return Err(AvatarError::DimensionsTooLarge);
         }
+        let image = load_from_memory_with_format(bytes, format)
+            .map_err(|_| AvatarError::CorruptImage)?;
         let corrected = apply_orientation(image, orientation);
         Ok(Self {
             image: corrected.to_rgba8(),
@@ -162,8 +167,13 @@ impl AvatarEditSession {
     /// 裁切指定区域(原图坐标,像素)。越界或空区域报 [`AvatarError::InvalidCrop`]。
     pub fn crop(mut self, x: u32, y: u32, width: u32, height: u32) -> Result<Self, AvatarError> {
         let (w, h) = self.image.dimensions();
-        if width == 0 || height == 0 || x >= w || y >= h || x + width > w || y + height > h {
-            return Err(AvatarError::InvalidCrop);
+        // checked_add 防 u32 溢出(x + width 环绕会绕过越界判断)。
+        let x2 = x.checked_add(width);
+        let y2 = y.checked_add(height);
+        match (x2, y2) {
+            (Some(x2), Some(y2))
+                if width > 0 && height > 0 && x < w && y < h && x2 <= w && y2 <= h => {}
+            _ => return Err(AvatarError::InvalidCrop),
         }
         self.image = image::imageops::crop_imm(&self.image, x, y, width, height).to_image();
         Ok(self)
