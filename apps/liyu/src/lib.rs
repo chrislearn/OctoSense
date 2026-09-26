@@ -15,6 +15,7 @@ use makepad_app_module::{
 
 pub mod ai;
 mod avatar;
+mod ai_draft;
 pub mod canvas;
 pub mod data;
 mod commerce_client;
