@@ -1909,7 +1909,11 @@ script_mod! {
                                 au_sub := LiyuMuted { text: "猜得到的心意。登录或注册后继续；没网也能先逛逛。" }
                                 au_identifier := LiyuInput { empty_text: "邮箱或手机号作为账号标识" }
                                 au_password := LiyuInput { empty_text: "密码" is_password: true }
-                                au_code := LiyuInput { empty_text: "注册验证码" }
+                                au_code_wrap := View {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    au_code := LiyuInput { empty_text: "注册验证码" }
+                                }
                                 au_err := LiyuBad { visible: false text: "" }
                                 au_actions := View {
                                     width: Fill height: Fit
@@ -4825,7 +4829,7 @@ impl LiyuView {
     /// 刷新认证界面：登录 / 注册互切的字段与文案、测试服务器提示。
     fn refresh_auth(&mut self, cx: &mut Cx) {
         let reg = self.auth_register;
-        self.show(cx, ids!(au_code), reg);
+        self.show(cx, ids!(au_code_wrap), reg);
         self.set_text(cx, ids!(au_submit), if reg { "注册并登录" } else { "登录" });
         self.set_text(
             cx,
@@ -5218,7 +5222,7 @@ impl LiyuView {
             if submit {
                 let identifier = self.input_text(cx, ids!(au_identifier));
                 let password = self.input_text(cx, ids!(au_password));
-                let code = self.input_text(cx, ids!(au_code));
+                let code = self.input_text(cx, ids!(au_code_wrap.au_code));
                 let register = self.auth_register;
                 match profile_client::sign_in(&identifier, &password, &code, register) {
                     Ok(()) => self.after_account_switch(cx, true),
