@@ -113,6 +113,13 @@ pub struct AvatarEditSession {
     image: RgbaImage,
 }
 
+impl std::fmt::Debug for AvatarEditSession {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (w, h) = self.image.dimensions();
+        write!(f, "AvatarEditSession({}x{})", w, h)
+    }
+}
+
 impl AvatarEditSession {
     /// 从文件路径载入(接入点之一;文件选择 UI 由集成方实现)。
     pub fn load_path(path: &Path) -> Result<Self, AvatarError> {
@@ -178,15 +185,15 @@ impl AvatarEditSession {
     pub fn rotate_quarters(mut self, quarter_turns: u32) -> Self {
         self.image = match quarter_turns % 4 {
             0 => self.image,
-            1 => image::imageops::rotate90(&self.image),
-            2 => image::imageops::rotate180(&self.image),
-            _ => image::imageops::rotate270(&self.image),
+            1 => image::imageops::rotate90(&self.image).into(),
+            2 => image::imageops::rotate180(&self.image).into(),
+            _ => image::imageops::rotate270(&self.image).into(),
         };
         self
     }
 
     /// 限制最长边不超过 [`MAX_OUTPUT_DIM`],保持宽高比(Lanczos3)。
-    pub fn fit_within_max(mut self) -> Self {
+    pub fn fit_within_max(self) -> Self {
         self.fit_within(MAX_OUTPUT_DIM)
     }
 
@@ -250,7 +257,8 @@ impl AvatarEditSession {
                     .map_err(|_| AvatarError::EncodeFailed)?;
             }
             AvatarFormat::WebP => {
-                WebPEncoder::new_quality(&mut out, quality)
+                // image 0.25 的 WebPEncoder 只有无损构造;有损超尺寸由 encode_final 兜底转 JPEG。
+                WebPEncoder::new_lossless(&mut out)
                     .write_image(self.image.as_raw(), w, h, image::ExtendedColorType::Rgba8)
                     .map_err(|_| AvatarError::EncodeFailed)?;
             }
@@ -482,7 +490,7 @@ mod tests {
 
     fn webp_bytes(img: &RgbaImage) -> Vec<u8> {
         let mut out = Vec::new();
-        WebPEncoder::new_quality(&mut out, 90)
+        WebPEncoder::new_lossless(&mut out)
             .write_image(
                 img.as_raw(),
                 img.width(),

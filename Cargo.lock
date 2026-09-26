@@ -3320,6 +3320,7 @@ checksum = "85ab80394333c02fe689eaf900ab500fbd0c2213da414687ebf995a65d5a6104"
 dependencies = [
  "bytemuck 1.25.2",
  "byteorder-lite",
+ "image-webp",
  "moxcms",
  "num-traits 0.2.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "png 0.18.1",
@@ -5404,6 +5405,7 @@ dependencies = [
 name = "octosense-liyu"
 version = "0.1.0"
 dependencies = [
+ "image",
  "makepad-app-module",
  "makepad-widgets",
  "serde_json",

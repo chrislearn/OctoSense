@@ -14,6 +14,7 @@ use makepad_app_module::{
 };
 
 pub mod ai;
+mod avatar;
 pub mod canvas;
 pub mod data;
 mod commerce_client;
@@ -1870,7 +1871,7 @@ script_mod! {
                                 au_sub := LiyuMuted { text: "猜得到的心意。登录或注册后继续；没网也能先逛逛。" }
                                 au_identifier := LiyuInput { empty_text: "邮箱或手机号作为账号标识" }
                                 au_password := LiyuInput { empty_text: "密码" is_password: true }
-                                au_code := LiyuInput { visible: false empty_text: "注册验证码" }
+                                au_code := LiyuInput { empty_text: "注册验证码" }
                                 au_err := LiyuBad { visible: false text: "" }
                                 au_actions := View {
                                     width: Fill height: Fit
@@ -4930,7 +4931,7 @@ impl LiyuView {
                 || self.view.text_input(cx, ids!(au_password)).returned(actions).is_some();
             if submit {
                 let identifier = self.input_text(cx, ids!(au_identifier));
-                let pass...[credential-redacted](cx, ids!(au_password));
+                let password = self.input_text(cx, ids!(au_password));
                 let code = self.input_text(cx, ids!(au_code));
                 let register = self.auth_register;
                 match profile_client::sign_in(&identifier, &password, &code, register) {
@@ -4948,7 +4949,7 @@ impl LiyuView {
         // 401 / token 失效：不装在线、不静默重登，清会话回认证闸。
         if profile_client::take_expired() {
             self.profile.online = false;
-            self.enter_auth_gate(cx, "登录已过期，请重新登录");
+            self.enter_auth_gate(cx, Some("登录已过期，请重新登录"));
             return;
         }
 
