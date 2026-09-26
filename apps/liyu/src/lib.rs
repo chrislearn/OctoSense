@@ -1894,7 +1894,7 @@ script_mod! {
                         //
                         // 未认证时盖住整个应用：不是覆盖页、不在 Tab 里，登录 / 注册互切，
                         // 断网时给「离线演示」入口。过了这一关才可能看到开场三屏或主界面。
-                        page_auth := View {
+                        page_auth := LiyuScrollY {
                             visible: false
                             width: Fill height: Fill
                             flow: Down
@@ -3124,10 +3124,12 @@ impl LiyuView {
         let intro = !gate && self.intro.is_some();
         self.show(cx, ids!(page_auth), gate);
         self.show(cx, ids!(page_intro), intro);
+        // 认证闸优先:gate 时隐藏所有主页面与 overlay,只留 page_auth 全屏,
+        // 避免认证卡片盖在挑礼首页上被底部裁掉(默认小窗口登录/注册按钮不可见)。
         for (j, id) in PAGES.iter().enumerate() {
-            self.show(cx, &[*id], !intro && self.overlay.is_none() && j == self.tab);
+            self.show(cx, &[*id], !gate && !intro && self.overlay.is_none() && j == self.tab);
         }
-        let ov = if intro { None } else { self.overlay };
+        let ov = if intro || gate { None } else { self.overlay };
         self.show(cx, ids!(page_send), ov == Some(Overlay::Send));
         self.show(cx, ids!(page_card), ov == Some(Overlay::Card));
         self.show(cx, ids!(page_open), ov == Some(Overlay::Open));
@@ -3143,7 +3145,7 @@ impl LiyuView {
         self.show(cx, ids!(page_wish), ov == Some(Overlay::Wish));
         self.show(cx, ids!(page_wish_edit), ov == Some(Overlay::WishEdit));
         self.show(cx, ids!(page_wish_pick), ov == Some(Overlay::WishPick));
-        let menu = self.import_menu && !intro && self.overlay.is_none() && self.tab == 3;
+        let menu = self.import_menu && !gate && !intro && self.overlay.is_none() && self.tab == 3;
         self.show(cx, ids!(ct_menu_layer), menu);
         self.refresh_topbar(cx);
         self.redraw(cx);
