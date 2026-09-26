@@ -52,8 +52,8 @@ impl App {
         // ui 是 Root，LiyuView 在 main_window.body——直接 borrow Root 永远落空。
         self.ui
             .widget(cx, ids!(main_window.body))
-            .borrow::<LiyuView>()
-            .map(|view| view.ai_answer(call))
+            .borrow_mut::<LiyuView>()
+            .map(|mut view| view.ai_answer(call))
             .unwrap_or_else(|| ToolResult::unavailable(&call.call_id, "礼遇窗口还没准备好"))
     }
 

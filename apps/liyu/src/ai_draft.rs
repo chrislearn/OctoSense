@@ -187,8 +187,15 @@ impl DraftGate {
         let note = arg_str(&call.args, "note").unwrap_or_default();
         let mut st = self.inner.lock().unwrap();
 
-        // 幂等：同一 call_id 的重试/双击重放已有草稿，不重复创建。
+        // 幂等:同一 call_id + 同一账号的重试/双击重放已有草稿,不重复创建。
+        // 跨账号同 call_id:不返回旧草稿(含寄语),拒绝且不泄漏任何既有草稿内容。
         if let Some(d) = st.drafts.iter().find(|d| d.call_id == call.call_id) {
+            if d.account_id != account_id {
+                return ToolResult::refused(
+                    &call.call_id,
+                    "这个 call_id 属于另一个账号的草稿,已拒绝跨账号重放",
+                );
+            }
             let d = d.clone();
             let mut text = draft_json(&d, now_ms);
             text = text.trim_end_matches('}').to_string() + ",\"idempotent_replay\":true}";
@@ -466,6 +473,27 @@ mod tests {
             assert!(r.text.contains("\"idempotent_replay\":true"), "{}", r.text);
         }
         assert_eq!(gate.draft_count(), 1, "重复 call_id 不得重复创建");
+    }
+
+    #[test]
+    fn cross_account_same_call_id_is_refused_without_leak() {
+        let gate = DraftGate::new();
+        // alice 用 call_id=c-shared 开了草稿(含寄语 note)。
+        let (id, alice_text) = prepare_ok(&gate, "alice", "c-shared");
+        assert!(alice_text.contains("生日快乐"), "alice 草稿含寄语: {}", alice_text);
+        // bob 用同一 call_id 重放:必须拒绝,且不得泄漏 alice 的草稿内容/draft_id/寄语。
+        let r = gate.answer("bob", &call("c-shared", "prepare_gift_draft", r#"{"item_index":1}"#), T0 + 1);
+        assert_eq!(r.outcome, ToolOutcome::Refused, "跨账号同 call_id 应拒绝: {}", r.text);
+        assert!(!r.text.contains(&id), "不得泄漏 alice 的 draft_id: {}", r.text);
+        assert!(!r.text.contains("生日快乐"), "不得泄漏 alice 的寄语: {}", r.text);
+        // bob 不能用拒绝的 call_id 重放,但可以用自己的 call_id 正常开草稿。
+        let (bob_id, _) = prepare_ok(&gate, "bob", "c-bob-own");
+        assert_ne!(bob_id, id, "bob 应得到独立草稿");
+        assert_eq!(gate.draft_count(), 2, "拒绝重放不新建,但 bob 自有 call_id 可建");
+        // 同账号 alice 重放仍正常返回既有草稿。
+        let r2 = gate.answer("alice", &call("c-shared", "prepare_gift_draft", r#"{"item_index":1}"#), T0 + 2);
+        assert_eq!(r2.outcome, ToolOutcome::Ok);
+        assert!(r2.text.contains("\"idempotent_replay\":true"), "{}", r2.text);
     }
 
     #[test]

@@ -10,7 +10,7 @@ use makepad_widgets::makepad_draw::image_cache::ImageBuffer;
 use makepad_app_module::{
     AppModule, ExecOutcome, InstanceHandles, InstanceParts, OpenSchema,
     ServiceExecutor, ValidatedOpen,
-    makepad_ai_services::wire::{ServiceCall, ServiceManifest, ToolResult},
+    makepad_ai_services::wire::{ServiceCall, ServiceManifest, ToolOutcome, ToolResult},
 };
 
 pub mod ai;
@@ -2864,6 +2864,13 @@ pub struct LiyuView {
     /// 裁切对齐位置(0-8,3×3 网格:0=左上,4=居中,8=右下)。点「裁切」按此位置取最大正方形。
     #[rust]
     avatar_crop_anchor: u8,
+    /// AI 送礼草稿闸(prepare_gift_draft):只开本机可审阅草稿,不发送/不扣款/不改服务端。
+    /// Option 包装以符合 derive 宏字段形式(与 avatar_session 同模式)。
+    #[rust]
+    draft_gate: Option<ai_draft::DraftGate>,
+    /// 当前待本人确认的草稿(AI 开好、界面呈现、本人确认或取消后才算数)。
+    #[rust]
+    draft_pending: Option<ai_draft::GiftDraft>,
     /// 已上传头像的服务端字节缓存:(avatar_url, 解码前字节)。只在 URL 变化时重新 GET,
     /// 避免 refresh_avatar 反复同步请求卡界面。
     #[rust]
@@ -3529,9 +3536,64 @@ impl LiyuView {
             v.walk.width = Size::Fixed((full * self.wish_frac.clamp(0.0, 1.0)).floor());
         }
     }
+}
 
-    /// AI 工具应答：只给礼盒的匿名汇总（ai.rs），不含送礼人、答案、寄语。
-    pub fn ai_answer(&self, call: &ServiceCall) -> ToolResult {
+/// 从 prepare_gift_draft 结果 JSON 文本提取 draft_id(`"draft_id":"liyu-draft-NNNNNN"`)。
+/// 字符串扫描即可,草稿 JSON 由本机 draft_json 生成、格式稳定,无需引入 serde 依赖问题。
+fn extract_draft_id(text: &str) -> Option<String> {
+    let key = "\"draft_id\":\"";
+    let start = text.find(key)? + key.len();
+    let rest = &text[start..];
+    let end = rest.find('"')?;
+    Some(rest[..end].to_string())
+}
+
+/// 合并只读投影(ai.rs)与草稿闸(ai_draft.rs)两份 ServiceManifest:
+/// id/label/brief 取只读投影的(主清单),tools/topics 取两清单并集。
+/// 同一 tool 名只保留只读投影版本(写工具 prepare_gift_draft 名唯一,不会撞)。
+fn merge_manifests(mut base: ServiceManifest, extra: ServiceManifest) -> ServiceManifest {
+    for tool in extra.tools {
+        if !base.tools.iter().any(|t| t.name == tool.name) {
+            base.tools.push(tool);
+        }
+    }
+    for topic in extra.topics {
+        if !base.topics.iter().any(|t| t.name == topic.name) {
+            base.topics.push(topic);
+        }
+    }
+    base
+}
+
+impl LiyuView {
+    /// AI 工具应答：只读工具给礼盒的匿名汇总（ai.rs）；`prepare_gift_draft` 走本机草稿闸
+    /// （只开草稿、待本人在界面确认，不发送/不扣款/不改服务端）。
+    pub fn ai_answer(&mut self, call: &ServiceCall) -> ToolResult {
+        if call.tool.as_str() == "prepare_gift_draft" {
+            // 写工具必须先有真实身份:首次未选择登录/注册/离线演示(AuthMode::None)时拒绝,
+            // 不允许匿名调用方在本机开送礼草稿。守卫放在调用侧(身份上下文所在),
+            // 不侵入 ai_draft.rs 的纯状态机逻辑。
+            if profile_client::mode() == profile_client::AuthMode::None {
+                return ToolResult::refused(
+                    &call.call_id,
+                    "还没有选择身份：请先登录、注册或进入离线演示，再来准备送礼草稿",
+                );
+            }
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0);
+            let account = profile_client::active_identifier();
+            let gate = self.draft_gate.get_or_insert_with(ai_draft::DraftGate::new);
+            let result = gate.answer(&account, call, now_ms);
+            // 开成功的草稿存为「待本人确认」：从结果 JSON 取 draft_id 再取回草稿。
+            if result.outcome == ToolOutcome::Ok {
+                if let Some(id) = extract_draft_id(&result.text) {
+                    self.draft_pending = self.draft_gate.as_ref().and_then(|g| g.draft(&id));
+                }
+            }
+            return result;
+        }
         ai::answer(&ai::BoxSummary::from_state(&self.state), call)
     }
 
@@ -6110,13 +6172,14 @@ struct LiyuExecutor {
 
 impl ServiceExecutor for LiyuExecutor {
     fn manifest(&self) -> ServiceManifest {
-        ai::manifest()
+        // 只读投影(ai.rs)+ 草稿闸(ai_draft.rs)两份清单合并发布。
+        merge_manifests(ai::manifest(), ai_draft::manifest())
     }
     fn execute(&mut self, _cx: &mut Cx, call: &ServiceCall) -> ExecOutcome {
         let result = self
             .root
-            .borrow::<LiyuView>()
-            .map(|view| view.ai_answer(call))
+            .borrow_mut::<LiyuView>()
+            .map(|mut view| view.ai_answer(call))
             .unwrap_or_else(|| ToolResult::unavailable(&call.call_id, "礼遇窗口已关闭"));
         ExecOutcome::Done(result)
     }
