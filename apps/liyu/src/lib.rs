@@ -478,7 +478,7 @@ script_mod! {
                                     flow: Right{wrap: true}
                                     wrap_spacing: 8.0
                                     spacing: 8.0
-                                    me_draft_confirm := LiyuBtnPrimary { width: Fit text: "确认送出（仅本机记录）" }
+                                    me_draft_confirm := LiyuBtnPrimary { width: Fit text: "确认草稿（未发送）" }
                                     me_draft_cancel := LiyuBtnSm { width: Fit text: "取消草稿" }
                                 }
                             }
@@ -3587,7 +3587,7 @@ fn merge_manifests(mut base: ServiceManifest, extra: ServiceManifest) -> Service
 impl LiyuView {
     /// AI 工具应答：只读工具给礼盒的匿名汇总（ai.rs）；`prepare_gift_draft` 走本机草稿闸
     /// （只开草稿、待本人在界面确认，不发送/不扣款/不改服务端）。
-    pub fn ai_answer(&mut self, call: &ServiceCall) -> ToolResult {
+    pub fn ai_answer(&mut self, cx: &mut Cx, call: &ServiceCall) -> ToolResult {
         if call.tool.as_str() == "prepare_gift_draft" {
             // 写工具必须先有真实身份:首次未选择登录/注册/离线演示(AuthMode::None)时拒绝,
             // 不允许匿名调用方在本机开送礼草稿。守卫放在调用侧(身份上下文所在),
@@ -3609,6 +3609,9 @@ impl LiyuView {
             if result.outcome == ToolOutcome::Ok {
                 if let Some(id) = extract_draft_id(&result.text) {
                     self.draft_pending = self.draft_gate.as_ref().and_then(|g| g.draft(&id));
+                    // 建好草稿立即刷新「我」页(me_draft 卡片所在),用户即使已停在该页也能看到待确认。
+                    self.refresh_me(cx);
+                    self.redraw(cx);
                 }
             }
             return result;
@@ -5871,37 +5874,6 @@ impl LiyuView {
                 self.enter_auth_gate(cx, None);
                 self.toast(cx, "已登出");
             }
-            // AI 草稿闸:本人确认(仅本机记录为已确认,不发送/不扣款)或取消。
-            if self.clicked(cx, ids!(me_draft_confirm), actions) {
-                let account = profile_client::active_identifier();
-                let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
-                // 先算 outcome 并取回草稿(结束 draft_gate 不可变借用),再 mutate self。
-                let (confirmed, updated) = if let (Some(g), Some(d)) = (self.draft_gate.as_ref(), self.draft_pending.clone()) {
-                    (g.confirm(&account, &d.draft_id, now_ms).is_confirmed(), g.draft(&d.draft_id))
-                } else {
-                    (false, None)
-                };
-                if self.draft_pending.is_some() {
-                    self.toast(cx, if confirmed { "草稿已确认(本机记录,未发送)" } else { "草稿已不可确认(超时/已取消)" });
-                    self.draft_pending = updated;
-                    self.refresh_me(cx);
-                }
-            }
-            if self.clicked(cx, ids!(me_draft_cancel), actions) {
-                let account = profile_client::active_identifier();
-                let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
-                let cancelled = if let (Some(g), Some(d)) = (self.draft_gate.as_ref(), self.draft_pending.clone()) {
-                    g.cancel(&account, &d.draft_id, now_ms);
-                    true
-                } else {
-                    false
-                };
-                if cancelled {
-                    self.toast(cx, "草稿已取消");
-                    self.draft_pending = None;
-                    self.refresh_me(cx);
-                }
-            }
             for (i, row_id) in PROFILE_ADDRESS_ROWS.iter().enumerate() {
                 let Some(address) = self.profile.addresses.get(i).cloned() else { continue };
                 if self.clicked(cx, &[*row_id, PROFILE_ADDRESS_ACTIONS[i], PROFILE_ADDRESS_EDIT[i]], actions) {
@@ -6016,6 +5988,37 @@ impl LiyuView {
                 self.set_text(cx, ids!(pf_addr_phone), "");
                 self.set_text(cx, ids!(pf_addr_text), "");
                 self.refresh_profile(cx);
+            }
+        }
+        // AI 草稿闸:本人确认(仅本机记录为已确认,不发送/不扣款)或取消。
+        if self.clicked(cx, ids!(me_draft_confirm), actions) {
+            let account = profile_client::active_identifier();
+            let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
+            // 先算 outcome 并取回草稿(结束 draft_gate 不可变借用),再 mutate self。
+            let (confirmed, updated) = if let (Some(g), Some(d)) = (self.draft_gate.as_ref(), self.draft_pending.clone()) {
+                (g.confirm(&account, &d.draft_id, now_ms).is_confirmed(), g.draft(&d.draft_id))
+            } else {
+                (false, None)
+            };
+            if self.draft_pending.is_some() {
+                self.toast(cx, if confirmed { "草稿已确认(本机记录,未发送)" } else { "草稿已不可确认(超时/已取消)" });
+                self.draft_pending = updated;
+                self.refresh_me(cx);
+            }
+        }
+        if self.clicked(cx, ids!(me_draft_cancel), actions) {
+            let account = profile_client::active_identifier();
+            let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
+            let cancelled = if let (Some(g), Some(d)) = (self.draft_gate.as_ref(), self.draft_pending.clone()) {
+                g.cancel(&account, &d.draft_id, now_ms);
+                true
+            } else {
+                false
+            };
+            if cancelled {
+                self.toast(cx, "草稿已取消");
+                self.draft_pending = None;
+                self.refresh_me(cx);
             }
         }
 
@@ -6255,7 +6258,7 @@ impl ServiceExecutor for LiyuExecutor {
         let result = self
             .root
             .borrow_mut::<LiyuView>()
-            .map(|mut view| view.ai_answer(call))
+            .map(|mut view| view.ai_answer(_cx, call))
             .unwrap_or_else(|| ToolResult::unavailable(&call.call_id, "礼遇窗口已关闭"));
         ExecOutcome::Done(result)
     }
