@@ -10,10 +10,12 @@ use makepad_widgets::makepad_draw::image_cache::ImageBuffer;
 use makepad_app_module::{
     AppModule, ExecOutcome, InstanceHandles, InstanceParts, OpenSchema,
     ServiceExecutor, ValidatedOpen,
-    makepad_ai_services::wire::{ServiceCall, ServiceManifest, ToolResult},
+    makepad_ai_services::wire::{ServiceCall, ServiceManifest, ToolOutcome, ToolResult},
 };
 
 pub mod ai;
+mod avatar;
+pub mod ai_draft;
 pub mod canvas;
 pub mod data;
 mod commerce_client;
@@ -25,6 +27,7 @@ mod wishui;
 
 use canvas::LiyuShareCard;
 use data::*;
+use makepad_widgets::makepad_platform::file_dialogs::{FileDialog, FileDialogAction};
 use commerce_client::{Commerce, ProductDetail};
 use gift_client::GiftClient;
 use profile_client::Profile;
@@ -458,6 +461,25 @@ script_mod! {
                                     spacing: 8.0
                                     me_bal_n := LiyuMuted { text: "只在礼遇内使用 · 折现、换购退差都进这里" }
                                     me_wallet := LiyuBtnSm { width: Fit text: "钱包与流水" }
+                                }
+                            }
+                            me_draft := LiyuCard {
+                                visible: false
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 14.0
+                                spacing: 8.0
+                                draw_bg +: { color: liyu.card border_color: liyu.line_notice border_size: 1.0 }
+                                me_draft_l := LiyuMuted { text: "AI 开好的送礼草稿，待本人确认" }
+                                me_draft_t := LiyuWarmText { text: "" }
+                                me_draft_note := LiyuMuted { text: "" }
+                                me_draft_row := View {
+                                    width: Fill height: Fit
+                                    flow: Right{wrap: true}
+                                    wrap_spacing: 8.0
+                                    spacing: 8.0
+                                    me_draft_confirm := LiyuBtnPrimary { width: Fit text: "确认草稿（未发送）" }
+                                    me_draft_cancel := LiyuBtnSm { width: Fit text: "取消草稿" }
                                 }
                             }
                             me_stats := View {
@@ -1160,25 +1182,13 @@ script_mod! {
                             flow: Down
                             spacing: 14.0
                             pf_status := LiyuBadgeBlue { text: "" }
-                            pf_auth_head := LiyuGroupHead { text: "测试账号" }
-                            pf_auth_card := LiyuCard {
+                            pf_signout_row := View {
                                 width: Fill height: Fit
-                                flow: Down
-                                padding: 14.0
-                                spacing: 10.0
-                                pf_auth_note := LiyuMuted { text: "演示密码和注册验证码固定为 123456，不发短信或邮件。" }
-                                pf_identifier := LiyuInput { empty_text: "邮箱或手机号作为账号标识" }
-                                pf_password := LiyuInput { empty_text: "测试密码 123456" is_password: true }
-                                pf_register_code := LiyuInput { empty_text: "注册验证码 123456" }
-                                pf_auth_actions := View {
-                                    width: Fill height: Fit
-                                    flow: Right{wrap: true}
-                                    wrap_spacing: 8.0
-                                    spacing: 8.0
-                                    pf_login := LiyuBtn { width: Fit text: "登录" }
-                                    pf_register := LiyuBtn { width: Fit text: "注册" }
-                                    pf_demo := LiyuBtnSm { width: Fit text: "切回演示账号" }
-                                }
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                spacing: 8.0
+                                pf_signout_note := LiyuMuted { width: Fill text: "登出会清除本机凭据并回到登录界面" }
+                                pf_signout := LiyuBtn { width: Fit text: "登出" }
                             }
                             pf_name_head := LiyuGroupHead { text: "基本资料" }
                             pf_name_card := LiyuCard {
@@ -1188,8 +1198,44 @@ script_mod! {
                                 spacing: 10.0
                                 pf_name_note := LiyuMuted { text: "显示名" }
                                 pf_name := LiyuInput { empty_text: "你的名字" }
-                                pf_avatar_note := LiyuMuted { text: "头像图片地址（HTTPS）" }
-                                pf_avatar := LiyuInput { empty_text: "https://…/avatar.png" }
+                                pf_avatar_note := LiyuMuted { text: "头像（本地图片，JPEG / PNG / WebP）" }
+                                pf_avatar_row := View {
+                                    width: Fill height: Fit
+                                    flow: Right
+                                    align: Align{x: 0.0, y: 0.5}
+                                    spacing: 10.0
+                                    pf_avatar_thumb := LiyuThumb { width: 64 height: 64 }
+                                    pf_avatar_col := View {
+                                        width: Fill height: Fit
+                                        flow: Down
+                                        spacing: 6.0
+                                        pf_avatar_status := LiyuMuted { text: "还没有头像，显示默认占位图" }
+                                        pf_avatar_pick_row := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            spacing: 8.0
+                                            pf_avatar_load := LiyuBtn { width: Fit text: "选择图片…" }
+                                        }
+                                    }
+                                }
+                                pf_avatar_edit := View {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 8.0
+                                    pf_avatar_edit_note := LiyuMuted { text: "已载入原图：选裁切位置（九宫格循环）、旋转，确认后上传。" }
+                                    pf_avatar_edit_row := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 8.0
+                                        spacing: 8.0
+                                        pf_avatar_anchor := LiyuBtnSm { width: Fit text: "裁切位置：居中" }
+                                        pf_avatar_rotate := LiyuBtnSm { width: Fit text: "旋转 90°" }
+                                        pf_avatar_confirm := LiyuBtnPrimary { width: Fit text: "确认上传" }
+                                        pf_avatar_cancel := LiyuBtnSm { width: Fit text: "取消" }
+                                    }
+                                }
+                                pf_avatar_delete := LiyuBtnSm { visible: false width: Fit text: "删除头像，恢复默认" }
                                 pf_save := LiyuBtnPrimary { width: Fit text: "保存资料" }
                             }
                             pf_contact_head := LiyuGroupHead { text: "联系方式" }
@@ -1861,6 +1907,45 @@ script_mod! {
                                 wp32 := LiyuProductCard { }
                             }
                             wp_note := LiyuMuted { text: "" }
+                        }
+
+                        // ================= 认证闸（首次启动 / 登出 / 401 后的独立界面）=================
+                        //
+                        // 未认证时盖住整个应用：不是覆盖页、不在 Tab 里，登录 / 注册互切，
+                        // 断网时给「离线演示」入口。过了这一关才可能看到开场三屏或主界面。
+                        page_auth := LiyuScrollY {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            align: Align{x: 0.5, y: 0.5}
+                            spacing: 14.0
+                            au_card := LiyuCard {
+                                width: 420 height: Fit
+                                flow: Down
+                                padding: 24.0
+                                spacing: 12.0
+                                au_title := LiyuH1 { text: "欢迎来到礼遇" }
+                                au_sub := LiyuMuted { text: "猜得到的心意。登录或注册后继续；没网也能先逛逛。" }
+                                au_identifier := LiyuInput { empty_text: "邮箱或手机号作为账号标识" }
+                                au_password := LiyuInput { empty_text: "密码" is_password: true }
+                                au_code_wrap := View {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    au_code := LiyuInput { empty_text: "注册验证码" }
+                                }
+                                au_err := LiyuBad { visible: false text: "" }
+                                au_actions := View {
+                                    width: Fill height: Fit
+                                    flow: Right{wrap: true}
+                                    wrap_spacing: 8.0
+                                    spacing: 8.0
+                                    au_submit := LiyuBtnPrimary { width: Fit text: "登录" }
+                                    au_switch := LiyuLink { text: "没有账号？去注册" }
+                                }
+                                au_demo := LiyuBtn { width: Fit text: "先逛逛 · 离线演示" }
+                                au_demo_note := LiyuMuted { text: "离线演示与真实账号的数据完全分开，只保存在本机，不会上传。" }
+                                au_test_note := LiyuMuted { visible: false text: "测试服务器：密码与注册验证码均固定为 123456，不发送短信或邮件。" }
+                            }
                         }
 
                         // ================= 开场三屏 =================
@@ -2750,6 +2835,12 @@ pub struct LiyuView {
     // ---- 开场三屏 / 通知 / toast ----
     #[rust]
     intro: Option<usize>,
+    /// 认证闸:未登录也没选离线演示时 true,整应用被 page_auth 盖住。
+    #[rust]
+    auth_gate: bool,
+    /// 认证界面处于注册模式(验证码字段可见,按钮文案互换)。
+    #[rust]
+    auth_register: bool,
     #[rust]
     notice: Option<Notice>,
     /// 这次运行里已经发过的通知种类（只活在内存里，重启重新算一次没有坏处）。
@@ -2776,6 +2867,33 @@ pub struct LiyuView {
     /// 商品图纹理，按目录下标懒加载；最后一格是问号图。
     #[rust]
     tex: Vec<Option<Texture>>,
+    // ---- 头像工坊（资料页）----
+    /// 正在编辑的头像会话（选图 → 裁切/旋转 → 确认上传或取消）。
+    #[rust]
+    avatar_session: Option<avatar::AvatarEditSession>,
+    /// 头像预览纹理（当前头像或编辑中快照）；None = 默认占位图。
+    #[rust]
+    avatar_tex: Option<Texture>,
+    /// 头像上传/删除进行中：禁用按钮并显示状态，防止重复提交。
+    #[rust]
+    avatar_busy: bool,
+    /// 待上传头像字节（断网时 profile_client 已落盘，这里留一份用于预览）。
+    #[rust]
+    avatar_pending_bytes: Option<Vec<u8>>,
+    /// 裁切对齐位置(0-8,3×3 网格:0=左上,4=居中,8=右下)。点「裁切」按此位置取最大正方形。
+    #[rust]
+    avatar_crop_anchor: u8,
+    /// AI 送礼草稿闸(prepare_gift_draft):只开本机可审阅草稿,不发送/不扣款/不改服务端。
+    /// Option 包装以符合 derive 宏字段形式(与 avatar_session 同模式)。
+    #[rust]
+    draft_gate: Option<ai_draft::DraftGate>,
+    /// 当前待本人确认的草稿(AI 开好、界面呈现、本人确认或取消后才算数)。
+    #[rust]
+    draft_pending: Option<ai_draft::GiftDraft>,
+    /// 已上传头像的服务端字节缓存:(avatar_url, 解码前字节)。只在 URL 变化时重新 GET,
+    /// 避免 refresh_avatar 反复同步请求卡界面。
+    #[rust]
+    avatar_server_cache: Option<(String, Vec<u8>)>,
     #[rust]
     fade_start: Option<f64>,
     #[rust]
@@ -3039,12 +3157,16 @@ impl LiyuView {
     }
 
     fn update_page_visibility(&mut self, cx: &mut Cx) {
-        let intro = self.intro.is_some();
+        let gate = self.auth_gate;
+        let intro = !gate && self.intro.is_some();
+        self.show(cx, ids!(page_auth), gate);
         self.show(cx, ids!(page_intro), intro);
+        // 认证闸优先:gate 时隐藏所有主页面与 overlay,只留 page_auth 全屏,
+        // 避免认证卡片盖在挑礼首页上被底部裁掉(默认小窗口登录/注册按钮不可见)。
         for (j, id) in PAGES.iter().enumerate() {
-            self.show(cx, &[*id], !intro && self.overlay.is_none() && j == self.tab);
+            self.show(cx, &[*id], !gate && !intro && self.overlay.is_none() && j == self.tab);
         }
-        let ov = if intro { None } else { self.overlay };
+        let ov = if intro || gate { None } else { self.overlay };
         self.show(cx, ids!(page_send), ov == Some(Overlay::Send));
         self.show(cx, ids!(page_card), ov == Some(Overlay::Card));
         self.show(cx, ids!(page_open), ov == Some(Overlay::Open));
@@ -3060,7 +3182,7 @@ impl LiyuView {
         self.show(cx, ids!(page_wish), ov == Some(Overlay::Wish));
         self.show(cx, ids!(page_wish_edit), ov == Some(Overlay::WishEdit));
         self.show(cx, ids!(page_wish_pick), ov == Some(Overlay::WishPick));
-        let menu = self.import_menu && !intro && self.overlay.is_none() && self.tab == 3;
+        let menu = self.import_menu && !gate && !intro && self.overlay.is_none() && self.tab == 3;
         self.show(cx, ids!(ct_menu_layer), menu);
         self.refresh_topbar(cx);
         self.redraw(cx);
@@ -3251,7 +3373,8 @@ impl LiyuView {
                 self.refresh_sent(cx);
             }
         }
-        if self.notice.is_some() || self.intro.is_some() {
+        // 认证闸压着时不弹业务通知(有礼物等你拆等);登录/选演示后按账号再查。
+        if self.auth_gate || self.notice.is_some() || self.intro.is_some() {
             return;
         }
         let due = self.state.due_notices(today_days());
@@ -3338,8 +3461,8 @@ impl LiyuView {
 
     fn apply_shaping(&mut self, cx: &mut Cx, s: Shaping) {
         let phone = s.shape == Shape::Phone;
-        // 开场三屏里连导航都不给：三句话不该能被一脚跨过去。
-        let intro = self.intro.is_some();
+        // 开场三屏里连导航都不给：三句话不该能被一脚跨过去。认证闸同样全屏。
+        let intro = self.intro.is_some() || self.auth_gate;
         self.show(cx, ids!(sidebar), !phone && !intro);
         self.show(cx, ids!(topbar), !intro);
         self.show(cx, ids!(tabbar), phone && !intro);
@@ -3433,9 +3556,68 @@ impl LiyuView {
             v.walk.width = Size::Fixed((full * self.wish_frac.clamp(0.0, 1.0)).floor());
         }
     }
+}
 
-    /// AI 工具应答：只给礼盒的匿名汇总（ai.rs），不含送礼人、答案、寄语。
-    pub fn ai_answer(&self, call: &ServiceCall) -> ToolResult {
+/// 从 prepare_gift_draft 结果 JSON 文本提取 draft_id(`"draft_id":"liyu-draft-NNNNNN"`)。
+/// 字符串扫描即可,草稿 JSON 由本机 draft_json 生成、格式稳定,无需引入 serde 依赖问题。
+fn extract_draft_id(text: &str) -> Option<String> {
+    let key = "\"draft_id\":\"";
+    let start = text.find(key)? + key.len();
+    let rest = &text[start..];
+    let end = rest.find('"')?;
+    Some(rest[..end].to_string())
+}
+
+/// 合并只读投影(ai.rs)与草稿闸(ai_draft.rs)两份 ServiceManifest:
+/// id/label/brief 取只读投影的(主清单),tools/topics 取两清单并集。
+/// 同一 tool 名只保留只读投影版本(写工具 prepare_gift_draft 名唯一,不会撞)。
+pub fn merge_manifests(mut base: ServiceManifest, extra: ServiceManifest) -> ServiceManifest {
+
+    for tool in extra.tools {
+        if !base.tools.iter().any(|t| t.name == tool.name) {
+            base.tools.push(tool);
+        }
+    }
+    for topic in extra.topics {
+        if !base.topics.iter().any(|t| t.name == topic.name) {
+            base.topics.push(topic);
+        }
+    }
+    base
+}
+
+impl LiyuView {
+    /// AI 工具应答：只读工具给礼盒的匿名汇总（ai.rs）；`prepare_gift_draft` 走本机草稿闸
+    /// （只开草稿、待本人在界面确认，不发送/不扣款/不改服务端）。
+    pub fn ai_answer(&mut self, cx: &mut Cx, call: &ServiceCall) -> ToolResult {
+        if call.tool.as_str() == "prepare_gift_draft" {
+            // 写工具必须先有真实身份:首次未选择登录/注册/离线演示(AuthMode::None)时拒绝,
+            // 不允许匿名调用方在本机开送礼草稿。守卫放在调用侧(身份上下文所在),
+            // 不侵入 ai_draft.rs 的纯状态机逻辑。
+            if profile_client::mode() == profile_client::AuthMode::None {
+                return ToolResult::refused(
+                    &call.call_id,
+                    "还没有选择身份：请先登录、注册或进入离线演示，再来准备送礼草稿",
+                );
+            }
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0);
+            let account = profile_client::active_identifier();
+            let gate = self.draft_gate.get_or_insert_with(ai_draft::DraftGate::new);
+            let result = gate.answer(&account, call, now_ms);
+            // 开成功的草稿存为「待本人确认」：从结果 JSON 取 draft_id 再取回草稿。
+            if result.outcome == ToolOutcome::Ok {
+                if let Some(id) = extract_draft_id(&result.text) {
+                    self.draft_pending = self.draft_gate.as_ref().and_then(|g| g.draft(&id));
+                    // 建好草稿立即刷新「我」页(me_draft 卡片所在),用户即使已停在该页也能看到待确认。
+                    self.refresh_me(cx);
+                    self.redraw(cx);
+                }
+            }
+            return result;
+        }
         ai::answer(&ai::BoxSummary::from_state(&self.state), call)
     }
 
@@ -4640,6 +4822,17 @@ impl LiyuView {
         self.set_row(cx, ids!(row_cart), "购物车", "挑礼页选商品，给已确认的好友下单", &format!("{} 件", self.commerce.items.len()));
         self.set_row(cx, ids!(row_settings), "设置", "深浅、称呼、通知、数据", &nick);
         self.set_row(cx, ids!(row_about), "关于礼遇", "重看开场三屏", "");
+        // AI 草稿闸:有待本人确认的草稿就显示确认条(商品/寄语/确认/取消)。
+        let draft = self.draft_pending.clone();
+        let show_draft = draft.as_ref().is_some_and(|d| d.status == ai_draft::DraftStatus::AwaitingConfirm);
+        self.show(cx, ids!(me_draft), show_draft);
+        if show_draft {
+            let d = draft.unwrap();
+            let it = crate::data::item(d.item_index);
+            self.set_text(cx, ids!(me_draft_t), &format!("{} · {}", it.name, crate::data::yuan(it.price)));
+            let note = if d.note.is_empty() { "（无寄语）".to_string() } else { format!("寄语:{}", d.note) };
+            self.set_text(cx, ids!(me_draft_note), &note);
+        }
     }
 
     fn refresh_wallet(&mut self, cx: &mut Cx) {
@@ -4716,16 +4909,289 @@ impl LiyuView {
         self.show(cx, ids!(reset_confirm), self.reset_armed);
     }
 
+    // ---- 认证闸 ----
+
+    /// 进认证闸（首次启动、登出、401 之后）。清掉来路，只留这一屏。
+    fn enter_auth_gate(&mut self, cx: &mut Cx, err: Option<&'static str>) {
+        self.auth_gate = true;
+        self.auth_register = false;
+        self.overlay = None;
+        self.back_stack.clear();
+        self.intro = None;
+        self.profile_err = err;
+        self.update_page_visibility(cx);
+        self.refresh_auth(cx);
+    }
+
+    /// 刷新认证界面：登录 / 注册互切的字段与文案、测试服务器提示。
+    fn refresh_auth(&mut self, cx: &mut Cx) {
+        let reg = self.auth_register;
+        self.show(cx, ids!(au_code_wrap), reg);
+        self.set_text(cx, ids!(au_submit), if reg { "注册并登录" } else { "登录" });
+        self.set_text(
+            cx,
+            ids!(au_switch),
+            if reg { "已有账号？去登录" } else { "没有账号？去注册" },
+        );
+        // 固定密码 / 验证码说明只在测试服务器上出现。
+        self.show(cx, ids!(au_test_note), profile_client::is_test_server());
+        self.show(cx, ids!(au_err), self.profile_err.is_some());
+        if let Some(e) = self.profile_err {
+            self.set_text(cx, ids!(au_err), e);
+        }
+    }
+
+    fn show_auth_error(&mut self, cx: &mut Cx, err: &'static str) {
+        self.profile_err = Some(err);
+        self.refresh_auth(cx);
+    }
+
+    /// 登录 / 注册 / 进入演示之后：重置按账号隔离的客户端缓存，关闸进应用。
+    fn after_account_switch(&mut self, cx: &mut Cx, online: bool) {
+        self.auth_gate = false;
+        self.profile_err = None;
+        self.commerce = Commerce::default();
+        self.gift_client = GiftClient::default();
+        // 通知按账号刷新:清掉上一账号已弹过的记录与残留通知条,关闸后按新账号重新查。
+        self.notice_sent.clear();
+        self.close_notice(cx);
+        self.profile = profile_client::load(&self.state.settings.nickname);
+        self.refresh_all(cx);
+        self.set_tab(cx, 0);
+        if !self.state.settings.onboarded {
+            self.open_intro(cx, 0);
+        }
+        self.toast(
+            cx,
+            if online {
+                if self.auth_register { "注册并登录成功" } else { "已登录" }
+            } else {
+                "已进入离线演示，数据只在本机"
+            },
+        );
+        self.update_page_visibility(cx);
+    }
+
+    /// 把头像字节解码成纹理。统一走 AvatarEditSession 归一化（EXIF 校正 /
+    /// 尺寸上限在载入时已处理）再编码成 PNG，用仓内已验证的
+    /// ImageBuffer::from_png + into_new_mip_texture 上纹理。
+    fn avatar_texture(&mut self, cx: &mut Cx, bytes: &[u8]) -> Option<Texture> {
+        let session = avatar::AvatarEditSession::load_bytes(bytes).ok()?;
+        let enc = session
+            .fit_within(128)
+            .encode_final(avatar::AvatarFormat::Png)
+            .ok()?;
+        ImageBuffer::from_png(&enc.bytes)
+            .ok()
+            .map(|b| b.into_new_mip_texture(cx))
+    }
+
+    /// AvatarError → 界面用的静态文案（Msg = &'static str）。
+    fn avatar_err(e: &avatar::AvatarError) -> Msg {
+        match e {
+            avatar::AvatarError::Io(_) => "读取图片文件失败",
+            avatar::AvatarError::InputTooLarge => "图片文件过大（超过 32MB）",
+            avatar::AvatarError::DimensionsTooLarge => "图片尺寸过大",
+            avatar::AvatarError::UnsupportedFormat => "仅支持 JPEG / PNG / WebP",
+            avatar::AvatarError::CorruptImage => "图片损坏或不是合法图像",
+            avatar::AvatarError::InvalidCrop => "裁切区域无效",
+            avatar::AvatarError::EncodeFailed => "头像编码失败，请换一张图",
+            avatar::AvatarError::OutputTooLarge => "编码结果超过大小上限",
+        }
+    }
+
+    /// 当前应显示的头像字节：编辑中 > 待上传本地字节 > 已上传（GET 服务端图像）。
+    /// 返回值连同来源说明一起给状态行用。
+    fn avatar_preview_bytes(&self) -> Option<(Vec<u8>, &'static str)> {
+        if let Some(session) = &self.avatar_session {
+            // 按当前锚点从原图即时裁切预览(原图保留,锚点切换不破坏),再缩到 512 上限。
+            let cropped = session.crop_anchor(self.avatar_crop_anchor).ok();
+            if let Some(s) = cropped {
+                if let Ok(enc) = s.fit_within_max().encode_final(avatar::AvatarFormat::Png) {
+                    return Some((enc.bytes, "预览中，未确认"));
+                }
+            }
+        }
+        if let Some(bytes) = &self.avatar_pending_bytes {
+            return Some((bytes.clone(), "未同步"));
+        }
+        // 已上传头像:GET 服务端图像字节回显(avatar_url 是 /api/v1/media/avatars/<hex>)。
+        // 走 URL 缓存(见 refresh_avatar),只读不重复请求。
+        if !self.profile.avatar_url.is_empty() && !profile_client::avatar_pending(&self.profile) {
+            if let Some((url, bytes)) = &self.avatar_server_cache {
+                if *url == self.profile.avatar_url {
+                    return Some((bytes.clone(), "已同步"));
+                }
+            }
+        }
+        None
+    }
+
+    /// 刷新资料页头像区：预览图、状态文案、按钮可用性。
+    fn refresh_avatar(&mut self, cx: &mut Cx) {
+        let has_server_avatar = !self.profile.avatar_url.is_empty()
+            && !profile_client::avatar_pending(&self.profile);
+        // 已上传头像按 URL 缓存:URL 变化才同步 GET(带 2MiB 上限),避免反复刷新卡界面/无界内存。
+        if has_server_avatar {
+            let stale = self
+                .avatar_server_cache
+                .as_ref()
+                .map_or(true, |(u, _)| *u != self.profile.avatar_url);
+            if stale {
+                self.avatar_server_cache = profile_client::fetch_avatar_bytes(&self.profile.avatar_url)
+                    .map(|b| (self.profile.avatar_url.clone(), b));
+            }
+        } else {
+            self.avatar_server_cache = None;
+        }
+        let pending = profile_client::avatar_pending(&self.profile);
+        let editing = self.avatar_session.is_some();
+
+        // 预览图：编辑/待上传用本地字节；已上传头像服务端是标识不是可解码字节，先显占位。
+        if let Some((bytes, _)) = self.avatar_preview_bytes() {
+            self.avatar_tex = self.avatar_texture(cx, &bytes);
+        } else {
+            self.avatar_tex = None;
+        }
+        let img = self.view.image(cx, ids!(pf_avatar_thumb));
+        img.set_texture(cx, self.avatar_tex.clone());
+
+        let status = if self.avatar_busy {
+            "上传中…".to_string()
+        } else if editing {
+            let (w, h) = self.avatar_session.as_ref().map(|s| s.dimensions()).unwrap_or((0, 0));
+            format!("编辑中 · {w}×{h} · 确认后上传")
+        } else if pending {
+            "未同步 · 头像已保存在本机，联网后点「重试上传」".to_string()
+        } else if has_server_avatar {
+            "头像已同步到服务器".to_string()
+        } else {
+            "还没有头像，显示默认占位图".to_string()
+        };
+        self.set_text(cx, ids!(pf_avatar_status), &status);
+        self.show(cx, ids!(pf_avatar_edit), editing);
+        self.show(cx, ids!(pf_avatar_delete), has_server_avatar || pending);
+        // 重试上传按钮文案：pending 时把「确认上传」变成重试入口（编辑会话为空也能点）。
+        if pending && !editing {
+            self.set_text(cx, ids!(pf_avatar_load), "重试上传");
+        } else {
+            self.set_text(cx, ids!(pf_avatar_load), "载入");
+        }
+    }
+
+    /// 确认上传：编码最终字节 → 调 profile_client::upload_avatar。
+    /// 断网时字节由 profile_client 落盘，这里也留一份用于本机预览。
+    fn avatar_upload(&mut self, cx: &mut Cx) {
+        let Some(session) = self.avatar_session.take() else {
+            // 没有编辑会话 = 重试待上传（读回本地字节）。
+            if profile_client::avatar_pending(&self.profile) {
+                let Some(path) = profile_client::avatar_pending_path() else { return };
+                let Ok(bytes) = std::fs::read(&path) else {
+                    self.profile_err = Some("待上传头像本机缓存已丢失，请重新选图");
+                    self.refresh_avatar(cx);
+                    return;
+                };
+                return self.avatar_upload_bytes(cx, bytes, "image/png");
+            }
+            return;
+        };
+        // 确认时按当前锚点从原图裁切编码(原图已按需旋转,此处取最终裁图),再缩到 512 上限。
+        let cropped = match session.crop_anchor(self.avatar_crop_anchor) {
+            Ok(s) => s.fit_within_max(),
+            Err(e) => {
+                // 裁切失败保留 session 可重试(恢复原图会话)。
+                self.avatar_session = Some(session);
+                self.profile_err = Some(Self::avatar_err(&e));
+                self.refresh_avatar(cx);
+                return;
+            }
+        };
+        // 默认输出 JPEG（体积小、服务端与 UI 的 512×512 约束一致）；保留 alpha 的图用 PNG。
+        let enc = match cropped.encode_final(avatar::AvatarFormat::Jpeg) {
+            Ok(e) => e,
+            Err(e) => {
+                // 编码失败保留 session 可重试,不丢编辑成果。
+                self.avatar_session = Some(session);
+                self.profile_err = Some(match e {
+                    avatar::AvatarError::OutputTooLarge => "编码结果超过大小上限",
+                    _ => "头像编码失败，请换一张图",
+                });
+                self.refresh_avatar(cx);
+                return;
+            }
+        };
+        self.avatar_upload_bytes(cx, enc.bytes, enc.content_type);
+    }
+
+    fn avatar_upload_bytes(&mut self, cx: &mut Cx, bytes: Vec<u8>, content_type: &'static str) {
+        self.avatar_busy = true;
+        self.refresh_avatar(cx);
+        match profile_client::upload_avatar(&mut self.profile, &bytes, content_type) {
+            Ok(_) => {
+                self.avatar_busy = false;
+                self.avatar_pending_bytes = None;
+                self.toast(cx, "头像已上传");
+            }
+            Err(e) => {
+                self.avatar_busy = false;
+                if profile_client::avatar_pending(&self.profile) {
+                    // 断网待上传：留本地字节用于预览，状态行由 refresh_avatar 明示。
+                    self.avatar_pending_bytes = Some(bytes);
+                    self.toast(cx, "网络不可用，头像已保存在本机（未同步）");
+                } else {
+                    self.profile_err = Some(e);
+                }
+            }
+        }
+        self.refresh_avatar(cx);
+        self.refresh_profile(cx);
+    }
+
+    /// 删除头像：回默认占位；清本地编辑与待上传状态。
+    fn avatar_remove(&mut self, cx: &mut Cx) {
+        self.avatar_session = None;
+        self.avatar_pending_bytes = None;
+        match profile_client::delete_avatar(&mut self.profile) {
+            Ok(()) => self.toast(cx, "头像已删除，恢复默认"),
+            Err(e) => {
+                if !self.profile.online {
+                    self.toast(cx, "头像已在本机删除，联网后同步");
+                } else {
+                    self.profile_err = Some(e);
+                }
+            }
+        }
+        self.refresh_avatar(cx);
+        self.refresh_profile(cx);
+    }
+
     fn open_profile(&mut self, cx: &mut Cx) {
         self.profile = profile_client::load(&self.state.settings.nickname);
         self.profile_err = None;
         self.profile_edit_address = None;
+        // 联网且有会话时,若上次断网删除留下了「待删除」意图,先重试服务端同步。
+        // 重试失败(仍断网/服务端错)时不再用远端资料覆盖——保留待删除状态与提示,
+        // 避免旧 avatar_url 重新显示却标「已同步」。
+        if profile_client::avatar_delete_pending() {
+            let synced = profile_client::retry_delete_avatar();
+            if synced {
+                self.profile = profile_client::load(&self.state.settings.nickname);
+            } else {
+                // 待删除未同步:本地视图为「已删除待同步」,不显示服务端旧头像。
+                self.profile.avatar_url = String::new();
+                self.profile_err = Some("头像删除待同步:联网后自动重试");
+            }
+        }
+        // 重启后恢复待上传预览：本机还有未同步字节就显示出来并明示。
+        self.avatar_session = None;
+        self.avatar_busy = false;
+        self.avatar_pending_bytes = if profile_client::avatar_pending(&self.profile) {
+            profile_client::avatar_pending_path().and_then(|p| std::fs::read(p).ok())
+        } else {
+            None
+        };
         let p = self.profile.clone();
-        self.set_text(cx, ids!(pf_identifier), &profile_client::active_identifier());
-        self.set_text(cx, ids!(pf_password), "");
-        self.set_text(cx, ids!(pf_register_code), "");
         self.set_text(cx, ids!(pf_name), &p.display_name);
-        self.set_text(cx, ids!(pf_avatar), &p.avatar_url);
         self.set_text(cx, ids!(pf_phone), &p.phone);
         self.set_text(cx, ids!(pf_email), &p.email);
         self.set_text(cx, ids!(pf_phone_code), "");
@@ -4759,6 +5225,7 @@ impl LiyuView {
         }
         self.set_text(cx, ids!(pf_addr_add), if self.profile_edit_address.is_some() { "保存地址修改" } else { "添加地址" });
         self.show(cx, ids!(pf_addr_cancel), self.profile_edit_address.is_some());
+        self.refresh_avatar(cx);
         self.show(cx, ids!(pf_err), self.profile_err.is_some());
         if let Some(err) = self.profile_err { self.set_text(cx, ids!(pf_err), err); }
     }
@@ -4831,6 +5298,67 @@ impl LiyuView {
 
     fn handle_actions(&mut self, cx: &mut Cx, actions: &Actions) {
         let today = today_days();
+
+        // ---- 头像文件选择对话框结果：选中 → 载入编辑会话；取消 → 不动状态、不上传 ----
+        for action in actions {
+            if let Some(fda) = action.downcast_ref::<FileDialogAction>() {
+                if fda.id() == live_id!(avatar_pick) {
+                    match fda {
+                        FileDialogAction::FileSelected { .. } => {
+                            if let Some(path) = fda.path() {
+                                match avatar::AvatarEditSession::load_path(path) {
+                                    Ok(session) => {
+                                        self.avatar_crop_anchor = 4; // 重置为居中
+                                        self.set_text(cx, ids!(pf_avatar_anchor), "裁切位置：居中");
+                                        self.avatar_session = Some(session);
+                                        self.profile_err = None;
+                                    }
+                                    Err(e) => {
+                                        self.profile_err = Some(Self::avatar_err(&e));
+                                        self.avatar_session = None;
+                                    }
+                                }
+                            }
+                        }
+                        FileDialogAction::FileCancelled { .. } => {}
+                        _ => {}
+                    }
+                    self.refresh_avatar(cx);
+                }
+            }
+        }
+
+        // ---- 认证闸：全屏时只处理自己的几个按钮，别的一律不响应 ----
+        if self.auth_gate {
+            if self.clicked(cx, ids!(au_switch), actions) {
+                self.auth_register = !self.auth_register;
+                self.refresh_auth(cx);
+            }
+            let submit = self.clicked(cx, ids!(au_submit), actions)
+                || self.view.text_input(cx, ids!(au_password)).returned(actions).is_some();
+            if submit {
+                let identifier = self.input_text(cx, ids!(au_identifier));
+                let password = self.input_text(cx, ids!(au_password));
+                let code = self.input_text(cx, ids!(au_code_wrap.au_code));
+                let register = self.auth_register;
+                match profile_client::sign_in(&identifier, &password, &code, register) {
+                    Ok(()) => self.after_account_switch(cx, true),
+                    Err(e) => self.show_auth_error(cx, e),
+                }
+            }
+            if self.clicked(cx, ids!(au_demo), actions) {
+                profile_client::use_demo();
+                self.after_account_switch(cx, false);
+            }
+            return;
+        }
+
+        // 401 / token 失效：不装在线、不静默重登，清会话回认证闸。
+        if profile_client::take_expired() {
+            self.profile.online = false;
+            self.enter_auth_gate(cx, Some("登录已过期，请重新登录"));
+            return;
+        }
 
         // 导航（侧栏与底部导航是同一组 Tab 的两份控件）
         for i in 0..TABS.len() {
@@ -5333,30 +5861,23 @@ impl LiyuView {
         }
 
         if self.overlay == Some(Overlay::Profile) {
-            let login = self.clicked(cx, ids!(pf_login), actions);
-            let register = self.clicked(cx, ids!(pf_register), actions);
-            if login || register {
-                let identifier = self.input_text(cx, ids!(pf_identifier));
-                let password = self.input_text(cx, ids!(pf_password));
-                let code = self.input_text(cx, ids!(pf_register_code));
-                match profile_client::sign_in(&identifier, &password, &code, register) {
-                    Ok(()) => {
-                        self.commerce = Commerce::default();
-                        self.gift_client = GiftClient::default();
-                        self.open_profile(cx);
-                        self.refresh_me(cx);
-                        self.toast(cx, if register { "注册并登录成功" } else { "已登录" });
-                    }
-                    Err(err) => { self.profile_err = Some(err); self.refresh_profile(cx); }
+            // 登出：清凭据 → 清本机账号缓存 → 回认证闸。登录 / 注册已挪到认证闸。
+            if self.clicked(cx, ids!(pf_signout), actions) {
+                // 账号切换:先让草稿闸把旧账号未终态草稿作废,再清凭据。
+                let old_account = profile_client::active_identifier();
+                if let Some(g) = self.draft_gate.as_ref() {
+                    g.switch_account(&old_account, "", 0);
                 }
-            }
-            if self.clicked(cx, ids!(pf_demo), actions) {
-                profile_client::use_demo();
+                self.draft_pending = None;
+                profile_client::logout();
+                profile_client::clear_local_cache();
                 self.commerce = Commerce::default();
                 self.gift_client = GiftClient::default();
-                self.open_profile(cx);
-                self.refresh_me(cx);
-                self.toast(cx, "已切回演示账号");
+                // 账号隔离：礼物 / 契约 / 流水 / 心愿单等本地缓存不留给下一个账号。
+                self.state = LiyuState::demo(today);
+                self.state.save();
+                self.enter_auth_gate(cx, None);
+                self.toast(cx, "已登出");
             }
             for (i, row_id) in PROFILE_ADDRESS_ROWS.iter().enumerate() {
                 let Some(address) = self.profile.addresses.get(i).cloned() else { continue };
@@ -5375,9 +5896,60 @@ impl LiyuView {
                     self.refresh_profile(cx);
                 }
             }
+            // ---- 头像工坊：选图 → 预览 → 裁切/旋转 → 确认/取消 ----
+            if self.clicked(cx, ids!(pf_avatar_load), actions) {
+                if profile_client::avatar_pending(&self.profile) && self.avatar_session.is_none() {
+                    // 待上传状态下「重试上传」：直接读本地字节重新上传，不需要再选图。
+                    self.avatar_upload(cx);
+                } else {
+                    // 原生 OS 文件选择对话框（取消 → FileCancelled，不动状态、不上传）。
+                    let dialog = FileDialog::new()
+                        .set_id(live_id!(avatar_pick))
+                        .set_title("选择头像".into())
+                        .add_filter(
+                            "图片".into(),
+                            vec!["jpg".into(), "jpeg".into(), "png".into(), "webp".into()],
+                        );
+                    cx.open_select_file_dialog(dialog);
+                }
+            }
+            if self.clicked(cx, ids!(pf_avatar_anchor), actions) {
+                // 九宫格位置循环:0 左上 → 4 居中 → 8 右下。只更新锚点标记,
+                // 不破坏 avatar_session(未裁原图保留);预览/编码按锚点从原图即时裁切。
+                self.avatar_crop_anchor = (self.avatar_crop_anchor + 1) % 9;
+                if self.avatar_session.is_some() {
+                    let name = ["左上","上中","右上","左中","居中","右中","左下","下中","右下"][self.avatar_crop_anchor as usize];
+                    self.set_text(cx, ids!(pf_avatar_anchor), &format!("裁切位置:{name}"));
+                    self.profile_err = None;
+                    self.refresh_avatar(cx);
+                }
+            }
+            if self.clicked(cx, ids!(pf_avatar_rotate), actions) {
+                if let Some(session) = self.avatar_session.take() {
+                    self.avatar_session = Some(session.rotate_quarters(1));
+                    self.profile_err = None;
+                    self.refresh_avatar(cx);
+                }
+            }
+            if self.clicked(cx, ids!(pf_avatar_confirm), actions) {
+                if self.avatar_session.is_some() {
+                    self.avatar_upload(cx);
+                }
+            }
+            if self.clicked(cx, ids!(pf_avatar_cancel), actions) {
+                self.avatar_session = None;
+                self.profile_err = None;
+                self.refresh_avatar(cx);
+            }
+            if self.clicked(cx, ids!(pf_avatar_delete), actions) {
+                self.avatar_remove(cx);
+            }
+
             if self.clicked(cx, ids!(pf_save), actions) {
                 let name = self.input_text(cx, ids!(pf_name));
-                let avatar = self.input_text(cx, ids!(pf_avatar));
+                // 头像不再走 URL 输入框：保存时带上当前 avatar_url（服务端标识
+                // 或 pending: 占位），由 save_profile 按长度校验后写回。
+                let avatar = self.profile.avatar_url.clone();
                 self.profile_err = profile_client::save_profile(&mut self.profile, &name, &avatar).err();
                 if self.profile_err.is_none() { self.toast(cx, "资料已保存"); self.refresh_me(cx); }
                 self.refresh_profile(cx);
@@ -5421,6 +5993,37 @@ impl LiyuView {
                 self.set_text(cx, ids!(pf_addr_phone), "");
                 self.set_text(cx, ids!(pf_addr_text), "");
                 self.refresh_profile(cx);
+            }
+        }
+        // AI 草稿闸:本人确认(仅本机记录为已确认,不发送/不扣款)或取消。
+        if self.clicked(cx, ids!(me_draft_confirm), actions) {
+            let account = profile_client::active_identifier();
+            let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
+            // 先算 outcome 并取回草稿(结束 draft_gate 不可变借用),再 mutate self。
+            let (confirmed, updated) = if let (Some(g), Some(d)) = (self.draft_gate.as_ref(), self.draft_pending.clone()) {
+                (g.confirm(&account, &d.draft_id, now_ms).is_confirmed(), g.draft(&d.draft_id))
+            } else {
+                (false, None)
+            };
+            if self.draft_pending.is_some() {
+                self.toast(cx, if confirmed { "草稿已确认(本机记录,未发送)" } else { "草稿已不可确认(超时/已取消)" });
+                self.draft_pending = updated;
+                self.refresh_me(cx);
+            }
+        }
+        if self.clicked(cx, ids!(me_draft_cancel), actions) {
+            let account = profile_client::active_identifier();
+            let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
+            let cancelled = if let (Some(g), Some(d)) = (self.draft_gate.as_ref(), self.draft_pending.clone()) {
+                g.cancel(&account, &d.draft_id, now_ms);
+                true
+            } else {
+                false
+            };
+            if cancelled {
+                self.toast(cx, "草稿已取消");
+                self.draft_pending = None;
+                self.refresh_me(cx);
             }
         }
 
@@ -5491,10 +6094,13 @@ impl Widget for LiyuView {
             LiyuState::ensure_sample_vcard();
             self.pal = Pal::read(cx);
             self.state.sweep(today_days());
+            // 先恢复本机会话:上次登录过就直接回账号;没有凭据、也没选过演示 → 认证闸。
+            profile_client::restore_session();
+            self.auth_gate = !profile_client::has_choice();
             self.profile = profile_client::load(&self.state.settings.nickname);
             self.refresh_all(cx);
             self.set_tab(cx, 0);
-            if !self.state.settings.onboarded {
+            if !self.auth_gate && !self.state.settings.onboarded {
                 self.open_intro(cx, 0);
             }
             if let Some(note) = self.state.load_note.take() {
@@ -5507,6 +6113,15 @@ impl Widget for LiyuView {
         // 独立窗口换主题走的是 app_main 的 LiveEdit，Rebake 会把 DSL 里的文案刷回去。
         if let Event::LiveEdit = event {
             self.after_restyle(cx);
+        }
+        // 窗口关闭:未确认的 AI 草稿作废(旧确认不可复用)。
+        if let Event::WindowCloseRequested(_) = event {
+            let account = profile_client::active_identifier();
+            let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
+            if let (Some(g), Some(d)) = (self.draft_gate.as_ref(), self.draft_pending.clone()) {
+                g.window_closed(&account, &d.draft_id, now_ms);
+                self.draft_pending = None;
+            }
         }
         // 切页淡入：150ms 内 alpha 从 1 衰减到 0。
         if let Some(nf) = self.next_frame.is_event(event) {
@@ -5641,13 +6256,14 @@ struct LiyuExecutor {
 
 impl ServiceExecutor for LiyuExecutor {
     fn manifest(&self) -> ServiceManifest {
-        ai::manifest()
+        // 只读投影(ai.rs)+ 草稿闸(ai_draft.rs)两份清单合并发布。
+        merge_manifests(ai::manifest(), ai_draft::manifest())
     }
     fn execute(&mut self, _cx: &mut Cx, call: &ServiceCall) -> ExecOutcome {
         let result = self
             .root
-            .borrow::<LiyuView>()
-            .map(|view| view.ai_answer(call))
+            .borrow_mut::<LiyuView>()
+            .map(|mut view| view.ai_answer(_cx, call))
             .unwrap_or_else(|| ToolResult::unavailable(&call.call_id, "礼遇窗口已关闭"));
         ExecOutcome::Done(result)
     }
@@ -5666,6 +6282,24 @@ mod layout_tests {
         assert_eq!(shaping_for(size(412.0, 892.0)).shape, Shape::Phone);
         assert_eq!(shaping_for(size(820.0, 700.0)).shape, Shape::Tablet);
         assert_eq!(shaping_for(size(1280.0, 800.0)).shape, Shape::Desktop);
+    }
+
+    #[test]
+    fn merged_manifest_has_six_tools_with_draft_act_risk() {
+        // 合并清单 = 只读投影 5 个 Read + 草稿闸 1 个 Act(prepare_gift_draft),无重复名。
+        let m = merge_manifests(ai::manifest(), ai_draft::manifest());
+        m.validate().unwrap();
+        assert_eq!(m.tools.len(), 6, "合并后应有 5 只读 + 1 草稿闸");
+        use makepad_app_module::makepad_ai_services::wire::Risk;
+        let read = m.tools.iter().filter(|t| t.risk == Risk::Read).count();
+        let act = m.tools.iter().filter(|t| t.risk == Risk::Act).count();
+        assert_eq!(read, 5, "5 个只读工具");
+        assert_eq!(act, 1, "1 个 Risk::Act 草稿工具");
+        let draft = m.tool("prepare_gift_draft").expect("草稿工具在合并清单里");
+        assert_eq!(draft.risk, Risk::Act);
+        // brief 不再声称「只有五个只读工具」。
+        assert!(m.brief.contains("prepare_gift_draft"), "brief 应提及可准备草稿");
+        assert!(m.brief.contains("本机"), "brief 应说明草稿只在本机");
     }
 
     #[test]

@@ -52,14 +52,21 @@ impl App {
         // ui 是 Root，LiyuView 在 main_window.body——直接 borrow Root 永远落空。
         self.ui
             .widget(cx, ids!(main_window.body))
-            .borrow::<LiyuView>()
-            .map(|view| view.ai_answer(call))
+            .borrow_mut::<LiyuView>()
+            .map(|mut view| view.ai_answer(cx, call))
             .unwrap_or_else(|| ToolResult::unavailable(&call.call_id, "礼遇窗口还没准备好"))
     }
 
     fn ensure_ai_port(&mut self, cx: &mut Cx) {
         if self.ai_port.is_none() {
-            self.ai_port = AiServicePort::open(cx, octosense_liyu::ai::manifest());
+            // 与 LiyuExecutor::manifest 一致:发布只读投影+草稿闸合并后的六工具清单。
+            self.ai_port = AiServicePort::open(
+                cx,
+                octosense_liyu::merge_manifests(
+                    octosense_liyu::ai::manifest(),
+                    octosense_liyu::ai_draft::manifest(),
+                ),
+            );
             self.register_retry = cx.start_timeout(2.0);
         }
     }
