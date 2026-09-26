@@ -3373,7 +3373,8 @@ impl LiyuView {
                 self.refresh_sent(cx);
             }
         }
-        if self.notice.is_some() || self.intro.is_some() {
+        // 认证闸压着时不弹业务通知(有礼物等你拆等);登录/选演示后按账号再查。
+        if self.auth_gate || self.notice.is_some() || self.intro.is_some() {
             return;
         }
         let due = self.state.due_notices(today_days());
@@ -4951,6 +4952,9 @@ impl LiyuView {
         self.profile_err = None;
         self.commerce = Commerce::default();
         self.gift_client = GiftClient::default();
+        // 通知按账号刷新:清掉上一账号已弹过的记录与残留通知条,关闸后按新账号重新查。
+        self.notice_sent.clear();
+        self.close_notice(cx);
         self.profile = profile_client::load(&self.state.settings.nickname);
         self.refresh_all(cx);
         self.set_tab(cx, 0);
