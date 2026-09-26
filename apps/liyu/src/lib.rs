@@ -15,7 +15,7 @@ use makepad_app_module::{
 
 pub mod ai;
 mod avatar;
-mod ai_draft;
+pub mod ai_draft;
 pub mod canvas;
 pub mod data;
 mod commerce_client;
@@ -3570,7 +3570,8 @@ fn extract_draft_id(text: &str) -> Option<String> {
 /// 合并只读投影(ai.rs)与草稿闸(ai_draft.rs)两份 ServiceManifest:
 /// id/label/brief 取只读投影的(主清单),tools/topics 取两清单并集。
 /// 同一 tool 名只保留只读投影版本(写工具 prepare_gift_draft 名唯一,不会撞)。
-fn merge_manifests(mut base: ServiceManifest, extra: ServiceManifest) -> ServiceManifest {
+pub fn merge_manifests(mut base: ServiceManifest, extra: ServiceManifest) -> ServiceManifest {
+
     for tool in extra.tools {
         if !base.tools.iter().any(|t| t.name == tool.name) {
             base.tools.push(tool);
