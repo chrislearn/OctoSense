@@ -6,6 +6,7 @@
 pub use makepad_widgets;
 use makepad_widgets::*;
 use makepad_widgets::makepad_draw::turtle::RowAlign;
+use makepad_widgets::makepad_draw::image_cache::ImageBuffer;
 use makepad_app_module::{
     AppModule, ExecOutcome, InstanceHandles, InstanceParts, OpenSchema,
     ServiceExecutor, ValidatedOpen,
@@ -17,6 +18,7 @@ pub mod canvas;
 pub mod data;
 pub mod share;
 pub mod theme;
+mod wishui;
 
 use canvas::LiyuShareCard;
 use data::*;
@@ -184,38 +186,102 @@ script_mod! {
                             width: Fill height: Fill
                             flow: Down
                             spacing: 14.0
-                            gf_chips := View {
-                                width: Fill height: Fit
-                                flow: Right{wrap: true}
-                                wrap_spacing: 8.0
-                                spacing: 8.0
-                                k0 := LiyuChip { text: "全部" }
-                                k1 := LiyuChip { text: "咖啡茶饮" }
-                                k2 := LiyuChip { text: "电影演出" }
-                                k3 := LiyuChip { text: "潮流小物" }
-                                k4 := LiyuChip { text: "盲盒" }
-                                k5 := LiyuChip { text: "甜点鲜花" }
+                            gf_seg := LiyuSegTrack {
+                                gs_shop := LiyuSeg { text: "挑礼物" }
+                                gs_wish := LiyuSeg { text: "熟人的心愿单" }
                             }
-                            gf_list := LiyuCard {
+                            gf_shop := View {
                                 width: Fill height: Fit
                                 flow: Down
-                                padding: 6.0
-                                spacing: 2.0
-                                g0 := LiyuGiftRow { }
-                                g1 := LiyuGiftRow { }
-                                g2 := LiyuGiftRow { }
-                                g3 := LiyuGiftRow { }
-                                g4 := LiyuGiftRow { }
-                                g5 := LiyuGiftRow { }
-                                g6 := LiyuGiftRow { }
-                                g7 := LiyuGiftRow { }
-                                g8 := LiyuGiftRow { }
-                                g9 := LiyuGiftRow { }
-                                g10 := LiyuGiftRow { }
-                                g11 := LiyuGiftRow { }
+                                spacing: 14.0
+                                gf_chips := View {
+                                    width: Fill height: Fit
+                                    flow: Right{wrap: true}
+                                    wrap_spacing: 8.0
+                                    spacing: 8.0
+                                    k0 := LiyuChip { text: "全部" }
+                                    k1 := LiyuChip { text: "咖啡茶饮" }
+                                    k2 := LiyuChip { text: "电影演出" }
+                                    k3 := LiyuChip { text: "潮流小物" }
+                                    k4 := LiyuChip { text: "盲盒" }
+                                    k5 := LiyuChip { text: "甜点鲜花" }
+                                    k6 := LiyuChip { text: "数码家电" }
+                                    k7 := LiyuChip { text: "家居生活" }
+                                    k8 := LiyuChip { text: "母婴亲子" }
+                                }
+                                // 商品宫格：列数和卡宽由 apply_shaping 按可用宽度算。
+                                gf_grid := View {
+                                    width: Fill height: Fit
+                                    flow: Right{wrap: true}
+                                    wrap_spacing: 12.0
+                                    spacing: 12.0
+                                    pc0 := LiyuProductCard { }
+                                    pc1 := LiyuProductCard { }
+                                    pc2 := LiyuProductCard { }
+                                    pc3 := LiyuProductCard { }
+                                    pc4 := LiyuProductCard { }
+                                    pc5 := LiyuProductCard { }
+                                    pc6 := LiyuProductCard { }
+                                    pc7 := LiyuProductCard { }
+                                    pc8 := LiyuProductCard { }
+                                    pc9 := LiyuProductCard { }
+                                    pc10 := LiyuProductCard { }
+                                    pc11 := LiyuProductCard { }
+                                    pc12 := LiyuProductCard { }
+                                    pc13 := LiyuProductCard { }
+                                    pc14 := LiyuProductCard { }
+                                    pc15 := LiyuProductCard { }
+                                    pc16 := LiyuProductCard { }
+                                    pc17 := LiyuProductCard { }
+                                    pc18 := LiyuProductCard { }
+                                    pc19 := LiyuProductCard { }
+                                    pc20 := LiyuProductCard { }
+                                    pc21 := LiyuProductCard { }
+                                    pc22 := LiyuProductCard { }
+                                    pc23 := LiyuProductCard { }
+                                    pc24 := LiyuProductCard { }
+                                    pc25 := LiyuProductCard { }
+                                    pc26 := LiyuProductCard { }
+                                    pc27 := LiyuProductCard { }
+                                    pc28 := LiyuProductCard { }
+                                    pc29 := LiyuProductCard { }
+                                    pc30 := LiyuProductCard { }
+                                    pc31 := LiyuProductCard { }
+                                    pc32 := LiyuProductCard { }
+                                }
+                                gf_note := LiyuMuted {
+                                    text: "点一件看详情。礼卡上不会出现礼物名和价格，TA 解开谜题才揭晓。"
+                                }
                             }
-                            gf_note := LiyuMuted {
-                                text: "挑好点一下就进送礼页。礼卡上不会出现礼物名和价格，TA 解开谜题才揭晓。"
+                            gf_wish := View {
+                                visible: false
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 12.0
+                                gw_mine := LiyuCard {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    padding: 6.0
+                                    spacing: 0.0
+                                    row_mywish := LiyuSetRow { }
+                                }
+                                gw_head := LiyuGroupHead { text: "熟人的心愿单" }
+                                fw0 := LiyuWishCard { }
+                                fw1 := LiyuWishCard { }
+                                fw2 := LiyuWishCard { }
+                                fw3 := LiyuWishCard { }
+                                fw4 := LiyuWishCard { }
+                                fw5 := LiyuWishCard { }
+                                gw_empty := LiyuEmpty {
+                                    visible: false
+                                    em_icon := LiyuIcon {
+                                        icon_walk: Walk{ width: 28.0 height: Fit }
+                                        draw_icon +: { svg: crate_resource("self:resources/icons/nav-gift.svg") color: liyu.ink_ghost }
+                                    }
+                                }
+                                gw_note := LiyuMuted {
+                                    text: "谁送了哪一件，心愿单主人在揭晓之前都不知道。你送出的那件，别人会看到「已有人送」，不会撞礼。"
+                                }
                             }
                         }
 
@@ -228,20 +294,6 @@ script_mod! {
                             bx_seg := LiyuSegTrack {
                                 bs_recv := LiyuSeg { text: "收到的" }
                                 bs_sent := LiyuSeg { text: "送出的" }
-                            }
-                            bx_code_row := View {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                spacing: 8.0
-                                bx_code_l := Label {
-                                    flow: Right{wrap: true}
-                                    width: Fit
-                                    text: "口令打开"
-                                    draw_text +: { color: liyu.ink_2 text_style +: { font_size: 13.0 } }
-                                }
-                                bx_code := LiyuInput { empty_text: "LY-XXXX" }
-                                bx_open := LiyuBtn { width: Fit text: "打开" }
                             }
                             bx_list := LiyuCard {
                                 width: Fill height: Fit
@@ -407,6 +459,7 @@ script_mod! {
                                 flow: Down
                                 padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 6.0}
                                 spacing: 0.0
+                                row_wish := LiyuSetRow { }
                                 row_wallet := LiyuSetRow { }
                                 row_settings := LiyuSetRow { }
                                 row_about := LiyuSetRow { }
@@ -432,23 +485,21 @@ script_mod! {
                                     flow: Down
                                     padding: 14.0
                                     spacing: 10.0
-                                    sd_item_head := LiyuGroupHead { margin: 0.0 text: "已选礼物" }
+                                    // 「换一件」放在标题行右边，手机上商品名才有整行宽。
+                                    sd_item_top := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 8.0
+                                        sd_item_head := LiyuGroupHead { margin: 0.0 text: "已选礼物" }
+                                        sd_change := LiyuBtnSm { width: Fit text: "换一件" }
+                                    }
                                     sd_item_row := View {
                                         width: Fill height: Fit
                                         flow: Right
                                         align: Align{x: 0.0, y: 0.5}
                                         spacing: 12.0
-                                        sd_face := RoundedView {
-                                            width: 40 height: 40
-                                            flow: Down
-                                            align: Align{x: 0.5, y: 0.5}
-                                            draw_bg +: { color: liyu.face border_radius: r.card }
-                                            sd_letter := Label {
-                                                flow: Right{wrap: true}
-                                                text: ""
-                                                draw_text +: { color: liyu.warm text_style +: { font_size: 15.0 } }
-                                            }
-                                        }
+                                        sd_img := LiyuThumb { width: 56 height: 56 }
                                         sd_col := View {
                                             width: Fill height: Fit
                                             flow: Down
@@ -471,14 +522,14 @@ script_mod! {
                                                 text: ""
                                                 draw_text +: { color: liyu.ink_2 text_style +: { font_size: 12.0 } }
                                             }
+                                            sd_price := Label {
+                                                flow: Right{wrap: true}
+                                                width: Fit
+                                                padding: Inset{left: 3.0, right: 3.0, top: 2.0, bottom: 0.0}
+                                                text: ""
+                                                draw_text +: { color: liyu.warm text_style +: { font_size: 15.0 } }
+                                            }
                                         }
-                                        sd_price := Label {
-                                            flow: Right{wrap: true}
-                                            width: Fit
-                                            text: ""
-                                            draw_text +: { color: liyu.ink text_style +: { font_size: 15.0 } }
-                                        }
-                                        sd_change := LiyuBtnSm { width: Fit text: "换一件" }
                                     }
                                     // 「换一件」就地展开整份目录，点一行即换、收起。
                                     sd_pick := View {
@@ -513,6 +564,20 @@ script_mod! {
                                     sp3 := LiyuChip { text: "" }
                                     sp4 := LiyuChip { text: "" }
                                     sp5 := LiyuChip { text: "先不指定" }
+                                }
+                                // 认领心愿单时收礼人是定的：芯片收起，换成这一行。
+                                sd_peer_fixed := LiyuBody { visible: false text: "" }
+                                sd_dv := View {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 8.0
+                                    sd_dv_h := LiyuH3 { margin: Inset{top: 6.0} text: "什么时候送到" }
+                                    sd_dv_seg := LiyuSegTrack {
+                                        dv0 := LiyuSeg { text: "" }
+                                        dv1 := LiyuSeg { text: "现在就送" }
+                                    }
+                                    sd_dv_n := LiyuMuted { text: "" }
                                 }
 
                                 sd_s1 := LiyuH3 { margin: Inset{top: 6.0} text: "1 · 设置解密游戏" }
@@ -566,10 +631,8 @@ script_mod! {
                                 sd_s3 := LiyuH3 { margin: Inset{top: 6.0} text: "3 · 寄语" }
                                 sd_msg := LiyuInput { empty_text: "写一句话给 TA，最多 40 字（揭晓后才看得到）" }
 
-                                sd_s4 := LiyuH3 { margin: Inset{top: 6.0} text: "4 · 付款" }
-                                sd_bal_row := LiyuSwitchRow { margin: Inset{left: -12.0, right: -12.0} }
                             }
-                            // 固定底栏只留「怎么付」一句话和发送按钮，别和表单抢高度。
+                            // 固定底栏只留一句小结和「去结算」，别和表单抢高度；怎么付在结算页里选。
                             sd_bar := View {
                                 width: Fill height: Fit
                                 flow: Down
@@ -579,8 +642,8 @@ script_mod! {
                                 sd_err := LiyuBad { visible: false text: "" }
                                 sd_go := LiyuBtnPrimary {
                                     width: Fill
-                                    text: "生成神秘礼卡并发送"
-                                    draw_icon +: { svg: crate_resource("self:resources/icons/sparkle.svg") }
+                                    text: "去结算"
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/wallet.svg") }
                                 }
                             }
                         }
@@ -605,7 +668,6 @@ script_mod! {
                                     flow: Down
                                     spacing: 10.0
                                     cd_ok := LiyuWarmText { text: "礼卡已生成。发给 TA，等 TA 来拆。" }
-                                    cd_code := LiyuH2 { text: "" }
                                     cd_link := LiyuMuted { text: "" }
                                     cd_style_l := LiyuGroupHead { text: "礼卡样式" }
                                     cd_style := LiyuSegTrack {
@@ -622,7 +684,7 @@ script_mod! {
                                         cd_peek := LiyuBtn { width: Fit text: "以 TA 的视角看看" draw_icon +: { svg: crate_resource("self:resources/icons/eye.svg") } }
                                     }
                                     cd_saved := LiyuMuted { visible: false text: "" }
-                                    cd_note := LiyuMuted { text: "礼卡上只有玩法、线索和口令：不出现礼物名、价格，也不出现你的名字。" }
+                                    cd_note := LiyuMuted { text: "礼卡上只有玩法和线索：不出现礼物名、价格，也不出现你的名字。" }
                                     cd_done := LiyuBtnPrimary { width: Fill text: "完成" }
                                 }
                             }
@@ -867,7 +929,8 @@ script_mod! {
                                     width: Fill height: Fit
                                     flow: Right
                                     align: Align{x: 0.0, y: 0.5}
-                                    spacing: 10.0
+                                    spacing: 12.0
+                                    ss_img := LiyuThumb { width: 64 height: 64 }
                                     ss_title := LiyuH2 { text: "" }
                                     ss_price := Label {
                                         flow: Right{wrap: true}
@@ -877,18 +940,12 @@ script_mod! {
                                     }
                                 }
                                 ss_state := LiyuBadge { text: "" draw_text +: { text_style +: { font_size: 12.5 } } }
-                                ss_code_row := View {
+                                ss_acts := View {
                                     width: Fill height: Fit
                                     flow: Right{wrap: true}
                                     align: Align{x: 0.0, y: 0.5}
                                     wrap_spacing: 6.0
                                     spacing: 8.0
-                                    ss_code := Label {
-                                        flow: Right{wrap: true}
-                                        width: Fit
-                                        text: ""
-                                        draw_text +: { color: liyu.ink_2 text_style +: { font_size: 13.5 } }
-                                    }
                                     ss_copy := LiyuBtnSm { width: Fit text: "复制链接" }
                                     ss_view := LiyuBtnSm { width: Fit text: "看礼卡" }
                                 }
@@ -910,6 +967,7 @@ script_mod! {
                                 spacing: 6.0
                                 ss_play := LiyuBody { text: "" }
                                 ss_pact := LiyuBody { text: "" }
+                                ss_wish := LiyuBody { visible: false text: "" }
                                 ss_msg := LiyuMuted { text: "" }
                             }
                             ss_withdraw := LiyuBtnDanger { visible: false width: Fit text: "撤回并退款" draw_icon +: { svg: crate_resource("self:resources/icons/undo.svg") } }
@@ -1027,6 +1085,7 @@ script_mod! {
                                 spacing: 0.0
                                 row_ntf_gift := LiyuSwitchRow { }
                                 row_ntf_pact := LiyuSwitchRow { }
+                                row_ntf_wish := LiyuSwitchRow { }
                                 ntf_note := LiyuMuted {
                                     margin: Inset{left: 12.0, right: 12.0, top: 6.0}
                                     text: "不做「TA 刚打开了你的礼卡」这类实时提醒 —— 悬念留给 TA，也留给你。"
@@ -1058,6 +1117,596 @@ script_mod! {
                                     }
                                 }
                             }
+                        }
+
+                        // ================= 商品详情（覆盖页）=================
+                        //
+                        // 大图 + 名字价格 + 两个动作；宽屏左图右字，手机上下排（apply_shaping 里切）。
+                        // 从「帮 TA 挑」进来时多一张心愿卡，说这件为什么对得上 TA 的心愿。
+                        page_product := LiyuScrollY {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 14.0
+                            pd_top := View {
+                                width: Fill height: Fit
+                                flow: Right
+                                spacing: 24.0
+                                pd_img := LiyuThumb { width: 300 height: 300 }
+                                pd_info := View {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 8.0
+                                    pd_cat := LiyuBadgeBlue { text: "" draw_text +: { text_style +: { font_size: 12.0 } } }
+                                    pd_name := LiyuH1 { text: "" }
+                                    pd_brand := LiyuMuted { text: "" }
+                                    pd_price := Label {
+                                        flow: Right{wrap: true}
+                                        width: Fit
+                                        margin: Inset{top: 4.0}
+                                        text: ""
+                                        draw_text +: { color: liyu.warm text_style +: { font_size: 26.0 } }
+                                    }
+                                    pd_tags := LiyuMuted { text: "" draw_text +: { color: liyu.ink_3 } }
+                                    pd_ctx := LiyuCard2 {
+                                        visible: false
+                                        width: Fill height: Fit
+                                        flow: Down
+                                        spacing: 4.0
+                                        pd_ctx_t := LiyuWarmText { text: "" draw_text +: { text_style +: { font_size: 14.0 } } }
+                                        pd_ctx_r := LiyuMuted { text: "" }
+                                    }
+                                    pd_btns := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true row_align: RowAlign.Center}
+                                        margin: Inset{top: 6.0}
+                                        wrap_spacing: 8.0
+                                        spacing: 10.0
+                                        pd_send := LiyuBtnPrimary {
+                                            width: Fit
+                                            text: "送给 TA"
+                                            draw_icon +: { svg: crate_resource("self:resources/icons/nav-gift.svg") }
+                                        }
+                                        pd_addwish := LiyuBtn {
+                                            width: Fit
+                                            text: "加到我的心愿单"
+                                            draw_icon +: { svg: crate_resource("self:resources/icons/plus.svg") }
+                                        }
+                                    }
+                                }
+                            }
+                            pd_desc_card := LiyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 6.0
+                                pd_desc_h := LiyuH3 { text: "商品介绍" }
+                                pd_desc := LiyuBody { text: "" }
+                                pd_kvs := View {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    margin: Inset{top: 6.0}
+                                    pd_kv_kind := LiyuKV { }
+                                    pd_kv_spec := LiyuKV { }
+                                    pd_kv_ship := LiyuKV { }
+                                }
+                            }
+                            pd_notes := LiyuCard2 {
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 6.0
+                                pd_notes_t := LiyuH3 { text: "送礼须知" }
+                                pd_notes_b := LiyuMuted { text: "· 礼卡上只有玩法和线索，不出现商品名、价格和你的名字\n· TA 不喜欢可以换一件，或者折成余额\n· 7 天没拆开，全额退回你的余额" }
+                            }
+                            pd_rel_h := LiyuGroupHead { text: "同类还有" }
+                            pd_rel := View {
+                                width: Fill height: Fit
+                                flow: Right{wrap: true}
+                                wrap_spacing: 12.0
+                                spacing: 12.0
+                                pr0 := LiyuProductCard { }
+                                pr1 := LiyuProductCard { }
+                                pr2 := LiyuProductCard { }
+                                pr3 := LiyuProductCard { }
+                            }
+                        }
+
+                        // ================= 结算（覆盖页）=================
+                        //
+                        // 送礼页只管「送什么、怎么玩」，钱在这一页算清楚：订单、余额抵扣、付款方式。
+                        // 付完原地变成成功页，再去分享礼卡。
+                        page_checkout := View {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 10.0
+                            co_scroll := LiyuScrollY {
+                                width: Fill height: Fill
+                                flow: Down
+                                spacing: 14.0
+                                co_paid := View {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 8.0
+                                    co_ok_icon := LiyuIcon {
+                                        icon_walk: Walk{ width: 40.0 height: Fit }
+                                        draw_icon +: { svg: crate_resource("self:resources/icons/check-circle.svg") color: liyu.good }
+                                    }
+                                    co_ok_t := LiyuH2 { text: "支付成功" }
+                                    co_ok_b := LiyuBody { text: "" }
+                                }
+                                co_order := LiyuCard {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 12.0
+                                    co_order_h := LiyuGroupHead { margin: 0.0 text: "订单" }
+                                    co_item := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        align: Align{x: 0.0, y: 0.5}
+                                        spacing: 14.0
+                                        co_img := LiyuThumb { width: 72 height: 72 }
+                                        co_col := View {
+                                            width: Fill height: Fit
+                                            flow: Down
+                                            spacing: 3.0
+                                            co_name := LiyuH3 { text: "" }
+                                            co_sub := LiyuMuted { text: "" }
+                                            co_price := Label {
+                                                flow: Right{wrap: true}
+                                                width: Fit
+                                                padding: Inset{left: 3.0, right: 3.0, top: 2.0, bottom: 0.0}
+                                                text: ""
+                                                draw_text +: { color: liyu.warm text_style +: { font_size: 16.0 } }
+                                            }
+                                        }
+                                    }
+                                    co_kvs := View {
+                                        width: Fill height: Fit
+                                        flow: Down
+                                        co_to := LiyuKV { }
+                                        co_play := LiyuKV { }
+                                        co_pact := LiyuKV { }
+                                        co_when := LiyuKV { }
+                                        co_wish := LiyuKV { }
+                                    }
+                                }
+                                co_pay := LiyuCard {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 8.0
+                                    co_pay_h := LiyuGroupHead { margin: 0.0 text: "付款" }
+                                    co_bal_row := LiyuSwitchRow { margin: Inset{left: -12.0, right: -12.0} }
+                                    co_lines := View {
+                                        width: Fill height: Fit
+                                        flow: Down
+                                        co_l1 := LiyuKV { }
+                                        co_l2 := LiyuKV { }
+                                        co_l3 := LiyuKV { }
+                                    }
+                                    co_pm := View {
+                                        width: Fill height: Fit
+                                        flow: Down
+                                        spacing: 8.0
+                                        co_pm_h := LiyuMuted { text: "付款方式" }
+                                        co_pm_row := View {
+                                            width: Fill height: Fit
+                                            flow: Right{wrap: true}
+                                            wrap_spacing: 8.0
+                                            spacing: 8.0
+                                            pm0 := LiyuChip { text: "微信支付" }
+                                            pm1 := LiyuChip { text: "支付宝" }
+                                            pm2 := LiyuChip { text: "银行卡" }
+                                        }
+                                    }
+                                    co_demo := LiyuMuted { text: "演示环境：不会真的扣款。余额抵扣和付款都会记进「钱包与流水」。" draw_text +: { color: liyu.ink_3 } }
+                                }
+                            }
+                            co_bar := View {
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 6.0
+                                padding: Inset{top: 8.0}
+                                co_err := LiyuBad { visible: false text: "" }
+                                co_go := LiyuBtnPrimary {
+                                    width: Fill
+                                    text: "确认支付"
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/lock.svg") }
+                                }
+                                co_after := View {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    flow: Right{wrap: true row_align: RowAlign.Center}
+                                    wrap_spacing: 8.0
+                                    spacing: 10.0
+                                    co_card := LiyuBtnPrimary {
+                                        width: Fit
+                                        text: "去分享礼卡"
+                                        draw_icon +: { svg: crate_resource("self:resources/icons/share.svg") }
+                                    }
+                                    co_home := LiyuBtn { width: Fit text: "继续逛逛" }
+                                }
+                            }
+                        }
+
+                        // ================= 我的心愿单（覆盖页）=================
+                        page_wishes := LiyuScrollY {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 12.0
+                            mw_new := LiyuBtnPrimary {
+                                width: Fit
+                                text: "发布新的心愿单"
+                                draw_icon +: { svg: crate_resource("self:resources/icons/plus.svg") }
+                            }
+                            mw0 := LiyuWishCard { }
+                            mw1 := LiyuWishCard { }
+                            mw2 := LiyuWishCard { }
+                            mw3 := LiyuWishCard { }
+                            mw_empty := LiyuEmpty {
+                                visible: false
+                                em_icon := LiyuIcon {
+                                    icon_walk: Walk{ width: 28.0 height: Fit }
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/nav-gift.svg") color: liyu.ink_ghost }
+                                }
+                            }
+                            mw_note := LiyuMuted {
+                                text: "心愿单只给熟人看。谁认领了哪一件，礼物揭晓之前你都不知道 —— 只知道「已有人送」。"
+                            }
+                        }
+
+                        // ================= 一张心愿单（覆盖页）=================
+                        //
+                        // 好友的：每件一个「送这件 / 帮 TA 挑」；有人送了的调暗、按钮收起。
+                        // 自己的：看进度、编辑、分享、提前结束；另有一张演示卡替好友来认领。
+                        page_wish := LiyuScrollY {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 14.0
+                            wd_head := LiyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 10.0
+                                wd_top := View {
+                                    width: Fill height: Fit
+                                    flow: Right
+                                    align: Align{x: 0.0, y: 0.5}
+                                    spacing: 12.0
+                                    wd_face := RoundedView {
+                                        width: 44 height: 44
+                                        flow: Down
+                                        align: Align{x: 0.5, y: 0.5}
+                                        draw_bg +: { color: liyu.face border_radius: r.card }
+                                        wd_initial := Label {
+                                            flow: Right{wrap: true}
+                                            text: ""
+                                            draw_text +: { color: liyu.warm text_style +: { font_size: 17.0 } }
+                                        }
+                                    }
+                                    wd_col := View {
+                                        width: Fill height: Fit
+                                        flow: Down
+                                        spacing: 2.0
+                                        wd_title := LiyuH2 { text: "" }
+                                        wd_when := LiyuMuted { text: "" }
+                                    }
+                                    wd_badge := LiyuBadgeWarm { text: "" draw_text +: { text_style +: { font_size: 12.0 } } }
+                                }
+                                wd_note := LiyuBody { text: "" }
+                                wd_prog := LiyuMuted { text: "" }
+                                wd_track := RoundedView {
+                                    width: Fill height: 6
+                                    flow: Right
+                                    draw_bg +: { color: liyu.track_off border_radius: r.tick }
+                                    wd_fill := RoundedView {
+                                        width: 0 height: 6
+                                        draw_bg +: { color: liyu.warm border_radius: r.tick }
+                                    }
+                                }
+                                wd_meta := LiyuMuted { text: "" draw_text +: { color: liyu.ink_3 } }
+                            }
+                            wd_tip := LiyuCard2 {
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 4.0
+                                wd_tip_t := LiyuMuted { text: "" }
+                            }
+                            wd_list := LiyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 6.0
+                                spacing: 0.0
+                                wr0 := LiyuWishItemRow { }
+                                wr1 := LiyuWishItemRow { }
+                                wr2 := LiyuWishItemRow { }
+                                wr3 := LiyuWishItemRow { }
+                                wr4 := LiyuWishItemRow { }
+                                wr5 := LiyuWishItemRow { }
+                                wr6 := LiyuWishItemRow { }
+                                wr7 := LiyuWishItemRow { }
+                            }
+                            wd_owner := View {
+                                visible: false
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 10.0
+                                wd_acts := View {
+                                    width: Fill height: Fit
+                                    flow: Right{wrap: true}
+                                    wrap_spacing: 8.0
+                                    spacing: 8.0
+                                    wd_edit := LiyuBtn { width: Fit text: "编辑" draw_icon +: { svg: crate_resource("self:resources/icons/edit.svg") } }
+                                    wd_copy := LiyuBtn { width: Fit text: "复制分享链接" draw_icon +: { svg: crate_resource("self:resources/icons/share.svg") } }
+                                    wd_close := LiyuBtn { width: Fit text: "提前结束" draw_icon +: { svg: crate_resource("self:resources/icons/lock.svg") } }
+                                    wd_del := LiyuBtnDanger { width: Fit text: "删除" draw_icon +: { svg: crate_resource("self:resources/icons/trash.svg") } }
+                                }
+                                wd_confirm := View {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 8.0
+                                    wd_ctext := LiyuBad { text: "" }
+                                    wd_crow := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 8.0
+                                        spacing: 8.0
+                                        wd_cno := LiyuBtn { width: Fit text: "再想想" }
+                                        wd_cyes := LiyuBtnDanger { width: Fit text: "确认" }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ================= 发布 / 编辑心愿单（覆盖页）=================
+                        //
+                        // 四段：日子 / 标题 / 想要什么 / 给谁看。「想要什么」两种放法：挑一件具体的
+                        // （去目录里点），或者说个大概（品类 + 预算 + 一句要求），就地展开。
+                        page_wish_edit := View {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 10.0
+                            we_scroll := LiyuScrollY {
+                                width: Fill height: Fill
+                                flow: Down
+                                spacing: 12.0
+                                we_s1 := LiyuH3 { text: "1 · 什么日子" }
+                                we_occ := View {
+                                    width: Fill height: Fit
+                                    flow: Right{wrap: true}
+                                    wrap_spacing: 8.0
+                                    spacing: 8.0
+                                        oc0 := LiyuChip { text: "生日" }
+                                        oc1 := LiyuChip { text: "结婚" }
+                                        oc2 := LiyuChip { text: "乔迁" }
+                                        oc3 := LiyuChip { text: "毕业" }
+                                        oc4 := LiyuChip { text: "宝宝" }
+                                        oc5 := LiyuChip { text: "其他" }
+                                }
+                                we_date := View {
+                                    width: Fill height: Fit
+                                    flow: Right{wrap: true row_align: RowAlign.Center}
+                                    wrap_spacing: 8.0
+                                    spacing: 8.0
+                                    we_date_l := Label {
+                                        flow: Right{wrap: true}
+                                        width: Fit
+                                        margin: Inset{right: 6.0}
+                                        text: ""
+                                        draw_text +: { color: liyu.ink text_style +: { font_size: 15.0 } }
+                                    }
+                                    // 三个按钮一起折行，窄屏上不会一个挂在日期后面、两个掉到下一行。
+                                    we_dbtns := View {
+                                        width: Fit height: Fit
+                                        flow: Right
+                                        spacing: 8.0
+                                        we_dm := LiyuBtnSm { width: Fit text: "早一天" }
+                                        we_dp := LiyuBtnSm { width: Fit text: "晚一天" }
+                                        we_dw := LiyuBtnSm { width: Fit text: "晚一周" }
+                                    }
+                                }
+                                we_s2 := LiyuH3 { margin: Inset{top: 6.0} text: "2 · 标题和想说的话" }
+                                we_title := LiyuInput { empty_text: "" }
+                                we_note := LiyuInput { empty_text: "想对朋友们说的话（可不写），最多 40 字" }
+                                we_s3 := LiyuH3 { margin: Inset{top: 6.0} text: "3 · 想要什么" }
+                                we_items := LiyuCard {
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    padding: 6.0
+                                    spacing: 0.0
+                                    ei0 := LiyuWishItemRow { }
+                                    ei1 := LiyuWishItemRow { }
+                                    ei2 := LiyuWishItemRow { }
+                                    ei3 := LiyuWishItemRow { }
+                                    ei4 := LiyuWishItemRow { }
+                                    ei5 := LiyuWishItemRow { }
+                                    ei6 := LiyuWishItemRow { }
+                                    ei7 := LiyuWishItemRow { }
+                                    we_items_empty := LiyuMuted {
+                                        margin: Inset{left: 12.0, right: 12.0, top: 10.0, bottom: 10.0}
+                                        text: "还没放东西。可以挑一件具体的，也可以只说个大概 —— 比如「一台电视，55 寸以上」，送礼的人会看到符合要求的商品。"
+                                    }
+                                }
+                                we_add := View {
+                                    width: Fill height: Fit
+                                    flow: Right{wrap: true}
+                                    wrap_spacing: 8.0
+                                    spacing: 8.0
+                                    we_add_exact := LiyuBtn { width: Fit text: "挑一件具体的" draw_icon +: { svg: crate_resource("self:resources/icons/search.svg") } }
+                                    we_add_vague := LiyuBtn { width: Fit text: "说个大概" draw_icon +: { svg: crate_resource("self:resources/icons/sparkle.svg") } }
+                                }
+                                we_vague := LiyuCard2 {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 10.0
+                                    we_v_k := LiyuMuted { text: "想要个什么？" }
+                                    we_kinds := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 8.0
+                                        spacing: 8.0
+                                            wk0 := LiyuChip { text: "电视" }
+                                            wk1 := LiyuChip { text: "耳机" }
+                                            wk2 := LiyuChip { text: "音箱" }
+                                            wk3 := LiyuChip { text: "投影仪" }
+                                            wk4 := LiyuChip { text: "空气炸锅" }
+                                            wk5 := LiyuChip { text: "扫地机" }
+                                            wk6 := LiyuChip { text: "床品" }
+                                            wk7 := LiyuChip { text: "餐具" }
+                                            wk8 := LiyuChip { text: "灯" }
+                                            wk9 := LiyuChip { text: "绿植" }
+                                            wk10 := LiyuChip { text: "鲜花" }
+                                            wk11 := LiyuChip { text: "蛋糕" }
+                                            wk12 := LiyuChip { text: "咖啡" }
+                                            wk13 := LiyuChip { text: "盲盒" }
+                                            wk14 := LiyuChip { text: "玩具" }
+                                            wk15 := LiyuChip { text: "推车" }
+                                    }
+                                    we_v_b := LiyuMuted { text: "预算" }
+                                    we_budgets := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 8.0
+                                        spacing: 8.0
+                                            bd0 := LiyuChip { text: "不限" }
+                                            bd1 := LiyuChip { text: "¥100 以内" }
+                                            bd2 := LiyuChip { text: "¥300 以内" }
+                                            bd3 := LiyuChip { text: "¥500 以内" }
+                                            bd4 := LiyuChip { text: "¥1000 以内" }
+                                            bd5 := LiyuChip { text: "¥3000 以内" }
+                                            bd6 := LiyuChip { text: "¥5000 以内" }
+                                    }
+                                    we_v_w := LiyuMuted { text: "有什么要求（可不写）" }
+                                    we_wants := LiyuInput { empty_text: "比如：55 寸以上、4K" }
+                                    we_v_prev := LiyuMuted { text: "" draw_text +: { color: liyu.blue } }
+                                    we_v_strip := View {
+                                        width: Fill height: Fit
+                                        flow: Right
+                                        spacing: 8.0
+                                        vp0 := LiyuThumb { width: 48 height: 48 }
+                                        vp1 := LiyuThumb { width: 48 height: 48 }
+                                        vp2 := LiyuThumb { width: 48 height: 48 }
+                                        vp3 := LiyuThumb { width: 48 height: 48 }
+                                        vp4 := LiyuThumb { width: 48 height: 48 }
+                                    }
+                                    we_v_row := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 8.0
+                                        spacing: 8.0
+                                        we_v_ok := LiyuBtnPrimarySm { width: Fit text: "放进心愿单" }
+                                        we_v_no := LiyuBtnSm { width: Fit text: "算了" }
+                                    }
+                                }
+                                we_s4 := LiyuH3 { margin: Inset{top: 6.0} text: "4 · 给谁看" }
+                                we_aud := View {
+                                    width: Fill height: Fit
+                                    flow: Right{wrap: true}
+                                    wrap_spacing: 8.0
+                                    spacing: 8.0
+                                    aa0 := LiyuChip { text: "所有熟人" }
+                                    au0 := LiyuChip { text: "" }
+                                    au1 := LiyuChip { text: "" }
+                                    au2 := LiyuChip { text: "" }
+                                    au3 := LiyuChip { text: "" }
+                                    au4 := LiyuChip { text: "" }
+                                    au5 := LiyuChip { text: "" }
+                                    au6 := LiyuChip { text: "" }
+                                    au7 := LiyuChip { text: "" }
+                                    au8 := LiyuChip { text: "" }
+                                    au9 := LiyuChip { text: "" }
+                                }
+                                we_aud_n := LiyuMuted { text: "" }
+                            }
+                            we_bar := View {
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 6.0
+                                padding: Inset{top: 8.0}
+                                we_err := LiyuBad { visible: false text: "" }
+                                we_go := LiyuBtnPrimary {
+                                    width: Fill
+                                    text: "发布心愿单"
+                                    draw_icon +: { svg: crate_resource("self:resources/icons/sparkle.svg") }
+                                }
+                            }
+                        }
+
+                        // ================= 挑一件（覆盖页）=================
+                        //
+                        // 两种用法：替好友「说了个大概」的心愿挑一件（只列符合的，附理由），
+                        // 或者给自己的心愿单挑一件具体的（整份目录，按品类筛）。
+                        page_wish_pick := LiyuScrollY {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 14.0
+                            wp_head := LiyuCard2 {
+                                width: Fill height: Fit
+                                flow: Down
+                                spacing: 4.0
+                                wp_t := LiyuH3 { text: "" }
+                                wp_s := LiyuMuted { text: "" }
+                            }
+                            wp_chips := View {
+                                width: Fill height: Fit
+                                flow: Right{wrap: true}
+                                wrap_spacing: 8.0
+                                spacing: 8.0
+                                wq0 := LiyuChip { text: "全部" }
+                                wq1 := LiyuChip { text: "咖啡茶饮" }
+                                wq2 := LiyuChip { text: "电影演出" }
+                                wq3 := LiyuChip { text: "潮流小物" }
+                                wq4 := LiyuChip { text: "盲盒" }
+                                wq5 := LiyuChip { text: "甜点鲜花" }
+                                wq6 := LiyuChip { text: "数码家电" }
+                                wq7 := LiyuChip { text: "家居生活" }
+                                wq8 := LiyuChip { text: "母婴亲子" }
+                            }
+                            wp_grid := View {
+                                width: Fill height: Fit
+                                flow: Right{wrap: true}
+                                wrap_spacing: 12.0
+                                spacing: 12.0
+                                wp0 := LiyuProductCard { }
+                                wp1 := LiyuProductCard { }
+                                wp2 := LiyuProductCard { }
+                                wp3 := LiyuProductCard { }
+                                wp4 := LiyuProductCard { }
+                                wp5 := LiyuProductCard { }
+                                wp6 := LiyuProductCard { }
+                                wp7 := LiyuProductCard { }
+                                wp8 := LiyuProductCard { }
+                                wp9 := LiyuProductCard { }
+                                wp10 := LiyuProductCard { }
+                                wp11 := LiyuProductCard { }
+                                wp12 := LiyuProductCard { }
+                                wp13 := LiyuProductCard { }
+                                wp14 := LiyuProductCard { }
+                                wp15 := LiyuProductCard { }
+                                wp16 := LiyuProductCard { }
+                                wp17 := LiyuProductCard { }
+                                wp18 := LiyuProductCard { }
+                                wp19 := LiyuProductCard { }
+                                wp20 := LiyuProductCard { }
+                                wp21 := LiyuProductCard { }
+                                wp22 := LiyuProductCard { }
+                                wp23 := LiyuProductCard { }
+                                wp24 := LiyuProductCard { }
+                                wp25 := LiyuProductCard { }
+                                wp26 := LiyuProductCard { }
+                                wp27 := LiyuProductCard { }
+                                wp28 := LiyuProductCard { }
+                                wp29 := LiyuProductCard { }
+                                wp30 := LiyuProductCard { }
+                                wp31 := LiyuProductCard { }
+                                wp32 := LiyuProductCard { }
+                            }
+                            wp_note := LiyuMuted { text: "" }
                         }
 
                         // ================= 开场三屏 =================
@@ -1189,7 +1838,16 @@ script_mod! {
                                 spacing: 6.0
                                 ag2_t := LiyuMuted { text: "礼遇余额" }
                                 ag2_v := LiyuH2 { text: "¥0" }
-                                ag2_b := LiyuMuted { text: "送礼时可优先抵扣；不够的部分模拟支付。" }
+                                ag2_b := LiyuMuted { text: "结算时可优先抵扣；不够的部分模拟支付。" }
+                            }
+                            ag3 := LiyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 16.0
+                                spacing: 8.0
+                                ag3_t := LiyuH3 { text: "心愿单" }
+                                ag3_b := LiyuMuted { text: "生日、结婚、搬新家…… 把想要的列出来，熟人就知道送什么。可以写具体哪一件，也可以只说个大概，比如「一台电视，55 寸以上」。" }
+                                ag3_go := LiyuBtnSm { width: Fit text: "我的心愿单" }
                             }
                         }
                         aside_box := View {
@@ -1346,7 +2004,7 @@ const INTRO: [(&str, &str); 3] = [
 
 /// 第 3 屏底部的规则要点（04-rules 的缩写）。
 const INTRO_POINTS: [&str; 4] = [
-    "礼卡上只有玩法、线索和口令",
+    "礼卡上只有玩法和线索",
     "没拆开之前，TA 不知道是你",
     "7 天没拆，全额退回",
     "余额只在礼遇内使用，不能提现",
@@ -1379,12 +2037,20 @@ const ASIDES: [LiveId; 5] = [
     live_id!(aside_me),
 ];
 
-const CAT_CHIPS: [LiveId; 6] = [
+/// 0 = 全部，其余是 Category::ALL 的下标 + 1。
+const CAT_CHIPS: [LiveId; 9] = [
     live_id!(k0), live_id!(k1), live_id!(k2), live_id!(k3), live_id!(k4), live_id!(k5),
+    live_id!(k6), live_id!(k7), live_id!(k8),
 ];
-const GIFT_ROWS: [LiveId; 12] = [
-    live_id!(g0), live_id!(g1), live_id!(g2), live_id!(g3), live_id!(g4), live_id!(g5),
-    live_id!(g6), live_id!(g7), live_id!(g8), live_id!(g9), live_id!(g10), live_id!(g11),
+const GIFT_SEGS: [LiveId; 2] = [live_id!(gs_shop), live_id!(gs_wish)];
+/// 挑礼宫格：目录里一件一张卡。
+const GRID_CARDS: [LiveId; 33] = [
+    live_id!(pc0), live_id!(pc1), live_id!(pc2), live_id!(pc3), live_id!(pc4), live_id!(pc5),
+    live_id!(pc6), live_id!(pc7), live_id!(pc8), live_id!(pc9), live_id!(pc10), live_id!(pc11),
+    live_id!(pc12), live_id!(pc13), live_id!(pc14), live_id!(pc15), live_id!(pc16), live_id!(pc17),
+    live_id!(pc18), live_id!(pc19), live_id!(pc20), live_id!(pc21), live_id!(pc22), live_id!(pc23),
+    live_id!(pc24), live_id!(pc25), live_id!(pc26), live_id!(pc27), live_id!(pc28), live_id!(pc29),
+    live_id!(pc30), live_id!(pc31), live_id!(pc32),
 ];
 const PICK_ROWS: [LiveId; 12] = [
     live_id!(q0), live_id!(q1), live_id!(q2), live_id!(q3), live_id!(q4), live_id!(q5),
@@ -1436,6 +2102,117 @@ const STAGE_VIEWS: [LiveId; 5] = [
     live_id!(op_done),
 ];
 
+// ---- 商品详情 / 结算 / 心愿单 ----
+/// 商品详情底部「同类还有」。
+const REL_CARDS: [LiveId; 4] = [
+    live_id!(pr0), live_id!(pr1), live_id!(pr2), live_id!(pr3),
+];
+/// 挑礼页「熟人的心愿单」。
+const WISH_CARDS: [LiveId; 6] = [
+    live_id!(fw0), live_id!(fw1), live_id!(fw2), live_id!(fw3), live_id!(fw4), live_id!(fw5),
+];
+/// 「我的心愿单」。
+const MY_WISH_CARDS: [LiveId; 4] = [
+    live_id!(mw0), live_id!(mw1), live_id!(mw2), live_id!(mw3),
+];
+/// 心愿单详情的一件一行。
+const WISH_ROWS: [LiveId; 8] = [
+    live_id!(wr0), live_id!(wr1), live_id!(wr2), live_id!(wr3), live_id!(wr4), live_id!(wr5),
+    live_id!(wr6), live_id!(wr7),
+];
+/// 发布 / 编辑页里已经放进去的几件。
+const EDIT_ROWS: [LiveId; 8] = [
+    live_id!(ei0), live_id!(ei1), live_id!(ei2), live_id!(ei3), live_id!(ei4), live_id!(ei5),
+    live_id!(ei6), live_id!(ei7),
+];
+/// 心愿单卡片上的一排小图（LiyuWishCard 里）。
+const WISH_THUMBS: [LiveId; 5] = [
+    live_id!(wt0), live_id!(wt1), live_id!(wt2), live_id!(wt3), live_id!(wt4),
+];
+const OCC_CHIPS: [LiveId; 6] = [
+    live_id!(oc0), live_id!(oc1), live_id!(oc2), live_id!(oc3), live_id!(oc4), live_id!(oc5),
+];
+const KIND_CHIPS: [LiveId; 16] = [
+    live_id!(wk0), live_id!(wk1), live_id!(wk2), live_id!(wk3), live_id!(wk4), live_id!(wk5),
+    live_id!(wk6), live_id!(wk7), live_id!(wk8), live_id!(wk9), live_id!(wk10), live_id!(wk11),
+    live_id!(wk12), live_id!(wk13), live_id!(wk14), live_id!(wk15),
+];
+const BUDGET_CHIPS: [LiveId; 7] = [
+    live_id!(bd0), live_id!(bd1), live_id!(bd2), live_id!(bd3), live_id!(bd4), live_id!(bd5),
+    live_id!(bd6),
+];
+/// 「给谁看」的熟人芯片（前面还有一枚「所有熟人」aa0）。
+const AUD_CHIPS: [LiveId; 10] = [
+    live_id!(au0), live_id!(au1), live_id!(au2), live_id!(au3), live_id!(au4), live_id!(au5),
+    live_id!(au6), live_id!(au7), live_id!(au8), live_id!(au9),
+];
+/// 「说个大概」时预览的几件候选。
+const PREVIEW_THUMBS: [LiveId; 5] = [
+    live_id!(vp0), live_id!(vp1), live_id!(vp2), live_id!(vp3), live_id!(vp4),
+];
+/// 「挑一件」页的宫格。
+const PICK_CARDS: [LiveId; 33] = [
+    live_id!(wp0), live_id!(wp1), live_id!(wp2), live_id!(wp3), live_id!(wp4), live_id!(wp5),
+    live_id!(wp6), live_id!(wp7), live_id!(wp8), live_id!(wp9), live_id!(wp10), live_id!(wp11),
+    live_id!(wp12), live_id!(wp13), live_id!(wp14), live_id!(wp15), live_id!(wp16), live_id!(wp17),
+    live_id!(wp18), live_id!(wp19), live_id!(wp20), live_id!(wp21), live_id!(wp22), live_id!(wp23),
+    live_id!(wp24), live_id!(wp25), live_id!(wp26), live_id!(wp27), live_id!(wp28), live_id!(wp29),
+    live_id!(wp30), live_id!(wp31), live_id!(wp32),
+];
+const PICK_CHIPS: [LiveId; 9] = [
+    live_id!(wq0), live_id!(wq1), live_id!(wq2), live_id!(wq3), live_id!(wq4), live_id!(wq5),
+    live_id!(wq6), live_id!(wq7), live_id!(wq8),
+];
+const DELIVER_SEGS: [LiveId; 2] = [live_id!(dv0), live_id!(dv1)];
+const PAY_CHIPS: [LiveId; 3] = [
+    live_id!(pm0), live_id!(pm1), live_id!(pm2),
+];
+
+/// 商品图，下标和 `CATALOG` 一一对应（400×400，圆角已经烤进 alpha）。
+const PRODUCT_PNGS: [&[u8]; 33] = [
+    include_bytes!("../resources/products/p00.png"),
+    include_bytes!("../resources/products/p01.png"),
+    include_bytes!("../resources/products/p02.png"),
+    include_bytes!("../resources/products/p03.png"),
+    include_bytes!("../resources/products/p04.png"),
+    include_bytes!("../resources/products/p05.png"),
+    include_bytes!("../resources/products/p06.png"),
+    include_bytes!("../resources/products/p07.png"),
+    include_bytes!("../resources/products/p08.png"),
+    include_bytes!("../resources/products/p09.png"),
+    include_bytes!("../resources/products/p10.png"),
+    include_bytes!("../resources/products/p11.png"),
+    include_bytes!("../resources/products/p12.png"),
+    include_bytes!("../resources/products/p13.png"),
+    include_bytes!("../resources/products/p14.png"),
+    include_bytes!("../resources/products/p15.png"),
+    include_bytes!("../resources/products/p16.png"),
+    include_bytes!("../resources/products/p17.png"),
+    include_bytes!("../resources/products/p18.png"),
+    include_bytes!("../resources/products/p19.png"),
+    include_bytes!("../resources/products/p20.png"),
+    include_bytes!("../resources/products/p21.png"),
+    include_bytes!("../resources/products/p22.png"),
+    include_bytes!("../resources/products/p23.png"),
+    include_bytes!("../resources/products/p24.png"),
+    include_bytes!("../resources/products/p25.png"),
+    include_bytes!("../resources/products/p26.png"),
+    include_bytes!("../resources/products/p27.png"),
+    include_bytes!("../resources/products/p28.png"),
+    include_bytes!("../resources/products/p29.png"),
+    include_bytes!("../resources/products/p30.png"),
+    include_bytes!("../resources/products/p31.png"),
+    include_bytes!("../resources/products/p32.png"),
+];
+/// 还没揭晓的礼物：礼盒里只给一个问号。
+const MYSTERY_PNG: &[u8] = include_bytes!("../resources/products/mystery.png");
+
+/// 商品卡的最小宽度和间距：能排几列就排几列（2..=5），卡宽按剩余宽度均分。
+const TILE_MIN: f64 = 150.0;
+const TILE_GAP: f64 = 12.0;
+/// 侧栏宽度（DSL 里 sidebar 的 width）。
+const SIDEBAR_W: f64 = 208.0;
+
 // ---------------------------------------------------------------------------
 // 响应式布局
 // ---------------------------------------------------------------------------
@@ -1472,7 +2249,7 @@ const ASIDE_MIN: f64 = 900.0;
 
 /// 自己吃左右留白的那些容器：正文区不留左右内边距，滚动条才贴得住窗口边，
 /// 所以这一份留白落到每个可滚动页面（以及送礼页那条固定底栏）身上。
-const SIDE_PAD_VIEWS: [LiveId; 12] = [
+const SIDE_PAD_VIEWS: [LiveId; 20] = [
     live_id!(page_gift),
     live_id!(page_box),
     live_id!(page_pact),
@@ -1485,6 +2262,14 @@ const SIDE_PAD_VIEWS: [LiveId; 12] = [
     live_id!(page_sent),
     live_id!(page_wallet),
     live_id!(page_settings),
+    live_id!(page_product),
+    live_id!(co_scroll),
+    live_id!(co_bar),
+    live_id!(page_wishes),
+    live_id!(page_wish),
+    live_id!(we_scroll),
+    live_id!(we_bar),
+    live_id!(page_wish_pick),
 ];
 
 /// 可用 surface 尺寸 → 布局形态。宿主把应用放进多大的 tile，这里就按多大
@@ -1522,7 +2307,22 @@ enum Overlay {
     Sent,
     Wallet,
     Settings,
+    /// 商品详情（可以带着「这是谁心愿单上的哪一件」的上下文）。
+    Product,
+    /// 结算：订单 + 余额抵扣 + 付款方式，付完原地变成功页。
+    Checkout,
+    /// 我的心愿单（列表）。
+    Wishes,
+    /// 一张心愿单（自己的或好友的）。
+    Wish,
+    /// 发布 / 编辑心愿单。
+    WishEdit,
+    /// 挑一件：替好友的含糊心愿挑，或者给自己的心愿单挑。
+    WishPick,
 }
+
+/// 心愿单上的一件：（心愿单 id, 第几件）。
+type WishAt = (u64, usize);
 
 /// 拆礼页的阶段。
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -1571,11 +2371,69 @@ pub struct LiyuView {
     overlay: Option<Overlay>,
 
     // ---- 挑礼 ----
-    /// 0 = 全部，1..=5 = Category::ALL 的下标 + 1。
+    /// 0 = 全部，1..=8 = Category::ALL 的下标 + 1。
     #[rust]
     cat_idx: usize,
     #[rust]
     gift_rows: Vec<u16>,
+    /// 挑礼页的分段：false = 挑礼物，true = 熟人的心愿单。
+    #[rust]
+    gift_wish_seg: bool,
+    #[rust]
+    friend_rows: Vec<u64>,
+
+    /// 覆盖页的来路：从一张覆盖页进另一张时把前一张压进来，返回时弹出。
+    /// 从 Tab 上直接进来的覆盖页栈是空的，返回回到 `send_from` 那个 Tab。
+    #[rust]
+    back_stack: Vec<Overlay>,
+
+    // ---- 商品详情 ----
+    #[rust]
+    pd_item: u16,
+    /// 从好友心愿单进来的：这件对应哪条心愿。
+    #[rust]
+    pd_wish: Option<WishAt>,
+    #[rust]
+    rel_rows: Vec<u16>,
+
+    // ---- 结算 ----
+    /// 付完了：生成的礼物 id（页面变成功页）。
+    #[rust]
+    co_paid: Option<u64>,
+    #[rust]
+    co_err: Option<Msg>,
+
+    // ---- 心愿单 ----
+    #[rust]
+    my_rows: Vec<u64>,
+    #[rust]
+    wish_id: Option<u64>,
+    /// 心愿单详情的二次确认：0 = 没有，1 = 提前结束，2 = 删除。
+    #[rust]
+    wish_armed: u8,
+    #[rust]
+    wish_draft: WishDraft,
+    #[rust]
+    wish_err: Option<Msg>,
+    /// 「说个大概」的小表单是否展开，以及选中的品类 / 预算档。
+    #[rust]
+    vague_open: bool,
+    #[rust]
+    vague_kind: usize,
+    #[rust]
+    vague_budget: usize,
+    #[rust]
+    aud_names: Vec<String>,
+    /// 「挑一件」页：`Some` = 替好友的这条心愿挑；`None` = 给自己的心愿单挑。
+    #[rust]
+    wp_wish: Option<WishAt>,
+    #[rust]
+    wp_cat: usize,
+    #[rust]
+    wp_rows: Vec<u16>,
+    /// 熟人列表每一行对应的进行中心愿单。
+    #[rust]
+    contact_wish: Vec<Option<u64>>,
 
     // ---- 送礼页 ----
     /// 送礼页从哪个 Tab 进来的，返回就回哪。
@@ -1595,6 +2453,9 @@ pub struct LiyuView {
     /// 「换一件」的就地目录是否展开。
     #[rust]
     pick_open: bool,
+    /// 就地目录里列的是哪几件（同类，或者含糊心愿的候选）。
+    #[rust]
+    pick_rows: Vec<u16>,
 
     // ---- 礼盒 ----
     #[rust]
@@ -1683,6 +2544,15 @@ pub struct LiyuView {
     shaping: Option<Shaping>,
     #[rust]
     last_size: Vec2d,
+    /// 页面正文能用的宽度（去掉侧栏、右列和左右留白）。商品宫格按它排列数。
+    #[rust]
+    content_w: f64,
+    /// 心愿单详情的进度条：已认领的比例。
+    #[rust]
+    wish_frac: f64,
+    /// 商品图纹理，按目录下标懒加载；最后一格是问号图。
+    #[rust]
+    tex: Vec<Option<Texture>>,
     #[rust]
     fade_start: Option<f64>,
     #[rust]
@@ -1731,14 +2601,48 @@ impl LiyuView {
         }
     }
 
-    fn cat_color(&self, c: Category) -> Vec4f {
-        match c {
-            Category::Coffee => self.pal.warm,
-            Category::Movie => self.pal.blue,
-            Category::Trendy => self.pal.good,
-            Category::Blind => self.pal.bad,
-            Category::Sweet => self.pal.coupon,
+    /// 目录下标 → 纹理（`None` = 问号图）。第一次用到才解码，之后一直复用。
+    fn texture(&mut self, cx: &mut Cx, i: Option<u16>) -> Option<Texture> {
+        let k = i.map_or(CATALOG.len(), |i| (i as usize).min(CATALOG.len() - 1));
+        if self.tex.len() <= CATALOG.len() {
+            self.tex.resize(CATALOG.len() + 1, None);
         }
+        if self.tex[k].is_none() {
+            let bytes = if k < CATALOG.len() { PRODUCT_PNGS[k] } else { MYSTERY_PNG };
+            self.tex[k] = ImageBuffer::from_png(bytes).ok().map(|b| b.into_new_mip_texture(cx));
+        }
+        self.tex[k].clone()
+    }
+
+    /// 给一个 LiyuThumb 换商品图，并恢复不透明（列表行是复用的，上一次可能被调暗过）。
+    fn set_img(&mut self, cx: &mut Cx, path: &[LiveId], i: Option<u16>) {
+        let t = self.texture(cx, i);
+        let img = self.view.image(cx, path);
+        img.set_texture(cx, t);
+        if let Some(mut im) = img.borrow_mut() {
+            im.draw_bg.opacity = 1.0;
+        };
+    }
+
+    /// 调暗一张图（心愿单上已经有人送的那几件）。
+    fn dim_img(&mut self, cx: &mut Cx, path: &[LiveId], opacity: f32) {
+        if let Some(mut im) = self.view.image(cx, path).borrow_mut() {
+            im.draw_bg.opacity = opacity;
+        }
+    }
+
+    fn set_img_size(&mut self, cx: &mut Cx, path: &[LiveId], side: f64) {
+        if let Some(mut im) = self.view.image(cx, path).borrow_mut() {
+            im.walk.width = Size::Fixed(side);
+            im.walk.height = Size::Fixed(side);
+        }
+    }
+
+    /// 写一条 LiyuKV：左边键，中间值，右边（可空）金额。
+    fn set_kv(&mut self, cx: &mut Cx, row: &[LiveId], k: &str, v: &str, r: &str) {
+        self.set_text(cx, &join(row, live_id!(kv_k)), k);
+        self.set_text(cx, &join(row, live_id!(kv_v)), v);
+        self.set_text(cx, &join(row, live_id!(kv_r)), r);
     }
 
     fn tone_color(&self, t: Tone) -> Vec4f {
@@ -1762,6 +2666,8 @@ impl LiyuView {
         let changed = self.tab != i || self.overlay.is_some();
         // 切 Tab 即离开所有覆盖页；送礼草稿随之丢掉（它本来就不落盘）。
         self.overlay = None;
+        self.back_stack.clear();
+        self.wish_armed = 0;
         self.open_preview = false;
         self.withdraw_armed = false;
         self.reset_armed = false;
@@ -1804,6 +2710,51 @@ impl LiyuView {
         self.start_fade(cx);
     }
 
+    /// 进一张覆盖页并记下来路：从 Tab 上进来的清空来路栈、记住 Tab；
+    /// 从另一张覆盖页进来的把那一张压栈，返回时回到它。
+    fn nav_to(&mut self, cx: &mut Cx, o: Overlay) {
+        match self.overlay {
+            None => {
+                self.send_from = self.tab;
+                self.back_stack.clear();
+            }
+            Some(cur) if cur != o => self.back_stack.push(cur),
+            _ => {}
+        }
+        self.open_overlay(cx, o);
+    }
+
+    /// 回到上一张覆盖页（按当前数据重铺，但不回顶：刚才看到哪儿还在哪儿）。
+    /// 栈空了就回进来时的那个 Tab。
+    fn pop_back(&mut self, cx: &mut Cx) {
+        match self.back_stack.pop() {
+            Some(o) => {
+                self.overlay = Some(o);
+                self.refresh_overlay(cx, o);
+                self.update_page_visibility(cx);
+                self.start_fade(cx);
+            }
+            None => self.set_tab(cx, self.send_from),
+        }
+    }
+
+    fn refresh_overlay(&mut self, cx: &mut Cx, o: Overlay) {
+        match o {
+            Overlay::Send => self.refresh_send(cx),
+            Overlay::Card => self.refresh_card(cx),
+            Overlay::Open => self.refresh_open(cx),
+            Overlay::Sent => self.refresh_sent(cx),
+            Overlay::Wallet => self.refresh_wallet(cx),
+            Overlay::Settings => self.refresh_settings(cx),
+            Overlay::Product => self.refresh_product(cx),
+            Overlay::Checkout => self.refresh_checkout(cx),
+            Overlay::Wishes => self.refresh_wishes(cx),
+            Overlay::Wish => self.refresh_wish(cx),
+            Overlay::WishEdit => self.refresh_wish_edit(cx),
+            Overlay::WishPick => self.refresh_wish_pick(cx),
+        }
+    }
+
     fn scroll_top(&mut self, cx: &mut Cx, o: Overlay) {
         let id = match o {
             Overlay::Send => live_id!(sd_scroll),
@@ -1812,14 +2763,29 @@ impl LiyuView {
             Overlay::Sent => live_id!(page_sent),
             Overlay::Wallet => live_id!(page_wallet),
             Overlay::Settings => live_id!(page_settings),
+            Overlay::Product => live_id!(page_product),
+            Overlay::Checkout => live_id!(co_scroll),
+            Overlay::Wishes => live_id!(page_wishes),
+            Overlay::Wish => live_id!(page_wish),
+            Overlay::WishEdit => live_id!(we_scroll),
+            Overlay::WishPick => live_id!(page_wish_pick),
         };
         self.view.view(cx, &[id]).set_scroll_pos(cx, Vec2d::default());
     }
 
-    /// 顶栏「返回」：每张覆盖页都有固定的来处。
+    /// 顶栏「返回」：礼卡、拆礼、送出详情、钱包、设置有固定的来处；
+    /// 送礼、商品、结算和心愿单这几张按来路栈一层层退回去。
     fn go_back(&mut self, cx: &mut Cx) {
         match self.overlay {
-            Some(Overlay::Send) => self.set_tab(cx, self.send_from),
+            Some(
+                Overlay::Send
+                | Overlay::Product
+                | Overlay::Checkout
+                | Overlay::Wishes
+                | Overlay::Wish
+                | Overlay::WishEdit
+                | Overlay::WishPick,
+            ) => self.pop_back(cx),
             Some(Overlay::Card) | Some(Overlay::Sent) => {
                 self.box_sent = true;
                 self.set_tab(cx, 1);
@@ -1854,6 +2820,12 @@ impl LiyuView {
         self.show(cx, ids!(page_sent), ov == Some(Overlay::Sent));
         self.show(cx, ids!(page_wallet), ov == Some(Overlay::Wallet));
         self.show(cx, ids!(page_settings), ov == Some(Overlay::Settings));
+        self.show(cx, ids!(page_product), ov == Some(Overlay::Product));
+        self.show(cx, ids!(page_checkout), ov == Some(Overlay::Checkout));
+        self.show(cx, ids!(page_wishes), ov == Some(Overlay::Wishes));
+        self.show(cx, ids!(page_wish), ov == Some(Overlay::Wish));
+        self.show(cx, ids!(page_wish_edit), ov == Some(Overlay::WishEdit));
+        self.show(cx, ids!(page_wish_pick), ov == Some(Overlay::WishPick));
         let menu = self.import_menu && !intro && self.overlay.is_none() && self.tab == 3;
         self.show(cx, ids!(ct_menu_layer), menu);
         self.refresh_topbar(cx);
@@ -1864,7 +2836,13 @@ impl LiyuView {
         let title: String = match self.overlay {
             None => TAB_TITLES[self.tab].into(),
             Some(Overlay::Send) => {
-                if self.return_banner.is_some() { "回一份礼".into() } else { "发起神秘送礼".into() }
+                if self.draft.wish.is_some() {
+                    "认领心愿".into()
+                } else if self.return_banner.is_some() {
+                    "回一份礼".into()
+                } else {
+                    "发起神秘送礼".into()
+                }
             }
             Some(Overlay::Card) => "神秘礼卡".into(),
             Some(Overlay::Open) if self.open_preview => "TA 看到的礼卡".into(),
@@ -1878,11 +2856,29 @@ impl LiyuView {
             Some(Overlay::Sent) => "送出详情".into(),
             Some(Overlay::Wallet) => "钱包与流水".into(),
             Some(Overlay::Settings) => "设置".into(),
+            Some(Overlay::Product) => "商品详情".into(),
+            Some(Overlay::Checkout) => {
+                if self.co_paid.is_some() { "支付成功".into() } else { "确认订单".into() }
+            }
+            Some(Overlay::Wishes) => "我的心愿单".into(),
+            Some(Overlay::Wish) => match self.wish_id.and_then(|id| self.state.wishlist(id)) {
+                Some(w) if w.is_mine() => "我的心愿单".into(),
+                Some(w) => format!("{}的心愿单", w.owner),
+                None => "心愿单".into(),
+            },
+            Some(Overlay::WishEdit) => {
+                if self.wish_draft.id.is_some() { "编辑心愿单".into() } else { "发布心愿单".into() }
+            }
+            Some(Overlay::WishPick) => {
+                if self.wp_wish.is_some() { "帮 TA 挑一件".into() } else { "挑一件放进心愿单".into() }
+            }
         };
         self.set_text(cx, ids!(tb_title), &title);
         let overlay = self.overlay.is_some();
         self.show(cx, ids!(tb_back), overlay);
         self.show(cx, ids!(tb_action), !overlay && self.tab <= 1);
+        let wish_seg = self.tab == 0 && self.gift_wish_seg;
+        self.set_text(cx, ids!(tb_action), if wish_seg { "发布心愿单" } else { "发起神秘送礼" });
         self.show(cx, ids!(tb_add), !overlay && self.tab == 3);
     }
 
@@ -1895,12 +2891,8 @@ impl LiyuView {
         self.refresh_me(cx);
         self.refresh_wallet(cx);
         self.refresh_settings(cx);
-        match self.overlay {
-            Some(Overlay::Send) => self.refresh_send(cx),
-            Some(Overlay::Card) => self.refresh_card(cx),
-            Some(Overlay::Open) => self.refresh_open(cx),
-            Some(Overlay::Sent) => self.refresh_sent(cx),
-            _ => {}
+        if let Some(o) = self.overlay {
+            self.refresh_overlay(cx, o);
         }
         self.refresh_intro(cx);
         self.update_page_visibility(cx);
@@ -1926,6 +2918,7 @@ impl LiyuView {
 
     /// 数据变了之后把所有「列表类」页面都重铺一遍（它们都很小，不值得做增量）。
     fn after_data_change(&mut self, cx: &mut Cx) {
+        self.refresh_gift(cx);
         self.refresh_box(cx);
         self.refresh_pacts(cx);
         self.refresh_contacts(cx);
@@ -2160,7 +3153,46 @@ impl LiyuView {
             prev.walk.width = if phone { Size::fill() } else { Size::fit() };
             prev.layout.align.x = if phone { 0.5 } else { 0.0 };
         }
+        // 正文宽度：窗口减去侧栏、右列和页面自己的左右留白；再留 6px 给滚动条和取整，
+        // 宁可每张卡窄一点，也别被挤掉一列。
+        let nav_w = if phone || intro { 0.0 } else { SIDEBAR_W };
+        let aside_w = if s.aside && !intro { ASIDE_COL + side } else { 0.0 };
+        self.content_w = (self.last_size.x - nav_w - aside_w - 2.0 * side - 6.0).max(240.0);
+        self.layout_tiles(cx);
+        // 商品详情：宽屏左图右信息，手机图在上、占满一行（最多 360）。
+        if let Some(mut top) = self.view.view(cx, ids!(pd_top)).borrow_mut() {
+            top.layout.flow = if phone {
+                Flow::Down
+            } else {
+                Flow::Right { row_align: RowAlign::Top, wrap: false }
+            };
+        }
+        let pd = if phone { self.content_w.min(360.0).floor() } else { 300.0 };
+        self.set_img_size(cx, ids!(pd_img), pd);
         self.redraw(cx);
+    }
+
+    /// 三处商品宫格（挑礼、挑一件、同类还有）按正文宽度一起排：能放几列放几列，
+    /// 卡宽均分剩下的宽度，图边长 = 卡宽 − 两侧内边距。
+    fn layout_tiles(&mut self, cx: &mut Cx) {
+        let w = self.content_w;
+        let cols = (((w + TILE_GAP) / (TILE_MIN + TILE_GAP)).floor() as usize).clamp(2, 5);
+        let tile = ((w - TILE_GAP * (cols - 1) as f64) / cols as f64).floor();
+        for id in GRID_CARDS.iter().chain(PICK_CARDS.iter()).chain(REL_CARDS.iter()) {
+            if let Some(mut v) = self.view.view(cx, &[*id]).borrow_mut() {
+                v.walk.width = Size::Fixed(tile);
+            }
+            self.set_img_size(cx, &[*id, live_id!(pk_img)], tile - 16.0);
+        }
+        self.layout_wish_fill(cx);
+    }
+
+    /// 心愿单详情的进度条（轨道是卡片内容宽度，LiyuCard 左右各 18 内边距）。
+    fn layout_wish_fill(&mut self, cx: &mut Cx) {
+        let full = (self.content_w - 36.0).max(0.0);
+        if let Some(mut v) = self.view.view(cx, ids!(wd_fill)).borrow_mut() {
+            v.walk.width = Size::Fixed((full * self.wish_frac.clamp(0.0, 1.0)).floor());
+        }
     }
 
     /// AI 工具应答：只给礼盒的匿名汇总（ai.rs），不含送礼人、答案、寄语。
@@ -2173,9 +3205,7 @@ impl LiyuView {
     /// 目录里的一件礼物铺进一行 LiyuGiftRow（挑礼页和送礼页的「换一件」共用）。
     fn fill_gift_row(&mut self, cx: &mut Cx, row: LiveId, i: u16) {
         let it = item(i);
-        let c = self.cat_color(it.cat);
-        self.set_text(cx, &[row, live_id!(gr_letter)], cat_letter(it.cat));
-        self.tint_text(cx, &[row, live_id!(gr_letter)], c);
+        self.set_img(cx, &[row, live_id!(gr_img)], Some(i));
         self.set_text(cx, &[row, live_id!(gr_name)], it.name);
         self.set_text(cx, &[row, live_id!(gr_sub)], &item_sub(it));
         self.set_text(cx, &[row, live_id!(gr_price)], &yuan(it.price));
@@ -2214,32 +3244,54 @@ impl LiyuView {
     // ---- 挑礼 ----
 
     fn refresh_gift(&mut self, cx: &mut Cx) {
+        let wish = self.gift_wish_seg;
+        self.set_chip_group(cx, &GIFT_SEGS, wish as usize);
+        self.show(cx, ids!(gf_shop), !wish);
+        self.show(cx, ids!(gf_wish), wish);
         self.set_chip_group(cx, &CAT_CHIPS, self.cat_idx);
         let cat = self.cat_idx.checked_sub(1).map(|i| Category::ALL[i]);
         self.gift_rows = catalog_in(cat);
-        for (j, row) in GIFT_ROWS.iter().enumerate() {
-            let hit = self.gift_rows.get(j).copied();
-            self.show(cx, &[*row], hit.is_some());
-            if let Some(i) = hit {
-                self.fill_gift_row(cx, *row, i);
-            }
-        }
+        let rows = self.gift_rows.clone();
+        self.fill_cards(cx, &GRID_CARDS, &rows, &[]);
+        self.refresh_friend_wishes(cx);
         let bal = yuan(self.state.balance());
         self.set_text(cx, ids!(ag2_v), &bal);
+    }
+
+    /// 一张商品卡：图 / 名字 / 品牌 / 价格 + 形态；`note` 是「帮 TA 挑」时的理由。
+    fn fill_product_card(&mut self, cx: &mut Cx, card: LiveId, i: u16, note: &str) {
+        let it = item(i);
+        self.set_img(cx, &[card, live_id!(pk_img)], Some(i));
+        self.set_text(cx, &[card, live_id!(pk_name)], it.name);
+        self.set_text(cx, &[card, live_id!(pk_brand)], it.brand);
+        self.set_text(cx, &[card, live_id!(pk_price)], &yuan(it.price));
+        self.set_text(cx, &[card, live_id!(pk_tag)], kind_text(it));
+        self.show(cx, &[card, live_id!(pk_note)], !note.is_empty());
+        self.set_text(cx, &[card, live_id!(pk_note)], note);
+    }
+
+    /// 把一串商品铺进一组卡片，多出来的卡收起。`notes` 可以比 `items` 短。
+    fn fill_cards(&mut self, cx: &mut Cx, cards: &[LiveId], items: &[u16], notes: &[String]) {
+        for (j, card) in cards.iter().enumerate() {
+            let hit = items.get(j).copied();
+            self.show(cx, &[*card], hit.is_some());
+            if let Some(i) = hit {
+                let note = notes.get(j).cloned().unwrap_or_default();
+                self.fill_product_card(cx, *card, i, &note);
+            }
+        }
     }
 
     // ---- 送礼页 ----
 
     /// 进送礼页。`peer` 为空 = 先不指定；`banner` 只在回礼时有。
     fn open_send(&mut self, cx: &mut Cx, item_idx: u16, peer: String, banner: Option<String>) {
-        if self.overlay.is_none() {
-            self.send_from = self.tab;
-        }
         self.draft = SendDraft {
             item: item_idx,
             peer,
             unlock: Unlock::GuessWho,
             use_balance: self.state.balance() > 0,
+            pay: Some(0),
             ..SendDraft::default()
         };
         self.return_banner = banner;
@@ -2250,30 +3302,84 @@ impl LiyuView {
             self.set_text(cx, &[id], "");
         }
         self.refresh_send(cx);
-        self.open_overlay(cx, Overlay::Send);
+        self.nav_to(cx, Overlay::Send);
     }
 
     fn refresh_send(&mut self, cx: &mut Cx) {
         let d = self.draft.clone();
-        // 回礼提示
-        self.show(cx, ids!(sd_banner), self.return_banner.is_some());
-        if let Some(b) = self.return_banner.clone() {
+        let today = today_days();
+        // 从心愿单来的：那张单子和那一件。
+        let wish = d.wish.and_then(|(w, k)| {
+            let l = self.state.wishlist(w)?.clone();
+            let wi = l.items.get(k)?.clone();
+            Some((l, wi))
+        });
+        // 顶上一行：认领心愿 / 回礼
+        let banner = match &wish {
+            Some((l, wi)) => Some(format!("认领{}的心愿：{}", spaced(&l.owner), wi.title())),
+            None => self.return_banner.clone(),
+        };
+        self.show(cx, ids!(sd_banner), banner.is_some());
+        if let Some(b) = banner {
             self.set_text(cx, ids!(sd_banner), &b);
         }
         // 已选礼物
         let it = item(d.item);
-        let c = self.cat_color(it.cat);
-        self.set_text(cx, ids!(sd_letter), cat_letter(it.cat));
-        self.tint_text(cx, ids!(sd_letter), c);
+        self.set_img(cx, ids!(sd_img), Some(d.item));
         self.set_text(cx, ids!(sd_name), it.name);
         self.set_text(cx, ids!(sd_sub), &item_sub(it));
         self.set_text(cx, ids!(sd_price), &yuan(it.price));
-        self.set_text(cx, ids!(sd_change), if self.pick_open { "收起" } else { "换一件" });
+        // 「换一件」：具体的心愿不能换；说了个大概的只在符合的里面换；平时在同类里换。
+        let exact = wish.as_ref().is_some_and(|(_, wi)| wi.is_exact());
+        self.pick_rows = match &wish {
+            Some((_, wi)) => wish_candidates(wi).into_iter().map(|m| m.item).collect(),
+            None => catalog_in(Some(it.cat)),
+        };
+        self.pick_rows.truncate(PICK_ROWS.len());
+        let can_pick = !exact && self.pick_rows.len() > 1;
+        if !can_pick {
+            self.pick_open = false;
+        }
+        self.show(cx, ids!(sd_change), can_pick);
+        let label = if self.pick_open {
+            "收起"
+        } else if wish.is_some() {
+            "换一件符合的"
+        } else {
+            "同类换一件"
+        };
+        self.set_text(cx, ids!(sd_change), label);
         self.show(cx, ids!(sd_pick), self.pick_open);
         if self.pick_open {
+            let rows = self.pick_rows.clone();
             for (j, row) in PICK_ROWS.iter().enumerate() {
-                self.fill_gift_row(cx, *row, j as u16);
+                let hit = rows.get(j).copied();
+                self.show(cx, &[*row], hit.is_some());
+                if let Some(i) = hit {
+                    self.fill_gift_row(cx, *row, i);
+                }
             }
+        }
+
+        // 认领心愿时收礼人是定的：芯片收起，只写一行。
+        let fixed = wish.is_some();
+        self.show(cx, ids!(sd_peers), !fixed);
+        self.show(cx, ids!(sd_peer_fixed), fixed);
+        if let Some((l, _)) = &wish {
+            self.set_text(cx, ids!(sd_peer_fixed), &format!("{}（心愿单的主人）", l.owner));
+        }
+        // 什么时候送到：只有心愿单、而且日子还没到，才能约在那一天。
+        let ahead = wish.as_ref().map(|(l, _)| l.event_on).filter(|&e| e > today);
+        self.show(cx, ids!(sd_dv), ahead.is_some());
+        if let Some(e) = ahead {
+            self.set_text(cx, ids!(dv0), &format!("{} 当天送到", md_cn(e)));
+            self.set_chip_group(cx, &DELIVER_SEGS, if d.deliver_on.is_some() { 0 } else { 1 });
+            let n = if d.deliver_on.is_some() {
+                format!("礼卡 {} 才出现在 TA 的礼盒里。在那之前，TA 的心愿单上只显示这件「已被认领」。", md_cn(e))
+            } else {
+                "礼卡现在就发出，TA 马上就能拆。".to_string()
+            };
+            self.set_text(cx, ids!(sd_dv_n), &n);
         }
 
         // 送给谁：备注只自己看得见，礼卡上不出现。
@@ -2353,27 +3459,19 @@ impl LiyuView {
         self.show(cx, ids!(sd_pact), self.contract_on);
         self.refresh_presets(cx);
 
-        // 付款
-        let bal = self.state.balance();
-        self.set_switch(
-            cx,
-            ids!(sd_bal_row),
-            "优先用余额抵扣",
-            &format!("礼遇余额 {}", yuan(bal)),
-            d.use_balance,
-        );
-        let (a, b) = self.state.pay_split(it.price, d.use_balance);
-        let split = match (a > 0, b > 0) {
-            (true, true) => format!("余额抵 {} · 模拟支付 {}（演示，不会真的扣款）", yuan(a), yuan(b)),
-            (true, false) => format!("全部由余额支付 {}", yuan(a)),
-            _ => format!("模拟支付 {}（演示，不会真的扣款）", yuan(b)),
+        // 底栏：只说合计和余额能抵多少，怎么付到结算页再选。
+        let (a, _) = self.state.pay_split(it.price, true);
+        let split = if a > 0 {
+            format!("合计 {} · 余额最多可抵 {}", yuan(it.price), yuan(a))
+        } else {
+            format!("合计 {} · 下一步选付款方式", yuan(it.price))
         };
         self.set_text(cx, ids!(sd_split), &split);
         self.show(cx, ids!(sd_err), self.send_error.is_some());
         if let Some(e) = self.send_error {
             self.set_text(cx, ids!(sd_err), e);
         }
-        self.set_text(cx, ids!(sd_go), &format!("生成神秘礼卡并发送（{}）", yuan(it.price)));
+        self.set_text(cx, ids!(sd_go), &format!("去结算 {}", yuan(it.price)));
         self.redraw(cx);
     }
 
@@ -2401,16 +3499,11 @@ impl LiyuView {
         if self.draft.unlock == Unlock::Free {
             self.draft.clue.clear();
         }
-        match self.state.send_gift(&self.draft, today_days()) {
-            Ok(id) => {
+        // 先按送出时的规则校验一遍（不动数据），过了才进结算页，付钱那一步只会因为钱出错。
+        match self.state.check_send(&self.draft, today_days()) {
+            Ok(()) => {
                 self.send_error = None;
-                self.return_banner = None;
-                self.card_gift = Some(id);
-                self.card_style = ShareStyle::Warm;
-                self.after_data_change(cx);
-                self.refresh_gift(cx);
-                self.refresh_card(cx);
-                self.open_overlay(cx, Overlay::Card);
+                self.open_checkout(cx);
             }
             Err(e) => {
                 self.send_error = Some(e);
@@ -2443,8 +3536,7 @@ impl LiyuView {
             format!("这张礼卡的状态：{}", g.status_text(today_days()))
         };
         self.set_text(cx, ids!(cd_ok), &ok);
-        self.set_text(cx, ids!(cd_code), &format!("口令 {}", g.code));
-        self.set_text(cx, ids!(cd_link), &gift_link(&g.code));
+        self.set_text(cx, ids!(cd_link), &gift_link(g.id));
         let si = if self.card_style == ShareStyle::Warm { 0 } else { 1 };
         self.set_chip_group(cx, &STYLE_SEGS, si);
         self.show(cx, ids!(cd_saved), false);
@@ -2452,9 +3544,9 @@ impl LiyuView {
 
     fn copy_link(&mut self, cx: &mut Cx, id: u64) {
         let Some(g) = self.state.gift(id) else { return };
-        let text = format!("有一份神秘礼物等你来拆：{}（口令 {}）", gift_link(&g.code), g.code);
+        let text = format!("有一份神秘礼物等你来拆：{}", gift_link(g.id));
         cx.copy_to_clipboard(&text);
-        self.toast(cx, "链接和口令已复制");
+        self.toast(cx, "礼卡链接已复制");
     }
 
     // ---- 礼盒 ----
@@ -2462,11 +3554,10 @@ impl LiyuView {
     fn refresh_box(&mut self, cx: &mut Cx) {
         let today = today_days();
         self.set_chip_group(cx, &BOX_SEGS, self.box_sent as usize);
-        self.show(cx, ids!(bx_code_row), !self.box_sent);
         let gifts: Vec<Gift> = if self.box_sent {
             self.state.sent().into_iter().cloned().collect()
         } else {
-            self.state.received().into_iter().cloned().collect()
+            self.state.received(today).into_iter().cloned().collect()
         };
         self.box_rows = gifts.iter().map(|g| g.id).collect();
         for (j, row) in BOX_ROWS.iter().enumerate() {
@@ -2475,19 +3566,14 @@ impl LiyuView {
                 continue;
             };
             self.show(cx, &[*row], true);
+            // 收到的还没揭晓：只给问号，拆开之前不剧透。
             let mystery = !g.is_sent() && g.revealed_on == 0;
-            let (letter, c) = if mystery {
-                ("?", self.pal.warm)
-            } else {
-                let cat = g.final_item().cat;
-                (cat_letter(cat), self.cat_color(cat))
-            };
-            self.set_text(cx, &[*row, live_id!(bx_letter)], letter);
-            self.tint_text(cx, &[*row, live_id!(bx_letter)], c);
+            let pic = if mystery { None } else { Some(final_index(g)) };
+            self.set_img(cx, &[*row, live_id!(bx_img)], pic);
             let (title, sub) = if g.is_sent() {
                 (
                     format!("{} · 送给{}", g.catalog().name, spaced(&g.shown_recipient())),
-                    format!("口令 {} · {}", g.code, rel_day(g.sent_on, today)),
+                    format!("{} · {}", g.unlock().label(), rel_day(g.sent_on, today)),
                 )
             } else {
                 (
@@ -2511,8 +3597,8 @@ impl LiyuView {
         self.show(cx, ids!(bx_more), more > 0);
         self.set_text(cx, ids!(bx_more), &format!("还有 {more} 份较早的没有显示"));
         // 右列一览
-        let recv = self.state.received().len();
-        let pending = self.state.pending_received();
+        let recv = self.state.received(today).len();
+        let pending = self.state.pending_received(today);
         let sent = self.state.sent().len();
         self.set_text(
             cx,
@@ -2694,6 +3780,7 @@ impl LiyuView {
 
     fn fill_gift_card(&mut self, cx: &mut Cx, g: &Gift) {
         let it = g.final_item();
+        self.set_img(cx, ids!(gc_img), Some(final_index(g)));
         self.set_text(cx, ids!(gc_kind), &format!("{} · {}", kind_text(it), it.cat.label()));
         self.set_text(cx, ids!(gc_name), it.name);
         self.set_text(cx, ids!(gc_spec), it.spec);
@@ -2764,9 +3851,7 @@ impl LiyuView {
                 };
                 self.show(cx, &[*row], true);
                 let it = item(i);
-                let c = self.cat_color(it.cat);
-                self.set_text(cx, &[*row, live_id!(ch_letter)], cat_letter(it.cat));
-                self.tint_text(cx, &[*row, live_id!(ch_letter)], c);
+                self.set_img(cx, &[*row, live_id!(ch_img)], Some(i));
                 self.set_text(cx, &[*row, live_id!(ch_name)], it.name);
                 self.set_text(cx, &[*row, live_id!(ch_sub)], &item_sub(it));
                 let (dt, dc) = if diff >= 0 {
@@ -2952,24 +4037,29 @@ impl LiyuView {
             return;
         };
         let today = today_days();
+        self.set_img(cx, ids!(ss_img), Some(g.item));
         self.set_text(cx, ids!(ss_title), &format!("{} · 送给{}", g.catalog().name, spaced(&g.shown_recipient())));
         self.set_text(cx, ids!(ss_price), &yuan(g.price));
         self.set_text(cx, ids!(ss_state), &g.status_text(today));
         let tc = self.tone_color(g.tone());
         self.tint_text(cx, ids!(ss_state), tc);
-        self.set_text(cx, ids!(ss_code), &format!("口令 {}", g.code));
 
         // 时间线：已发生的实心，接下来的空心（不写日期）。
         let mut steps: Vec<(Option<i64>, String)> =
-            g.timeline().into_iter().map(|(d, t)| (Some(d), t)).collect();
-        let future: &[&str] = match g.state() {
+            g.timeline(today).into_iter().map(|(d, t)| (Some(d), t)).collect();
+        let mut future: Vec<String> = Vec::new();
+        if g.is_scheduled(today) {
+            future.push(format!("{} 礼卡送到 TA 手里", md_cn(g.sent_on)));
+        }
+        let rest: &[&str] = match g.state() {
             GiftState::Sealed => &["等 TA 打开礼卡", "揭晓", "TA 决定收下 / 换购 / 折现"],
             GiftState::Opened => &["揭晓", "TA 决定收下 / 换购 / 折现"],
             GiftState::Revealed => &["TA 决定收下 / 换购 / 折现"],
             _ => &[],
         };
+        future.extend(rest.iter().map(|f| f.to_string()));
         for f in future {
-            steps.push((None, f.to_string()));
+            steps.push((None, f));
         }
         for (j, row) in STEP_ROWS.iter().enumerate() {
             let Some((day, text)) = steps.get(j).cloned() else {
@@ -2999,6 +4089,17 @@ impl LiyuView {
         self.set_text(cx, ids!(ss_pact), &pact);
         self.show(cx, ids!(ss_msg), !g.message.is_empty());
         self.set_text(cx, ids!(ss_msg), &format!("寄语：{}", g.message));
+        // 认领的心愿：哪张单子上的哪一件。
+        let wish = g.wish_id.and_then(|w| self.state.wishlist(w)).map(|l| {
+            let what = l.items.iter().find(|x| x.gift_id == g.id).map(|x| x.title()).unwrap_or_default();
+            if what.is_empty() {
+                format!("心愿单：{}", l.title)
+            } else {
+                format!("心愿单：{} · 认领的是「{}」", l.title, what)
+            }
+        });
+        self.show(cx, ids!(ss_wish), wish.is_some());
+        self.set_text(cx, ids!(ss_wish), &wish.unwrap_or_default());
 
         let sealed = g.state() == GiftState::Sealed;
         self.show(cx, ids!(ss_withdraw), sealed && !self.withdraw_armed);
@@ -3064,6 +4165,12 @@ impl LiyuView {
     fn refresh_contacts(&mut self, cx: &mut Cx) {
         let contacts: Vec<ContactLocal> = self.state.contacts.clone();
         self.contact_rows = contacts.iter().map(|c| c.id).collect();
+        let today = today_days();
+        let friends = self.state.friend_wishlists(today);
+        self.contact_wish = contacts
+            .iter()
+            .map(|c| friends.iter().find(|w| w.owner == c.label && w.is_open(today)).map(|w| w.id))
+            .collect();
         self.set_text(cx, ids!(ct_head), &format!("我的熟人（{}）", contacts.len()));
         for (j, row) in CONTACT_ROWS.iter().enumerate() {
             let Some(c) = contacts.get(j) else {
@@ -3074,8 +4181,17 @@ impl LiyuView {
             let initial: String = c.label.chars().next().map(|ch| ch.to_string()).unwrap_or_default();
             self.set_text(cx, &[*row, live_id!(cr_initial)], &initial);
             self.set_text(cx, &[*row, live_id!(cr_name)], &c.label);
-            let (sent, recv) = self.state.gift_counts(&c.label);
-            self.set_text(cx, &[*row, live_id!(cr_sub)], &format!("送过 {sent} 份 · 收到 {recv} 份"));
+            // 有进行中的心愿单就先说心愿单（比送过几份更值得一眼看到），按钮也换成「看心愿单」。
+            let sub = match self.state.wish_hint(&c.label, today) {
+                Some(h) => h,
+                None => {
+                    let (sent, recv) = self.state.gift_counts(&c.label);
+                    format!("送过 {sent} 份 · 收到 {recv} 份")
+                }
+            };
+            self.set_text(cx, &[*row, live_id!(cr_sub)], &sub);
+            let has_wish = self.contact_wish.get(j).copied().flatten().is_some();
+            self.set_text(cx, &[*row, live_id!(cr_send)], if has_wish { "看心愿单" } else { "送礼" });
         }
         self.apply_list_state(cx, ids!(ct_empty), "还没有熟人", "从本机导入", contacts.len());
         let more = contacts.len().saturating_sub(CONTACT_ROWS.len());
@@ -3139,11 +4255,12 @@ impl LiyuView {
         self.set_text(cx, ids!(me_bal_v), &bal);
         self.set_text(cx, ids!(ag2_v), &bal);
         let sent = self.state.sent().len();
-        let recv = self.state.received().len();
+        let recv = self.state.received(today_days()).len();
         let done = self.state.pacts.iter().filter(|p| p.state() == PactState::Done).count();
         self.set_text(cx, ids!(ms_sent_v), &sent.to_string());
         self.set_text(cx, ids!(ms_recv_v), &recv.to_string());
         self.set_text(cx, ids!(ms_pact_v), &done.to_string());
+        self.my_wish_row(cx, ids!(row_wish));
         let n = self.state.ledger.len();
         self.set_row(cx, ids!(row_wallet), "钱包与流水", "折现、退差、退款都记在这里", &format!("{n} 笔"));
         let nick = self.state.settings.nickname.clone();
@@ -3212,6 +4329,13 @@ impl LiyuView {
             "你答应的契约到期前一天提醒一次",
             s.notify_pact,
         );
+        self.set_switch(
+            cx,
+            ids!(row_ntf_wish),
+            "熟人心愿单提醒",
+            "熟人的日子前 3 天、心愿单上还有没人送的，提醒一次",
+            s.notify_wish,
+        );
         let note = self.export_note.clone().unwrap_or_else(|| "把本机记录导出成一个 JSON 文件".into());
         self.set_row(cx, ids!(row_export), "导出数据", &note, "");
         self.set_row(cx, ids!(row_reset), "恢复演示数据", "清空本机记录，换回一套演示数据", "");
@@ -3235,8 +4359,12 @@ impl LiyuView {
             self.go_back(cx);
         }
         if self.clicked(cx, ids!(tb_action), actions) {
-            let first = self.gift_rows.first().copied().unwrap_or(0);
-            self.open_send(cx, first, String::new(), None);
+            if self.tab == 0 && self.gift_wish_seg {
+                self.open_wish_edit(cx, None, None);
+            } else {
+                let first = self.gift_rows.first().copied().unwrap_or(0);
+                self.open_send(cx, first, String::new(), None);
+            }
         }
         if self.clicked(cx, ids!(tb_add), actions) {
             self.import_menu = !self.import_menu;
@@ -3289,6 +4417,7 @@ impl LiyuView {
                         self.pact_theirs = false;
                         self.set_tab(cx, 2);
                     }
+                    NoticeKind::WishSoon => self.open_wish(cx, n.target),
                 }
             }
         }
@@ -3303,10 +4432,18 @@ impl LiyuView {
                 self.refresh_gift(cx);
             }
         }
-        for (j, row) in GIFT_ROWS.iter().enumerate() {
-            if self.clicked(cx, &[*row, live_id!(gr_hit)], actions) {
+        for (j, id) in GIFT_SEGS.iter().enumerate() {
+            if self.toggled(cx, &[*id], actions) {
+                self.gift_wish_seg = j == 1;
+                self.refresh_gift(cx);
+                self.refresh_topbar(cx);
+                self.view.view(cx, ids!(page_gift)).set_scroll_pos(cx, Vec2d::default());
+            }
+        }
+        for (j, card) in GRID_CARDS.iter().enumerate() {
+            if self.clicked(cx, &[*card, live_id!(pk_hit)], actions) {
                 if let Some(i) = self.gift_rows.get(j).copied() {
-                    self.open_send(cx, i, String::new(), None);
+                    self.open_product(cx, i, None);
                 }
             }
         }
@@ -3319,7 +4456,8 @@ impl LiyuView {
             }
             for (j, row) in PICK_ROWS.iter().enumerate() {
                 if self.clicked(cx, &[*row, live_id!(gr_hit)], actions) {
-                    self.draft.item = j as u16;
+                    let Some(i) = self.pick_rows.get(j).copied() else { continue };
+                    self.draft.item = i;
                     self.pick_open = false;
                     self.send_error = None;
                     self.refresh_send(cx);
@@ -3351,9 +4489,13 @@ impl LiyuView {
             if self.view.text_input(cx, ids!(sd_pact_in)).changed(actions).is_some() {
                 self.refresh_presets(cx);
             }
-            if self.clicked(cx, &[live_id!(sd_bal_row), live_id!(sw_hit)], actions) {
-                self.draft.use_balance = !self.draft.use_balance;
-                self.refresh_send(cx);
+            for (j, id) in DELIVER_SEGS.iter().enumerate() {
+                if self.toggled(cx, &[*id], actions) {
+                    let day = self.draft.wish.and_then(|(w, _)| self.state.wishlist(w)).map(|l| l.event_on);
+                    self.draft.deliver_on = if j == 0 { day.filter(|&e| e > today) } else { None };
+                    self.send_error = None;
+                    self.refresh_send(cx);
+                }
             }
             if self.clicked(cx, ids!(sd_go), actions) {
                 self.submit_send(cx);
@@ -3398,21 +4540,6 @@ impl LiyuView {
             if self.toggled(cx, &[*id], actions) {
                 self.box_sent = j == 1;
                 self.refresh_box(cx);
-            }
-        }
-        let code_enter = self.view.text_input(cx, ids!(bx_code)).returned(actions).is_some();
-        if self.clicked(cx, ids!(bx_open), actions) || code_enter {
-            let code = self.input_text(cx, ids!(bx_code));
-            match self.state.find_code(&code).map(|g| (g.id, g.is_sent())) {
-                Some((id, true)) => {
-                    self.set_text(cx, ids!(bx_code), "");
-                    self.open_sent(cx, id);
-                }
-                Some((id, false)) => {
-                    self.set_text(cx, ids!(bx_code), "");
-                    self.open_received(cx, id);
-                }
-                None => self.toast(cx, "没找到这个口令的礼物"),
             }
         }
         for (j, row) in BOX_ROWS.iter().enumerate() {
@@ -3574,9 +4701,13 @@ impl LiyuView {
         for (j, row) in CONTACT_ROWS.iter().enumerate() {
             let Some(cid) = self.contact_rows.get(j).copied() else { continue };
             if self.clicked(cx, &[*row, live_id!(cr_send)], actions) {
-                let label = self.state.contact(cid).map(|c| c.label.clone()).unwrap_or_default();
-                let first = self.gift_rows.first().copied().unwrap_or(0);
-                self.open_send(cx, first, label, None);
+                if let Some(w) = self.contact_wish.get(j).copied().flatten() {
+                    self.open_wish(cx, w);
+                } else {
+                    let label = self.state.contact(cid).map(|c| c.label.clone()).unwrap_or_default();
+                    let first = self.gift_rows.first().copied().unwrap_or(0);
+                    self.open_send(cx, first, label, None);
+                }
             }
             if self.clicked(cx, &[*row, live_id!(cr_del)], actions) {
                 if let Some(snap) = self.state.remove_contact(cid) {
@@ -3595,6 +4726,12 @@ impl LiyuView {
         }
         if self.clicked(cx, &[live_id!(row_settings), live_id!(st_hit)], actions) {
             self.open_settings(cx);
+        }
+        if self.clicked(cx, &[live_id!(row_wish), live_id!(st_hit)], actions)
+            || self.clicked(cx, &[live_id!(row_mywish), live_id!(st_hit)], actions)
+            || self.clicked(cx, ids!(ag3_go), actions)
+        {
+            self.open_wishes(cx);
         }
         if self.clicked(cx, &[live_id!(row_about), live_id!(st_hit)], actions) {
             self.open_intro(cx, 0);
@@ -3640,6 +4777,11 @@ impl LiyuView {
                 self.state.save();
                 self.refresh_settings(cx);
             }
+            if self.clicked(cx, &[live_id!(row_ntf_wish), live_id!(sw_hit)], actions) {
+                self.state.settings.notify_wish = !self.state.settings.notify_wish;
+                self.state.save();
+                self.refresh_settings(cx);
+            }
             if self.clicked(cx, &[live_id!(row_export), live_id!(st_hit)], actions) {
                 self.export_note = Some(match self.state.export_data() {
                     Some(p) => format!("已导出到 {}", p.display()),
@@ -3665,6 +4807,9 @@ impl LiyuView {
                 self.toast(cx, "已换回演示数据");
             }
         }
+
+        // 商品详情、结算、心愿单几张页的动作在 wishui.rs。
+        self.handle_wish_actions(cx, actions);
     }
 }
 
@@ -3765,14 +4910,12 @@ fn spaced(name: &str) -> String {
     }
 }
 
-/// 品类首字（列表行左边的小方块）。
-fn cat_letter(c: Category) -> &'static str {
-    match c {
-        Category::Coffee => "咖",
-        Category::Movie => "影",
-        Category::Trendy => "潮",
-        Category::Blind => "盲",
-        Category::Sweet => "甜",
+/// 最后到手的那件的目录下标（换购过就是新的那件）。
+fn final_index(g: &Gift) -> u16 {
+    if g.swap_item != u16::MAX {
+        g.swap_item
+    } else {
+        g.item
     }
 }
 
@@ -3882,20 +5025,41 @@ mod layout_tests {
     }
 
     #[test]
-    fn every_catalog_item_fits_in_the_pick_and_swap_lists() {
-        assert_eq!(PICK_ROWS.len(), CATALOG.len());
-        assert_eq!(GIFT_ROWS.len(), CATALOG.len());
-        // 换购列表不含原来那件。
-        assert_eq!(SWAP_ROWS.len(), CATALOG.len() - 1);
+    fn every_catalog_item_has_a_card_and_a_picture() {
+        assert_eq!(GRID_CARDS.len(), CATALOG.len());
+        assert_eq!(PICK_CARDS.len(), CATALOG.len());
+        assert_eq!(PRODUCT_PNGS.len(), CATALOG.len());
+        assert_eq!(CAT_CHIPS.len(), Category::ALL.len() + 1);
+        assert_eq!(PICK_CHIPS.len(), Category::ALL.len() + 1);
+        // 「同类换一件」一次列一整个品类。
+        for c in Category::ALL {
+            assert!(catalog_in(Some(c)).len() <= PICK_ROWS.len(), "{:?}", c);
+        }
+        assert_eq!(SWAP_ROWS.len(), EXCHANGE_CHOICES);
         assert_eq!(CAND_BTNS.len(), CANDIDATE_COUNT);
         assert_eq!(PRESET_CHIPS.len(), PACT_PRESETS.len());
+        assert!(cheapest_item() < CATALOG.len() as u16);
     }
 
     #[test]
-    fn every_category_has_its_own_letter() {
-        let mut seen: Vec<&str> = Category::ALL.iter().map(|c| cat_letter(*c)).collect();
-        seen.dedup();
-        assert_eq!(seen.len(), Category::ALL.len());
-        assert!(cheapest_item() < CATALOG.len() as u16);
+    fn every_wish_option_has_a_control() {
+        assert_eq!(OCC_CHIPS.len(), OCCASIONS.len());
+        assert_eq!(KIND_CHIPS.len(), WISH_KINDS.len());
+        assert_eq!(BUDGET_CHIPS.len(), WISH_BUDGETS.len());
+        assert_eq!(WISH_ROWS.len(), WISH_MAX_ITEMS);
+        assert_eq!(EDIT_ROWS.len(), WISH_MAX_ITEMS);
+        assert_eq!(PAY_CHIPS.len(), PAY_METHODS.len());
+        // 含糊心愿的每个品类在目录里都至少有一件，送礼的人才有得挑。
+        for k in WISH_KINDS {
+            assert!(!wish_candidates(&WishItem::vague(k, 0, "")).is_empty(), "{k}");
+        }
+    }
+
+    #[test]
+    fn every_product_picture_decodes() {
+        for (i, png) in PRODUCT_PNGS.iter().enumerate() {
+            assert!(ImageBuffer::from_png(png).is_ok(), "p{i:02}.png");
+        }
+        assert!(ImageBuffer::from_png(MYSTERY_PNG).is_ok());
     }
 }

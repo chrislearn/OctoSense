@@ -861,7 +861,13 @@ script_mod! {
         draw_big +: { text_style: theme.font_bold{ font_size: 60.0 } }
     }
 
-    // 挑礼页的一行：品类首字方块 + 礼物名 / 形态·规格 + 价格，整行可点。
+    // 商品图：400×400 的 PNG（圆角已经烤在 alpha 里），由 Rust 按目录下标换纹理。
+    mod.widgets.LiyuThumb = mod.widgets.Image{
+        width: 44 height: 44
+        fit: ImageFit.Stretch
+    }
+
+    // 挑礼页的一行：商品图 + 礼物名 / 形态·规格 + 价格，整行可点。
     //
     // 同 LiyuSetRow 的 Overlay 套路：下层 gr_body 只管显示，上层 gr_hit 是铺满的
     // 透明按钮接点击。两行文字竖直内边距清零（Label 默认四边各 3，两行白吃 12）。
@@ -874,17 +880,7 @@ script_mod! {
             align: Align{x: 0.0, y: 0.5}
             padding: Inset{left: 12.0, right: 12.0}
             spacing: 12.0
-            gr_face := mod.widgets.RoundedView {
-                width: 40 height: 40
-                flow: Down
-                align: Align{x: 0.5, y: 0.5}
-                draw_bg +: { color: liyu.face border_radius: r.card }
-                gr_letter := Label {
-                    flow: Right{wrap: true}
-                    text: ""
-                    draw_text +: { color: liyu.warm text_style +: { font_size: 15.0 } }
-                }
-            }
+            gr_img := mod.widgets.LiyuThumb { width: 44 height: 44 }
             gr_col := mod.widgets.View {
                 width: Fill height: Fit
                 flow: Down
@@ -943,17 +939,7 @@ script_mod! {
             align: Align{x: 0.0, y: 0.5}
             padding: Inset{left: 12.0, right: 12.0}
             spacing: 12.0
-            bx_face := mod.widgets.RoundedView {
-                width: 40 height: 40
-                flow: Down
-                align: Align{x: 0.5, y: 0.5}
-                draw_bg +: { color: liyu.face border_radius: r.card }
-                bx_letter := Label {
-                    flow: Right{wrap: true}
-                    text: "?"
-                    draw_text +: { color: liyu.warm text_style +: { font_size: 15.0 } }
-                }
-            }
+            bx_img := mod.widgets.LiyuThumb { width: 44 height: 44 }
             bx_col := mod.widgets.View {
                 width: Fill height: Fit
                 flow: Down
@@ -1119,17 +1105,7 @@ script_mod! {
             align: Align{x: 0.0, y: 0.5}
             padding: Inset{left: 10.0, right: 12.0}
             spacing: 10.0
-            ch_face := mod.widgets.RoundedView {
-                width: 34 height: 34
-                flow: Down
-                align: Align{x: 0.5, y: 0.5}
-                draw_bg +: { color: liyu.face border_radius: r.button }
-                ch_letter := Label {
-                    flow: Right{wrap: true}
-                    text: ""
-                    draw_text +: { color: liyu.warm text_style +: { font_size: 13.0 } }
-                }
-            }
+            ch_img := mod.widgets.LiyuThumb { width: 38 height: 38 }
             ch_col := mod.widgets.View {
                 width: Fill height: Fit
                 flow: Down
@@ -1241,23 +1217,35 @@ script_mod! {
         padding: 18.0
         spacing: 6.0
         draw_bg +: { color: liyu.coupon border_radius: r.card }
-        gc_kind := Label {
-            flow: Right{wrap: true}
-            width: Fill
-            text: ""
-            draw_text +: { color: liyu.on_warm text_style +: { font_size: 12.0 } }
-        }
-        gc_name := Label {
-            flow: Right{wrap: true}
-            width: Fill
-            text: ""
-            draw_text +: { wrap: Words color: liyu.warm_btn text_style +: { font_size: 22.0 line_spacing: 1.25 } }
-        }
-        gc_spec := Label {
-            flow: Right{wrap: true}
-            width: Fill
-            text: ""
-            draw_text +: { wrap: Words color: liyu.on_warm text_style +: { font_size: 13.0 } }
+        gc_top := mod.widgets.View {
+            width: Fill height: Fit
+            flow: Right
+            align: Align{x: 0.0, y: 0.5}
+            spacing: 14.0
+            gc_img := mod.widgets.LiyuThumb { width: 88 height: 88 }
+            gc_txt := mod.widgets.View {
+                width: Fill height: Fit
+                flow: Down
+                spacing: 4.0
+                gc_kind := Label {
+                    flow: Right{wrap: true}
+                    width: Fill
+                    text: ""
+                    draw_text +: { color: liyu.on_warm text_style +: { font_size: 12.0 } }
+                }
+                gc_name := Label {
+                    flow: Right{wrap: true}
+                    width: Fill
+                    text: ""
+                    draw_text +: { wrap: Words color: liyu.warm_btn text_style +: { font_size: 22.0 line_spacing: 1.25 } }
+                }
+                gc_spec := Label {
+                    flow: Right{wrap: true}
+                    width: Fill
+                    text: ""
+                    draw_text +: { wrap: Words color: liyu.on_warm text_style +: { font_size: 13.0 } }
+                }
+            }
         }
         gc_from := Label {
             flow: Right{wrap: true}
@@ -1265,6 +1253,251 @@ script_mod! {
             margin: Inset{top: 4.0}
             text: ""
             draw_text +: { wrap: Words color: liyu.on_warm text_style +: { font_size: 13.0 line_spacing: 1.35 } }
+        }
+    }
+
+    // 商品卡：宫格里的一格。图在上，名字 / 品牌 / 价格 + 形态在下，整格可点。
+    //
+    // 卡宽和图边长都由 Rust 按可用宽度算（apply_shaping 里的 tile_size），
+    // 这里的 160 / 144 只是没算之前的占位。pk_note 只在「帮 TA 挑」时露出，
+    // 说这一件为什么符合心愿（「55 寸 · 在预算内」）。
+    mod.widgets.LiyuProductCard = mod.widgets.View{
+        width: 160 height: Fit
+        flow: Overlay
+        pk_body := mod.widgets.RoundedView {
+            width: Fill height: Fit
+            flow: Down
+            padding: 8.0
+            spacing: 3.0
+            draw_bg +: {
+                color: liyu.card
+                border_color: liyu.line_soft
+                border_size: 1.0
+                border_radius: r.card
+            }
+            pk_img := mod.widgets.LiyuThumb { width: 144 height: 144 margin: Inset{bottom: 4.0} }
+            pk_name := Label {
+                flow: Right{wrap: true}
+                width: Fill
+                max_lines: 1
+                text_overflow: Ellipsis
+                padding: Inset{left: 3.0, right: 3.0, top: 0.0, bottom: 0.0}
+                text: ""
+                draw_text +: { color: liyu.ink text_style +: { font_size: 13.5 } }
+            }
+            pk_brand := Label {
+                flow: Right{wrap: true}
+                width: Fill
+                max_lines: 1
+                text_overflow: Ellipsis
+                padding: Inset{left: 3.0, right: 3.0, top: 0.0, bottom: 0.0}
+                text: ""
+                draw_text +: { color: liyu.ink_3 text_style +: { font_size: 11.5 } }
+            }
+            pk_note := Label {
+                flow: Right{wrap: true}
+                visible: false
+                width: Fill
+                max_lines: 1
+                text_overflow: Ellipsis
+                padding: Inset{left: 3.0, right: 3.0, top: 0.0, bottom: 0.0}
+                text: ""
+                draw_text +: { color: liyu.blue text_style +: { font_size: 11.5 } }
+            }
+            pk_foot := mod.widgets.View {
+                width: Fill height: Fit
+                flow: Right
+                align: Align{x: 0.0, y: 0.5}
+                margin: Inset{top: 2.0}
+                pk_price := Label {
+                    flow: Right{wrap: true}
+                    width: Fill
+                    text: ""
+                    draw_text +: { color: liyu.warm text_style +: { font_size: 15.0 } }
+                }
+                pk_tag := mod.widgets.LiyuBadge { text: "" }
+            }
+        }
+        pk_hit := mod.widgets.ButtonFlat {
+            width: Fill height: Fill
+            text: ""
+            margin: 0.0
+            padding: 0.0
+            draw_bg +: {
+                border_size: 0.0
+                border_radius: r.card
+                color: #0000
+                color_hover: liyu.wash_2
+                color_down: liyu.wash_3
+                color_focus: liyu.wash_1
+            }
+        }
+    }
+
+    // 好友的一份心愿单：头像首字 + 标题 / 日子 + 场合徽章，下面一排商品小图，
+    // 再下面一行进度（「8 件 · 还有 5 件没人送」）。已经有人送的那几张图由
+    // Rust 调暗，一眼就知道还剩哪些。
+    mod.widgets.LiyuWishCard = mod.widgets.View{
+        width: Fill height: Fit
+        flow: Overlay
+        wc_body := mod.widgets.RoundedView {
+            width: Fill height: Fit
+            flow: Down
+            padding: 14.0
+            spacing: 10.0
+            draw_bg +: {
+                color: liyu.card
+                border_color: liyu.line_soft
+                border_size: 1.0
+                border_radius: r.card
+            }
+            wc_head := mod.widgets.View {
+                width: Fill height: Fit
+                flow: Right
+                align: Align{x: 0.0, y: 0.5}
+                spacing: 10.0
+                wc_face := mod.widgets.RoundedView {
+                    width: 36 height: 36
+                    flow: Down
+                    align: Align{x: 0.5, y: 0.5}
+                    draw_bg +: { color: liyu.face border_radius: r.card }
+                    wc_initial := Label {
+                        flow: Right{wrap: true}
+                        text: ""
+                        draw_text +: { color: liyu.warm text_style +: { font_size: 15.0 } }
+                    }
+                }
+                wc_col := mod.widgets.View {
+                    width: Fill height: Fit
+                    flow: Down
+                    spacing: 2.0
+                    wc_title := Label {
+                        flow: Right{wrap: true}
+                        width: Fill
+                        max_lines: 1
+                        text_overflow: Ellipsis
+                        padding: Inset{left: 3.0, right: 3.0, top: 0.0, bottom: 0.0}
+                        text: ""
+                        draw_text +: { color: liyu.ink text_style +: { font_size: 15.0 } }
+                    }
+                    wc_when := Label {
+                        flow: Right{wrap: true}
+                        width: Fill
+                        max_lines: 1
+                        text_overflow: Ellipsis
+                        padding: Inset{left: 3.0, right: 3.0, top: 0.0, bottom: 0.0}
+                        text: ""
+                        draw_text +: { color: liyu.ink_3 text_style +: { font_size: 12.0 } }
+                    }
+                }
+                wc_badge := mod.widgets.LiyuBadgeWarm { text: "" }
+            }
+            wc_strip := mod.widgets.View {
+                width: Fill height: Fit
+                flow: Right
+                align: Align{x: 0.0, y: 0.5}
+                spacing: 8.0
+                wt0 := mod.widgets.LiyuThumb { width: 52 height: 52 }
+                wt1 := mod.widgets.LiyuThumb { width: 52 height: 52 }
+                wt2 := mod.widgets.LiyuThumb { width: 52 height: 52 }
+                wt3 := mod.widgets.LiyuThumb { width: 52 height: 52 }
+                wt4 := mod.widgets.LiyuThumb { width: 52 height: 52 }
+                wc_more := Label {
+                    flow: Right{wrap: true}
+                    width: Fit
+                    text: ""
+                    draw_text +: { color: liyu.ink_3 text_style +: { font_size: 12.0 } }
+                }
+            }
+            wc_prog := Label {
+                flow: Right{wrap: true}
+                width: Fill
+                text: ""
+                draw_text +: { wrap: Words color: liyu.ink_2 text_style +: { font_size: 12.5 } }
+            }
+        }
+        wc_hit := mod.widgets.ButtonFlat {
+            width: Fill height: Fill
+            text: ""
+            margin: 0.0
+            padding: 0.0
+            draw_bg +: {
+                border_size: 0.0
+                border_radius: r.card
+                color: #0000
+                color_hover: liyu.wash_2
+                color_down: liyu.wash_3
+                color_focus: liyu.wash_1
+            }
+        }
+    }
+
+    // 心愿单里的一件：图 + 名字 / 说明 / 状态 + 右侧动作。
+    //
+    // 具体的一件，图就是那件商品；只说了个大概的（「一台电视」），图是那一类里
+    // 最贴近的一件，名字后面跟着「· 大概」。按钮文案由 Rust 按身份和状态换：
+    // 好友看是「送这件」/「帮 TA 挑」，自己看是「移除」或者干脆没有。
+    mod.widgets.LiyuWishItemRow = mod.widgets.View{
+        width: Fill height: Fit
+        flow: Right
+        align: Align{x: 0.0, y: 0.5}
+        padding: Inset{left: 12.0, right: 12.0, top: 10.0, bottom: 10.0}
+        spacing: 12.0
+        wr_img := mod.widgets.LiyuThumb { width: 56 height: 56 }
+        wr_col := mod.widgets.View {
+            width: Fill height: Fit
+            flow: Down
+            spacing: 2.0
+            wr_name := Label {
+                flow: Right{wrap: true}
+                width: Fill
+                padding: Inset{left: 3.0, right: 3.0, top: 0.0, bottom: 0.0}
+                text: ""
+                draw_text +: { wrap: Words color: liyu.ink text_style +: { font_size: 15.0 line_spacing: 1.3 } }
+            }
+            wr_sub := Label {
+                flow: Right{wrap: true}
+                width: Fill
+                padding: Inset{left: 3.0, right: 3.0, top: 0.0, bottom: 0.0}
+                text: ""
+                draw_text +: { wrap: Words color: liyu.ink_3 text_style +: { font_size: 12.0 line_spacing: 1.3 } }
+            }
+            wr_state := Label {
+                flow: Right{wrap: true}
+                width: Fill
+                padding: Inset{left: 3.0, right: 3.0, top: 0.0, bottom: 0.0}
+                text: ""
+                draw_text +: { color: liyu.blue text_style +: { font_size: 12.0 } }
+            }
+        }
+        wr_go := mod.widgets.LiyuBtnPrimarySm { width: Fit text: "" }
+        wr_alt := mod.widgets.LiyuBtnSm { visible: false width: Fit text: "移除" }
+    }
+
+    // 键值行：结账单、心愿单信息里「送给 / 林舟」这种一行一对。
+    mod.widgets.LiyuKV = mod.widgets.View{
+        width: Fill height: Fit
+        flow: Right
+        align: Align{x: 0.0, y: 0.0}
+        padding: Inset{top: 5.0, bottom: 5.0}
+        spacing: 10.0
+        kv_k := Label {
+            flow: Right{wrap: true}
+            width: 72
+            text: ""
+            draw_text +: { color: liyu.ink_3 text_style +: { font_size: 13.0 } }
+        }
+        kv_v := Label {
+            flow: Right{wrap: true}
+            width: Fill
+            text: ""
+            draw_text +: { wrap: Words color: liyu.ink text_style +: { font_size: 14.0 line_spacing: 1.3 } }
+        }
+        kv_r := Label {
+            flow: Right{wrap: true}
+            width: Fit
+            text: ""
+            draw_text +: { color: liyu.ink_2 text_style +: { font_size: 13.0 } }
         }
     }
 }
@@ -1397,15 +1630,14 @@ impl Widget for LiyuShareCard {
                 y += 54.0;
             }
         }
-        line(cx, &mut self.draw_head, 64.0, 950.0, 24.0, sub, "口令");
-        line(cx, &mut self.draw_big, 64.0, 1030.0, 84.0, accent, &scene.code);
+        line(cx, &mut self.draw_big, 64.0, 1010.0, 36.0, accent, crate::share::CARD_SECRET);
         self.draw_rule.color = ring;
         self.draw_rule.draw_abs(
             cx,
             Rect { pos: dvec2(px(64.0), py(1080.0)), size: dvec2(px(836.0) - px(64.0), 1.0) },
         );
         line(cx, &mut self.draw_head, 64.0, 1130.0, 26.0, fg, "礼遇 LiYu");
-        line(cx, &mut self.draw_head, 530.0, 1130.0, 18.0, sub, "礼遇 · 礼盒 · 输入口令");
+        line(cx, &mut self.draw_head, 530.0, 1130.0, 18.0, sub, crate::share::CARD_FOOT);
         DrawStep::done()
     }
 

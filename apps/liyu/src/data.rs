@@ -100,6 +100,12 @@ pub fn fmt_days(days: i64) -> String {
 }
 
 /// 天数 → "MM/DD"（曲线 x 轴首尾标注）。
+/// 「9 月 28 日」：心愿单、约好送到的日子都用这种写法。
+pub fn md_cn(days: i64) -> String {
+    let (_, m, d) = days_to_civil(days);
+    format!("{m} 月 {d} 日")
+}
+
 pub fn fmt_md(days: i64) -> String {
     let (_, m, d) = days_to_civil(days);
     format!("{:02}/{:02}", m, d)
@@ -226,6 +232,8 @@ pub const MAX_ATTEMPTS: u8 = 3;
 pub const PACT_DAYS: i64 = 7;
 /// 收到的礼物 7 天内没揭晓就退回送礼人。
 pub const EXPIRE_DAYS: i64 = 7;
+/// 存档格式版本。版本不对的存档直接不读，换成演示数据。
+pub const STATE_VERSION: u32 = 4;
 /// 折现手续费率（%）。
 pub const CASHOUT_FEE_PCT: i64 = 8;
 /// 换购手续费率（%）。
@@ -274,15 +282,21 @@ pub enum Category {
     Trendy,
     Blind,
     Sweet,
+    Digital,
+    Home,
+    Baby,
 }
 
 impl Category {
-    pub const ALL: [Category; 5] = [
+    pub const ALL: [Category; 8] = [
         Category::Coffee,
         Category::Movie,
         Category::Trendy,
         Category::Blind,
         Category::Sweet,
+        Category::Digital,
+        Category::Home,
+        Category::Baby,
     ];
 
     pub fn label(self) -> &'static str {
@@ -292,39 +306,117 @@ impl Category {
             Category::Trendy => "潮流小物",
             Category::Blind => "盲盒",
             Category::Sweet => "甜点鲜花",
+            Category::Digital => "数码家电",
+            Category::Home => "家居生活",
+            Category::Baby => "母婴亲子",
         }
     }
 }
 
-/// 目录里的一件礼物。目录是代码常量，不落盘；下标就是 `Gift::item`，只追加不重排。
+/// 目录里的一件礼物。目录是代码常量，不落盘；下标就是 `Gift::item`，也是商品图
+/// `resources/products/pNN.png` 的编号 —— 只追加不重排。
 #[derive(Clone, Copy, Debug)]
 pub struct CatalogItem {
     pub name: &'static str,
+    /// 演示用的虚构品牌（前 12 件是常见的连锁品牌券）。
+    pub brand: &'static str,
+    /// 品类里的「是什么」：电视、耳机、咖啡…… 心愿单里「说个大概」就按它匹配。
+    pub kind: &'static str,
     pub cat: Category,
     /// 实物要填收件地址；电子券收下即给券码。
     pub physical: bool,
     pub spec: &'static str,
     /// 分。
     pub price: i64,
+    /// 规格标签：尺寸、卖点。「说个大概」里写的要求拿它来比。
+    pub tags: &'static [&'static str],
+    pub desc: &'static str,
 }
 
-const fn ci(name: &'static str, cat: Category, physical: bool, spec: &'static str, yuan: i64) -> CatalogItem {
-    CatalogItem { name, cat, physical, spec, price: yuan * 100 }
+#[allow(clippy::too_many_arguments)]
+const fn ci(
+    name: &'static str,
+    brand: &'static str,
+    kind: &'static str,
+    cat: Category,
+    physical: bool,
+    spec: &'static str,
+    yuan: i64,
+    tags: &'static [&'static str],
+    desc: &'static str,
+) -> CatalogItem {
+    CatalogItem { name, brand, kind, cat, physical, spec, price: yuan * 100, tags, desc }
 }
 
-pub const CATALOG: [CatalogItem; 12] = [
-    ci("三顿半精品咖啡礼盒", Category::Coffee, true, "24 颗装 · 包邮", 109),
-    ci("星巴克中杯拿铁电子券", Category::Coffee, false, "全国门店通用 · 30 天有效", 35),
-    ci("喜茶多肉葡萄兑换券", Category::Coffee, false, "全国门店通用 · 30 天有效", 29),
-    ci("电影通兑票", Category::Movie, false, "2D 场次通兑 · 60 天有效", 49),
-    ci("电影双人套票", Category::Movie, false, "两张通兑票 + 爆米花套餐", 98),
-    ci("帆布托特包", Category::Trendy, true, "米白 · 加厚帆布 · 包邮", 79),
-    ci("香薰蜡烛", Category::Trendy, true, "无花果香 · 200g · 包邮", 88),
-    ci("拍立得相纸", Category::Trendy, true, "mini 白边 · 40 张 · 包邮", 59),
-    ci("潮玩盲盒", Category::Blind, true, "随机一款 · 有隐藏款 · 包邮", 69),
-    ci("文具盲盒", Category::Blind, true, "6 件随机 · 包邮", 39),
-    ci("小蛋糕兑换券", Category::Sweet, false, "6 寸 · 指定门店自提", 128),
-    ci("向日葵花束", Category::Sweet, true, "3 枝装 · 同城配送", 99),
+use Category::{Baby, Blind, Coffee, Digital, Home, Movie, Sweet, Trendy};
+
+pub const CATALOG: [CatalogItem; 33] = [
+    ci("三顿半精品咖啡礼盒", "三顿半", "咖啡", Coffee, true, "24 颗装 · 包邮", 109,
+        &["冷萃", "速溶", "礼盒"], "超即溶的精品咖啡，冷水牛奶都能三秒化开。24 颗 6 种风味，一个月的早晨都有着落。"),
+    ci("星巴克中杯拿铁电子券", "星巴克", "咖啡", Coffee, false, "全国门店通用 · 30 天有效", 35,
+        &["电子券", "门店"], "一杯中杯拿铁，想喝的时候去门店出示券码就行。"),
+    ci("喜茶多肉葡萄兑换券", "喜茶", "奶茶", Coffee, false, "全国门店通用 · 30 天有效", 29,
+        &["电子券", "水果茶"], "招牌多肉葡萄，一整杯的果肉。门店或小程序都能兑。"),
+    ci("电影通兑票", "猫眼", "电影票", Movie, false, "2D 场次通兑 · 60 天有效", 49,
+        &["电子券", "2D"], "全国大部分影院 2D 场次通兑，挑一部想看的片子就好。"),
+    ci("电影双人套票", "猫眼", "电影票", Movie, false, "两张通兑票 + 爆米花套餐", 98,
+        &["电子券", "双人", "爆米花"], "两张票加一份爆米花套餐 —— 送了这个，下次见面就有了理由。"),
+    ci("帆布托特包", "野帆", "包", Trendy, true, "米白 · 加厚帆布 · 包邮", 79,
+        &["米白", "大容量", "帆布"], "16 安加厚帆布，装得下电脑和一天的零碎。越用越软。"),
+    ci("香薰蜡烛", "栖木", "香薰", Trendy, true, "无花果香 · 200g · 包邮", 88,
+        &["无花果", "助眠", "200g"], "无花果叶和一点木质调，点燃 40 小时。睡前点一会儿，房间是暖的。"),
+    ci("拍立得相纸", "即影", "相纸", Trendy, true, "mini 白边 · 40 张 · 包邮", 59,
+        &["mini", "40张"], "mini 规格白边相纸 40 张，适配常见的拍立得相机。"),
+    ci("潮玩盲盒", "泡泡岛", "盲盒", Blind, true, "随机一款 · 有隐藏款 · 包邮", 69,
+        &["潮玩", "隐藏款", "摆件"], "12 款常规加 1 款隐藏，拆之前谁也不知道是哪一只。"),
+    ci("文具盲盒", "纸上", "盲盒", Blind, true, "6 件随机 · 包邮", 39,
+        &["文具", "手帐"], "胶带、便签、印章、钢笔…… 随机 6 件，做手帐的人会喜欢。"),
+    ci("小蛋糕兑换券", "好利来", "蛋糕", Sweet, false, "6 寸 · 指定门店自提", 128,
+        &["电子券", "6寸", "生日"], "6 寸鲜奶蛋糕，提前一天在小程序预约，门店自提。"),
+    ci("向日葵花束", "花点时间", "鲜花", Sweet, true, "3 枝装 · 同城配送", 99,
+        &["向日葵", "同城"], "三枝向日葵配尤加利叶，同城当天配送。"),
+    ci("澄光 Q5 55 英寸 4K 电视", "澄光", "电视", Digital, true, "55 英寸 · 4K · 包邮包安装", 2699,
+        &["55寸", "4K", "护眼", "客厅"], "55 英寸 4K 屏，低蓝光护眼模式。开机无广告，老人小孩都会用。"),
+    ci("澄光 Q7 65 英寸 4K 电视", "澄光", "电视", Digital, true, "65 英寸 · 4K 120Hz · 包邮包安装", 3999,
+        &["65寸", "4K", "120Hz", "游戏", "客厅"], "65 英寸 4K 120Hz 高刷，接游戏机不拖影。客厅一面墙刚刚好。"),
+    ci("声屿 Mini 43 英寸电视", "声屿", "电视", Digital, true, "43 英寸 · 全高清 · 包邮", 1299,
+        &["43寸", "全高清", "卧室"], "43 英寸全高清，放卧室或出租屋正合适。自带音箱不闷。"),
+    ci("澄光 Q9 75 英寸 Mini LED 电视", "澄光", "电视", Digital, true, "75 英寸 · Mini LED · 包邮包安装", 6999,
+        &["75寸", "4K", "MiniLED", "120Hz", "客厅"], "75 英寸 Mini LED，暗场景也看得清。给新家客厅的一份大礼。"),
+    ci("声屿 Pebble 蓝牙音箱", "声屿", "音箱", Digital, true, "蓝牙 5.3 · IP67 防水 · 包邮", 399,
+        &["蓝牙", "便携", "防水"], "鹅卵石大小，扔进包里就走。防水，浴室和野餐都能放。"),
+    ci("声屿 Air 降噪耳机", "声屿", "耳机", Digital, true, "头戴式 · 主动降噪 · 包邮", 899,
+        &["降噪", "蓝牙", "头戴", "长续航"], "主动降噪，地铁上也能听清轻音乐。一次充电用 40 小时。"),
+    ci("光语 便携投影仪", "光语", "投影仪", Digital, true, "1080P · 自动对焦 · 包邮", 1999,
+        &["1080P", "便携", "卧室"], "往白墙一照就是 100 寸。自动对焦，躺在床上看电影。"),
+    ci("暖物 可视空气炸锅 5L", "暖物", "空气炸锅", Home, true, "5L · 可视窗 · 包邮", 329,
+        &["5L", "可视", "大容量"], "透明可视窗，炸到几分熟一眼就知道。5L 够三四个人吃。"),
+    ci("暖物 保温电热水壶", "暖物", "水壶", Home, true, "1.7L · 恒温 · 包邮", 159,
+        &["1.7L", "恒温", "泡茶"], "五档恒温，泡茶冲奶都合适。304 不锈钢内胆。"),
+    ci("栖木 全棉四件套", "栖木", "床品", Home, true, "1.8m 床 · 60 支全棉 · 包邮", 459,
+        &["1.8m", "全棉", "奶油色"], "60 支长绒棉，奶油色，越洗越软。搬新家换一套新床品。"),
+    ci("栖木 陶瓷餐具礼盒", "栖木", "餐具", Home, true, "8 件套 · 可进洗碗机 · 包邮", 269,
+        &["陶瓷", "8件", "洗碗机"], "两人份的碗盘杯 8 件，哑光釉面，可进洗碗机和微波炉。"),
+    ci("栖木 氛围落地灯", "栖木", "灯", Home, true, "暖光 · 三档调光 · 包邮", 239,
+        &["暖光", "调光", "卧室"], "暖白两色、三档亮度。沙发边放一盏，晚上就不想开大灯了。"),
+    ci("琴叶榕盆栽", "青田", "绿植", Home, true, "80cm 高 · 含盆 · 同城配送", 139,
+        &["大盆", "好养", "客厅"], "80 厘米的琴叶榕，叶子大、好养活。放新家客厅一角。"),
+    ci("多肉组合盆栽", "青田", "绿植", Home, true, "6 株 · 陶盆 · 包邮", 59,
+        &["小盆", "好养", "桌面"], "六株多肉拼在一个陶盆里，两周浇一次水就行。"),
+    ci("小橡 轻便婴儿推车", "小橡", "推车", Baby, true, "可登机 · 5.8kg · 包邮", 1299,
+        &["轻便", "可登机", "可躺"], "一只手就能收起来，5.8 公斤，能带上飞机。"),
+    ci("小橡 新生儿礼盒", "小橡", "母婴礼盒", Baby, true, "0–6 个月 · 纯棉 9 件 · 包邮", 369,
+        &["纯棉", "0-6月", "满月"], "纯棉和尚服、口水巾、小袜子 9 件，满月礼刚刚好。"),
+    ci("木作益智积木", "小橡", "玩具", Baby, true, "100 块 · 3 岁以上 · 包邮", 199,
+        &["3岁+", "益智", "木质"], "100 块榉木积木，水性漆，棱角都磨圆了。"),
+    ci("随行保温杯", "野帆", "杯子", Trendy, true, "480ml · 12 小时保温 · 包邮", 129,
+        &["480ml", "保温", "通勤"], "一只手能开盖，放包里不漏。热水放到下午还烫。"),
+    ci("暖物 扫拖机器人", "暖物", "扫地机", Home, true, "扫拖一体 · 自动集尘 · 包邮", 1899,
+        &["扫拖一体", "自动集尘", "新家"], "扫拖一体，自动倒尘。搬进新家，地板交给它。"),
+    ci("声屿 S6 55 英寸 QLED 电视", "声屿", "电视", Digital, true, "55 英寸 · QLED · 包邮包安装", 2499,
+        &["55寸", "4K", "QLED", "卧室"], "55 英寸量子点屏，颜色比普通 4K 更鲜亮。窄边框，挂在卧室不占地方。"),
+    ci("澄光 Q6 65 英寸 4K 电视", "澄光", "电视", Digital, true, "65 英寸 · 4K · 包邮包安装", 2999,
+        &["65寸", "4K", "护眼", "客厅"], "65 英寸 4K，三千块以内能买到的大屏。护眼模式、开机无广告。"),
 ];
 
 /// 按下标取目录项；越界（旧存档、坏数据）退回第一件，不 panic。
@@ -337,6 +429,17 @@ pub fn catalog_in(cat: Option<Category>) -> Vec<u16> {
     (0..CATALOG.len() as u16)
         .filter(|&i| cat.map_or(true, |c| item(i).cat == c))
         .collect()
+}
+
+/// 同品类的其它几件（商品详情页底部「同类还有」），价格近的在前。
+pub fn related_items(i: u16, n: usize) -> Vec<u16> {
+    let it = item(i);
+    let mut v: Vec<u16> = (0..CATALOG.len() as u16)
+        .filter(|&j| j != i && item(j).cat == it.cat)
+        .collect();
+    v.sort_by_key(|&j| ((item(j).price - it.price).abs(), j));
+    v.truncate(n);
+    v
 }
 
 /// 不超过 `budget` 的最贵一件（同价取靠前的）。回礼、AI 建议都用它。
@@ -512,9 +615,9 @@ pub fn valid_phone(s: &str) -> bool {
     s.len() == 11 && s.starts_with('1') && s.bytes().all(|b| b.is_ascii_digit())
 }
 
-// ---- 口令 / 券码 ----
+// ---- 券码 ----
 
-/// 口令字符集：去掉 0 / O / 1 / I，免得抄错。
+/// 券码字符集：去掉 0 / O / 1 / I，免得抄错。
 pub const CODE_CHARS: &[u8] = b"23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 
 fn mix(mut x: u64) -> u64 {
@@ -533,43 +636,20 @@ fn code_chars(mut v: u64, n: usize) -> String {
     s
 }
 
-/// 生成 `LY-XXXX` 口令；`taken` 说已被占用就换一个。
-pub fn gen_code(seed: u64, taken: impl Fn(&str) -> bool) -> String {
-    let mut s = seed;
-    loop {
-        s = mix(s);
-        let code = format!("LY-{}", code_chars(s, 4));
-        if !taken(&code) {
-            return code;
-        }
-    }
-}
-
 /// 电子券券码：`XXXX-XXXX`。
 pub fn gen_voucher(seed: u64) -> String {
     let v = mix(seed ^ 0x5EED);
     format!("{}-{}", code_chars(v, 4), code_chars(v >> 24, 4))
 }
 
-/// 口令输入的宽松解析：大小写、空格、少了「LY-」都认。认不出来返回 None。
-pub fn normalize_code(input: &str) -> Option<String> {
-    let s: String = input
-        .chars()
-        .map(to_halfwidth)
-        .filter(|c| !c.is_whitespace() && *c != '-')
-        .collect::<String>()
-        .to_ascii_uppercase();
-    let body = if s.len() == 6 && s.starts_with("LY") { &s[2..] } else { &s[..] };
-    if body.len() == 4 && body.bytes().all(|b| CODE_CHARS.contains(&b)) {
-        Some(format!("LY-{body}"))
-    } else {
-        None
-    }
+/// 礼卡链接（演示）：按礼物 id 打开。
+pub fn gift_link(id: u64) -> String {
+    format!("liyu://g/{id}")
 }
 
-/// 口令链接（演示）。
-pub fn gift_link(code: &str) -> String {
-    format!("liyu://g/{code}")
+/// 心愿单链接（演示）。
+pub fn wish_link(id: u64) -> String {
+    format!("liyu://w/{id}")
 }
 
 // ---- 礼物 ----
@@ -628,7 +708,6 @@ pub enum Tone {
 #[derive(Clone, Debug, PartialEq, SerJson, DeJson)]
 pub struct Gift {
     pub id: u64,
-    pub code: String,
     pub dir: u8,
     pub item: u16,
     /// 下单时价格（分）。
@@ -662,13 +741,17 @@ pub struct Gift {
     pub ship_phone: String,
     pub ship_addr: String,
     pub demo_tip: String,
+    /// 从哪张心愿单认领的（`Wishlist::id`）。旧存档没有这个字段，所以是 Option。
+    pub wish_id: Option<u64>,
+    /// 预约送达的礼物：下单那天。这时 `sent_on` 是约好送到的那天（心愿单的日子），
+    /// 到那天之前收礼人看不到它。
+    pub booked_on: Option<i64>,
 }
 
 impl Gift {
-    fn blank(id: u64, code: String, dir: u8, item_id: u16, sent_on: i64) -> Self {
+    fn blank(id: u64, dir: u8, item_id: u16, sent_on: i64) -> Self {
         Gift {
             id,
-            code,
             dir,
             item: item_id,
             price: item(item_id).price,
@@ -693,7 +776,14 @@ impl Gift {
             ship_phone: String::new(),
             ship_addr: String::new(),
             demo_tip: String::new(),
+            wish_id: None,
+            booked_on: None,
         }
+    }
+
+    /// 预约了还没到日子（收礼人那边还看不到）。
+    pub fn is_scheduled(&self, today: i64) -> bool {
+        self.sent_on > today
     }
 
     pub fn state(&self) -> GiftState {
@@ -795,6 +885,9 @@ impl Gift {
         let st = self.state();
         if self.is_sent() {
             match st {
+                GiftState::Sealed if self.is_scheduled(today) => {
+                    format!("待送达 · {}送到", rel_day(self.sent_on, today))
+                }
                 GiftState::Sealed => "待拆 · TA 还没打开".into(),
                 GiftState::Opened => format!("解谜中 · 猜错 {} 次", self.attempts),
                 GiftState::Revealed => "已揭晓 · 等 TA 决定".into(),
@@ -818,9 +911,18 @@ impl Gift {
         }
     }
 
-    /// 送出详情的时间线（最多 5 行，旧的在前）。
-    pub fn timeline(&self) -> Vec<(i64, String)> {
-        let mut t = vec![(self.sent_on, format!("送出礼卡 · 口令 {}", self.code))];
+    /// 送出详情的时间线（最多 5 行，旧的在前）。预约送达的礼物先记下单，
+    /// 到了日子再记「送到」；没到日子的那一步交给界面画成空心的「接下来」。
+    pub fn timeline(&self, today: i64) -> Vec<(i64, String)> {
+        let mut t = Vec::new();
+        if let Some(b) = self.booked_on {
+            t.push((b, format!("下单 · 约好 {} 送到", rel_day(self.sent_on, b))));
+            if !self.is_scheduled(today) {
+                t.push((self.sent_on, "礼卡送到 TA 手里".into()));
+            }
+        } else {
+            t.push((self.sent_on, "送出礼卡".into()));
+        }
         if self.opened_on > 0 && self.unlock() != Unlock::Free {
             t.push((self.opened_on, "TA 打开了礼卡".into()));
         }
@@ -924,6 +1026,402 @@ pub struct LedgerEntry {
     pub note: String,
 }
 
+// ---- 心愿单 ----
+
+/// 一张心愿单最多几件。
+pub const WISH_MAX_ITEMS: usize = 8;
+pub const WISH_TITLE_MAX_CHARS: usize = 16;
+pub const WISH_NOTE_MAX_CHARS: usize = 40;
+/// 「说个大概」里的要求（如「55 寸以上 · 4K」）。
+pub const WISH_WANTS_MAX_CHARS: usize = 20;
+/// 最多提前多久发布。
+pub const WISH_MAX_AHEAD_DAYS: i64 = 180;
+/// 日子过了之后还开放几天（补送的人还来得及）。
+pub const WISH_GRACE_DAYS: i64 = 7;
+/// 好友的日子前几天提醒我。
+pub const WISH_NOTICE_LEAD_DAYS: i64 = 3;
+/// 场合。下标存在 `Wishlist::occasion` 里 —— 只追加不重排。
+pub const OCCASIONS: [&str; 6] = ["生日", "结婚", "乔迁", "毕业", "宝宝", "其他"];
+/// 「说个大概」能选的东西，每个都对得上目录里的 `CatalogItem::kind`。
+pub const WISH_KINDS: [&str; 16] = [
+    "电视", "耳机", "音箱", "投影仪", "空气炸锅", "扫地机", "床品", "餐具",
+    "灯", "绿植", "鲜花", "蛋糕", "咖啡", "盲盒", "玩具", "推车",
+];
+/// 「说个大概」的预算档（元）。0 = 不限。
+pub const WISH_BUDGETS: [i64; 7] = [0, 100, 300, 500, 1000, 3000, 5000];
+/// 结算页的付款方式（全是模拟的）。
+pub const PAY_METHODS: [&str; 3] = ["微信支付", "支付宝", "银行卡"];
+/// 换一份时给几个选择（价格离抵扣额近的在前）。
+pub const EXCHANGE_CHOICES: usize = 11;
+
+/// 「一台电视」「一副耳机」—— 含糊的心愿用量词说出来才像人话。
+pub fn measure_word(kind: &str) -> &'static str {
+    match kind {
+        "电视" | "投影仪" | "空气炸锅" | "扫地机" | "音箱" => "台",
+        "耳机" => "副",
+        "床品" | "餐具" => "套",
+        "灯" => "盏",
+        "绿植" => "盆",
+        "鲜花" => "束",
+        "咖啡" => "份",
+        "推车" => "辆",
+        _ => "个",
+    }
+}
+
+/// 预算档的说法。
+pub fn budget_text(max_price: i64) -> String {
+    if max_price <= 0 {
+        "预算不限".into()
+    } else {
+        format!("{} 以内", yuan(max_price))
+    }
+}
+
+/// 心愿单上的一件。要么是目录里具体的一件（`item`），要么只说个大概：
+/// 品类 + 预算 + 一句要求，送礼的人从匹配的商品里挑。
+#[derive(Clone, Debug, PartialEq, SerJson, DeJson)]
+pub struct WishItem {
+    /// 具体的那件（目录下标）；`None` = 说个大概。
+    pub item: Option<u16>,
+    /// 是什么（`CatalogItem::kind`）。具体的也存一份，方便按品类匹配。
+    pub kind: String,
+    /// 预算上限（分），0 = 不限。只对「说个大概」有意义。
+    pub max_price: i64,
+    /// 要求，如「55 寸以上」「降噪」。
+    pub wants: String,
+    /// 0 = 还没人送；1 = 别人认领了；2 = 我认领了。
+    pub state: u8,
+    /// 认领它的那份礼物（我送的，或者我心愿单上别人送我的）。
+    pub gift_id: u64,
+    pub claimed_on: i64,
+    /// 实际送的是哪件（`u16::MAX` = 不知道）。
+    pub given_item: u16,
+}
+
+pub const WISH_OPEN: u8 = 0;
+pub const WISH_BY_OTHERS: u8 = 1;
+pub const WISH_BY_ME: u8 = 2;
+
+impl WishItem {
+    pub fn exact(i: u16) -> Self {
+        WishItem {
+            item: Some(i),
+            kind: item(i).kind.to_string(),
+            max_price: 0,
+            wants: String::new(),
+            state: WISH_OPEN,
+            gift_id: 0,
+            claimed_on: 0,
+            given_item: u16::MAX,
+        }
+    }
+
+    pub fn vague(kind: &str, max_price: i64, wants: &str) -> Self {
+        WishItem {
+            item: None,
+            kind: kind.to_string(),
+            max_price: max_price.max(0),
+            wants: wants.trim().to_string(),
+            state: WISH_OPEN,
+            gift_id: 0,
+            claimed_on: 0,
+            given_item: u16::MAX,
+        }
+    }
+
+    pub fn is_exact(&self) -> bool {
+        self.item.is_some()
+    }
+
+    pub fn is_open(&self) -> bool {
+        self.state == WISH_OPEN
+    }
+
+    /// 列表上的名字：具体的是商品名，含糊的是「一台电视」。
+    pub fn title(&self) -> String {
+        match self.item {
+            Some(i) => item(i).name.to_string(),
+            None => format!("一{}{}", measure_word(&self.kind), self.kind),
+        }
+    }
+
+    /// 第二行：具体的是规格 + 价格，含糊的是预算 + 要求。
+    pub fn sub(&self) -> String {
+        match self.item {
+            Some(i) => format!("{} · {}", item(i).brand, yuan(item(i).price)),
+            None if self.wants.is_empty() => format!("说了个大概 · {}", budget_text(self.max_price)),
+            None => format!("{} · {}", budget_text(self.max_price), self.wants),
+        }
+    }
+
+    /// 缩略图用哪件：具体的就是它；含糊的用送出的那件，没有就用同类里最便宜的一件当示意。
+    pub fn thumb(&self) -> u16 {
+        if let Some(i) = self.item {
+            return i;
+        }
+        if self.given_item != u16::MAX && self.state == WISH_BY_ME {
+            return self.given_item;
+        }
+        (0..CATALOG.len() as u16)
+            .filter(|&i| item(i).kind == self.kind)
+            .min_by_key(|&i| item(i).price)
+            .unwrap_or(0)
+    }
+
+    /// 这件商品能不能兑现这条心愿：具体的必须是同一件，含糊的同类就行（预算只是参考）。
+    pub fn fits(&self, i: u16) -> bool {
+        match self.item {
+            Some(x) => x == i,
+            None => item(i).kind == self.kind,
+        }
+    }
+
+    fn release(&mut self) {
+        self.state = WISH_OPEN;
+        self.gift_id = 0;
+        self.claimed_on = 0;
+        self.given_item = u16::MAX;
+    }
+}
+
+/// 一张心愿单。`owner` 为空是我自己的，否则是好友的（演示里的好友心愿单是本机数据）。
+#[derive(Clone, Debug, PartialEq, SerJson, DeJson)]
+pub struct Wishlist {
+    pub id: u64,
+    pub owner: String,
+    pub occasion: u8,
+    pub title: String,
+    pub note: String,
+    /// 那个日子。
+    pub event_on: i64,
+    pub created_on: i64,
+    /// 手动结束的那天，0 = 没结束。
+    pub closed_on: i64,
+    /// 谁能看见；空 = 所有熟人。
+    pub audience: Vec<String>,
+    pub items: Vec<WishItem>,
+}
+
+impl Wishlist {
+    pub fn is_mine(&self) -> bool {
+        self.owner.is_empty()
+    }
+
+    /// 还能认领：没手动结束，而且没过日子 7 天。
+    pub fn is_open(&self, today: i64) -> bool {
+        self.closed_on == 0 && today <= self.event_on + WISH_GRACE_DAYS
+    }
+
+    pub fn occasion_label(&self) -> &'static str {
+        OCCASIONS.get(self.occasion as usize).copied().unwrap_or("其他")
+    }
+
+    /// 「林舟的生日」；场合是「其他」时只说「林舟的日子」。
+    pub fn event_name(&self, me: &str) -> String {
+        let who = if self.is_mine() { me } else { &self.owner };
+        match self.occasion_label() {
+            "其他" => format!("{who}的日子"),
+            o => format!("{who}的{o}"),
+        }
+    }
+
+    pub fn open_count(&self) -> usize {
+        self.items.iter().filter(|w| w.is_open()).count()
+    }
+
+    pub fn claimed_count(&self) -> usize {
+        self.items.len() - self.open_count()
+    }
+
+    /// 倒数：还有 3 天 / 明天 / 就是今天 / 已过 2 天 / 已结束。
+    pub fn countdown(&self, today: i64) -> String {
+        if !self.is_open(today) {
+            return "已结束".into();
+        }
+        match self.event_on - today {
+            d if d > 1 => format!("还有 {d} 天"),
+            1 => "明天".into(),
+            0 => "就是今天".into(),
+            d => format!("已过 {} 天", -d),
+        }
+    }
+
+    /// 「9 月 28 日 · 还有 3 天」。
+    pub fn when_text(&self, today: i64) -> String {
+        format!("{} · {}", md_cn(self.event_on), self.countdown(today))
+    }
+
+    /// 「5 件心愿 · 2 件已有人送」。
+    pub fn progress_text(&self) -> String {
+        match self.claimed_count() {
+            0 => format!("{} 件心愿 · 还没人认领", self.items.len()),
+            n if n == self.items.len() => format!("{} 件心愿 · 全都有人送啦", n),
+            n => format!("{} 件心愿 · {} 件已有人送", self.items.len(), n),
+        }
+    }
+
+    pub fn audience_text(&self) -> String {
+        if self.audience.is_empty() {
+            "所有熟人可见".into()
+        } else {
+            format!("仅 {} 位熟人可见", self.audience.len())
+        }
+    }
+}
+
+/// 发布 / 编辑心愿单的表单。离开编辑页就丢，不落盘。
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct WishDraft {
+    /// 编辑已有的那张；`None` = 新发布。
+    pub id: Option<u64>,
+    pub occasion: u8,
+    pub title: String,
+    pub note: String,
+    pub event_on: i64,
+    pub audience: Vec<String>,
+    pub items: Vec<WishItem>,
+}
+
+impl WishDraft {
+    pub fn new(today: i64) -> Self {
+        WishDraft { event_on: today + 14, ..Default::default() }
+    }
+
+    pub fn from_list(w: &Wishlist) -> Self {
+        WishDraft {
+            id: Some(w.id),
+            occasion: w.occasion,
+            title: w.title.clone(),
+            note: w.note.clone(),
+            event_on: w.event_on,
+            audience: w.audience.clone(),
+            items: w.items.clone(),
+        }
+    }
+
+    /// 标题没写时用的默认标题：「阿岚的生日心愿单」。
+    pub fn default_title(&self, nickname: &str) -> String {
+        let me = split_aliases(nickname).into_iter().next().unwrap_or_else(|| "我".into());
+        match OCCASIONS.get(self.occasion as usize).copied().unwrap_or("其他") {
+            "其他" => format!("{me}的心愿单"),
+            o => format!("{me}的{o}心愿单"),
+        }
+    }
+
+    /// 已经在单子上的具体商品。
+    pub fn has_item(&self, i: u16) -> bool {
+        self.items.iter().any(|w| w.item == Some(i))
+    }
+}
+
+/// 含糊心愿的一个候选：哪件、命中了哪些要求、在不在预算内。
+#[derive(Clone, Debug, PartialEq)]
+pub struct WishMatch {
+    pub item: u16,
+    pub hits: Vec<String>,
+    pub within: bool,
+}
+
+impl WishMatch {
+    /// 候选卡片上的一句理由：「符合 65寸 · 4K · 预算内」。
+    pub fn reason(&self) -> String {
+        let mut s = if self.hits.is_empty() {
+            String::new()
+        } else {
+            format!("符合 {} · ", self.hits.join(" · "))
+        };
+        s.push_str(if self.within { "预算内" } else { "超出预算" });
+        s
+    }
+}
+
+/// 要求里的尺寸下限：「55 寸以上」「65寸」→ 55 / 65，同时返回去掉尺寸后剩下的字。
+fn parse_min_size(wants: &str) -> (Option<u32>, String) {
+    let chars: Vec<char> = wants.chars().collect();
+    let Some(pos) = chars.iter().position(|&c| c == '寸') else {
+        return (None, wants.to_string());
+    };
+    let mut start = pos;
+    while start > 0 && chars[start - 1] == ' ' {
+        start -= 1;
+    }
+    let digits_end = start;
+    while start > 0 && chars[start - 1].is_ascii_digit() {
+        start -= 1;
+    }
+    let n: Option<u32> = chars[start..digits_end].iter().collect::<String>().parse().ok();
+    if n.is_none() {
+        return (None, wants.to_string());
+    }
+    let mut end = pos + 1;
+    let tail: String = chars[end..].iter().collect();
+    for w in ["以上", "及以上", "起"] {
+        if tail.starts_with(w) {
+            end += w.chars().count();
+            break;
+        }
+    }
+    let rest: String = chars[..start].iter().chain(chars[end..].iter()).collect();
+    (n, rest)
+}
+
+/// 商品的尺寸标签（「55寸」→ 55）。
+fn size_of(i: u16) -> Option<u32> {
+    item(i).tags.iter().find_map(|t| t.strip_suffix('寸').and_then(|n| n.parse().ok()))
+}
+
+/// 要求里的关键词：按空白和常见分隔符拆开，去掉「要」「最好」这类虚词。
+fn want_tokens(rest: &str) -> Vec<String> {
+    rest.split(|c: char| c.is_whitespace() || "，,、/;；·+和".contains(c))
+        .map(|t| t.trim_start_matches("最好").trim_start_matches('要').trim_end_matches('的').trim())
+        .filter(|t| !t.is_empty() && !["以上", "以内", "左右", "都行", "随便"].contains(t))
+        .map(|t| t.to_string())
+        .collect()
+}
+
+/// 给「说个大概」的心愿挑商品：同类 → 尺寸是硬条件 → 预算内的按命中要求多少、再按价格排。
+/// 预算内一件都没有时，放宽预算（候选都标「超出预算」）；尺寸也卡死时再放宽尺寸。
+/// 具体的心愿只返回那一件。
+pub fn wish_candidates(w: &WishItem) -> Vec<WishMatch> {
+    if let Some(i) = w.item {
+        return vec![WishMatch { item: i, hits: Vec::new(), within: true }];
+    }
+    let (min_size, rest) = parse_min_size(&w.wants);
+    let tokens = want_tokens(&rest);
+    let pool: Vec<u16> = (0..CATALOG.len() as u16).filter(|&i| item(i).kind == w.kind).collect();
+    let sized: Vec<u16> = match min_size {
+        Some(n) => pool.iter().copied().filter(|&i| size_of(i).is_some_and(|s| s >= n)).collect(),
+        None => pool.clone(),
+    };
+    let base = if sized.is_empty() { pool } else { sized };
+    let score = |i: u16| -> WishMatch {
+        let it = item(i);
+        let mut hits = Vec::new();
+        if let (Some(_), Some(s)) = (min_size, size_of(i)) {
+            hits.push(format!("{s}寸"));
+        }
+        for t in &tokens {
+            let tl = t.to_lowercase();
+            let hit = it.tags.iter().any(|g| g.to_lowercase().contains(&tl) || tl.contains(&g.to_lowercase()))
+                || it.name.to_lowercase().contains(&tl)
+                || it.desc.contains(t.as_str());
+            if hit && !hits.contains(t) {
+                hits.push(t.clone());
+            }
+        }
+        WishMatch { item: i, hits, within: w.max_price <= 0 || it.price <= w.max_price }
+    };
+    let mut all: Vec<WishMatch> = base.into_iter().map(score).collect();
+    if all.iter().any(|m| m.within) {
+        all.retain(|m| m.within);
+        all.sort_by(|a, b| b.hits.len().cmp(&a.hits.len()).then(item(a.item).price.cmp(&item(b.item).price)));
+    } else {
+        all.sort_by_key(|m| item(m.item).price);
+    }
+    all
+}
+
 // ---- 熟人 / 设置 / 通知 ----
 
 /// 本机熟人：只有一个称呼。
@@ -941,6 +1439,8 @@ pub struct Settings {
     pub notify_gift: bool,
     /// 我答应的契约快到期提醒。
     pub notify_pact: bool,
+    /// 好友的日子快到、心愿单上还有没人送的，提醒我。
+    pub notify_wish: bool,
     /// 开场三屏看完（或跳过）了没有。
     pub onboarded: bool,
     /// 界面深浅（`theme::ThemeMode::id`）。`None` = 还没选过，按夜色。
@@ -957,6 +1457,7 @@ impl Default for Settings {
             nickname: DEFAULT_NICKNAME.into(),
             notify_gift: true,
             notify_pact: true,
+            notify_wish: true,
             onboarded: false,
             theme: None,
             ship_name: String::new(),
@@ -979,11 +1480,12 @@ impl Settings {
     }
 }
 
-/// 只有两类通知（02-flows 6 节）。不做「TA 刚打开了你的礼卡」这类实时通知。
+/// 只有三类通知（02-flows 6 节）。不做「TA 刚打开了你的礼卡」这类实时通知。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NoticeKind {
     GiftExpiring,
     PactDue,
+    WishSoon,
 }
 
 impl NoticeKind {
@@ -991,6 +1493,7 @@ impl NoticeKind {
         match self {
             NoticeKind::GiftExpiring => "有礼物等你拆",
             NoticeKind::PactDue => "契约快到期了",
+            NoticeKind::WishSoon => "好友的心愿单",
         }
     }
 }
@@ -999,7 +1502,7 @@ impl NoticeKind {
 pub struct Notice {
     pub kind: NoticeKind,
     pub text: String,
-    /// 点「去看看」要打开的东西：礼物 id 或契约 id。
+    /// 点「去看看」要打开的东西：礼物 id、契约 id 或心愿单 id。
     pub target: u64,
 }
 
@@ -1019,6 +1522,12 @@ pub struct SendDraft {
     pub contract: Option<String>,
     pub message: String,
     pub use_balance: bool,
+    /// 从心愿单来的：（心愿单 id, 第几件）。送出即认领。
+    pub wish: Option<(u64, usize)>,
+    /// 约好哪天送到（只对心愿单，最晚到那个日子）。`None` = 现在就送。
+    pub deliver_on: Option<i64>,
+    /// 付款方式（`PAY_METHODS` 下标）。`None` = 流水里记「模拟支付」。
+    pub pay: Option<u8>,
 }
 
 /// 收下 / 换购实物时填的东西。
@@ -1053,6 +1562,8 @@ pub struct ExchangeResult {
 /// 模拟器推进一步的结果。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SimStep {
+    /// 约好的日子提前到了（演示），礼卡送到 TA 手里。
+    Delivered,
     Opened,
     Revealed { known: bool },
     Accepted { pact: bool },
@@ -1063,6 +1574,7 @@ pub enum SimStep {
 impl SimStep {
     pub fn text(self) -> &'static str {
         match self {
+            SimStep::Delivered => "到日子了，礼卡送到了 TA 手里",
             SimStep::Opened => "TA 打开了礼卡，第一次没猜中",
             SimStep::Revealed { known: true } => "TA 答对了，知道是你",
             SimStep::Revealed { known: false } => "TA 机会用完，礼物拆开了，没透露你",
@@ -1110,6 +1622,8 @@ pub struct LiyuState {
     pub pacts: Vec<Pact>,
     pub ledger: Vec<LedgerEntry>,
     pub settings: Settings,
+    /// 我的和好友的心愿单。
+    pub wishlists: Vec<Wishlist>,
     next_id: u64,
     /// 读存档失败时给界面的一句话（toast 一次后清掉）。
     pub load_note: Option<&'static str>,
@@ -1133,6 +1647,7 @@ pub struct PersistedState {
     pub ledger: Option<Vec<LedgerEntry>>,
     pub settings: Option<Settings>,
     pub next_id: Option<u64>,
+    pub wishlists: Option<Vec<Wishlist>>,
 }
 
 impl LiyuState {
@@ -1149,6 +1664,7 @@ impl LiyuState {
             pacts: Vec::new(),
             ledger: Vec::new(),
             settings: Settings::default(),
+            wishlists: Vec::new(),
             next_id: 1,
             load_note: None,
         };
@@ -1255,6 +1771,75 @@ impl LiyuState {
         s.gifts.push(g);
         s.push_ledger(today - 3, 0, 3500, "送出 · 星巴克中杯拿铁电子券", "模拟支付 ¥35");
 
+        // 心愿单：两张进行中的好友心愿单、一张结束了的，再加我自己的一张。
+        let taken = |mut w: WishItem, day: i64| {
+            w.state = WISH_BY_OTHERS;
+            w.claimed_on = day;
+            w
+        };
+        s.push_demo_wish(
+            "林舟",
+            0,
+            "林舟的生日心愿单",
+            "今年想把卧室布置成小影院",
+            today + 3,
+            today - 5,
+            0,
+            vec![
+                WishItem::exact(17),
+                taken(WishItem::exact(0), today - 2),
+                WishItem::vague("盲盒", 10000, "潮玩"),
+                WishItem::exact(6),
+                WishItem::exact(18),
+            ],
+        );
+        s.push_demo_wish(
+            "陈晓",
+            2,
+            "新家暖房心愿单",
+            "搬新家啦，缺的都在这儿，来暖房吃饭！",
+            today + 12,
+            today - 4,
+            0,
+            vec![
+                WishItem::vague("电视", 300_000, "55 寸以上"),
+                taken(WishItem::exact(19), today - 3),
+                taken(WishItem::exact(21), today - 1),
+                WishItem::vague("绿植", 0, "好养"),
+                WishItem::exact(22),
+            ],
+        );
+        s.push_demo_wish(
+            "许宁",
+            3,
+            "毕业快乐心愿单",
+            "要去新城市上班啦",
+            today - 10,
+            today - 30,
+            today - 3,
+            vec![
+                taken(WishItem::exact(29), today - 20),
+                taken(WishItem::exact(16), today - 15),
+                WishItem::exact(7),
+            ],
+        );
+        // 我的：林舟那份「猜我是谁」就是从这张单子上认领的咖啡。
+        let lin = s.gifts[0].id;
+        let mut coffee = taken(WishItem::exact(0), today - 1);
+        coffee.gift_id = lin;
+        coffee.given_item = 0;
+        let mine = s.push_demo_wish(
+            "",
+            0,
+            "阿岚的生日心愿单",
+            "想要的不多，心意最重要",
+            today - 1,
+            today - 12,
+            0,
+            vec![coffee, WishItem::vague("耳机", 100_000, "降噪"), WishItem::exact(11)],
+        );
+        s.gifts[0].wish_id = Some(mine);
+
         s
     }
 
@@ -1272,8 +1857,7 @@ impl LiyuState {
 
     fn new_gift(&mut self, dir: u8, item_id: u16, sent_on: i64) -> Gift {
         let id = self.take_id();
-        let code = gen_code(id.wrapping_mul(7919), |c| self.gifts.iter().any(|g| g.code == c));
-        Gift::blank(id, code, dir, item_id, sent_on)
+        Gift::blank(id, dir, item_id, sent_on)
     }
 
     fn push_ledger(&mut self, day: i64, amount: i64, external: i64, title: &str, note: &str) {
@@ -1307,12 +1891,12 @@ impl LiyuState {
         self.pacts.iter().find(|p| p.id == id)
     }
 
-    /// 收到的（撤回的不出现），新的在前。
-    pub fn received(&self) -> Vec<&Gift> {
+    /// 收到的（撤回的、约好日子还没送到的不出现），新的在前。
+    pub fn received(&self, today: i64) -> Vec<&Gift> {
         let mut v: Vec<&Gift> = self
             .gifts
             .iter()
-            .filter(|g| !g.is_sent() && g.state() != GiftState::Withdrawn)
+            .filter(|g| !g.is_sent() && g.state() != GiftState::Withdrawn && !g.is_scheduled(today))
             .collect();
         v.sort_by(|a, b| b.sent_on.cmp(&a.sent_on).then(b.id.cmp(&a.id)));
         v
@@ -1326,8 +1910,8 @@ impl LiyuState {
     }
 
     /// 等我处理的收到的礼物（待拆 / 解谜中 / 待决定）。
-    pub fn pending_received(&self) -> usize {
-        self.received().iter().filter(|g| g.tone() == Tone::Pending).count()
+    pub fn pending_received(&self, today: i64) -> usize {
+        self.received(today).iter().filter(|g| g.tone() == Tone::Pending).count()
     }
 
     /// 契约：`mine` 这一侧，待兑现的在前、到期早的在前。
@@ -1353,11 +1937,6 @@ impl LiyuState {
         v
     }
 
-    /// 口令查礼物（宽松解析）。
-    pub fn find_code(&self, input: &str) -> Option<&Gift> {
-        let code = normalize_code(input)?;
-        self.gifts.iter().find(|g| g.code == code)
-    }
 
     /// 送礼的付款拆分：（余额抵扣, 模拟支付）。
     pub fn pay_split(&self, price: i64, use_balance: bool) -> (i64, i64) {
@@ -1409,13 +1988,17 @@ impl LiyuState {
         others
     }
 
-    /// 换购可选项：（目录下标, 抵扣额 − 新价格）。除了原来那件，其它都能换。
+    /// 换购可选项：（目录下标, 抵扣额 − 新价格）。除了原来那件都能换；
+    /// 目录大了一屏放不下，只给价格离抵扣额最近的 11 件。
     pub fn exchange_options(&self, g: &Gift) -> Vec<(u16, i64)> {
         let (_, credit) = exchange_credit(g.price);
-        (0..CATALOG.len() as u16)
+        let mut v: Vec<(u16, i64)> = (0..CATALOG.len() as u16)
             .filter(|&i| i != g.item)
             .map(|i| (i, credit - item(i).price))
-            .collect()
+            .collect();
+        v.sort_by_key(|&(i, d)| (d.abs(), i));
+        v.truncate(EXCHANGE_CHOICES);
+        v
     }
 
     /// 此刻该发哪些通知。每类最多一条；开关是唯一的闸。
@@ -1423,7 +2006,7 @@ impl LiyuState {
         let mut out = Vec::new();
         if self.settings.notify_gift {
             if let Some(g) = self
-                .received()
+                .received(today)
                 .into_iter()
                 .filter(|g| g.state().is_unrevealed())
                 .filter(|g| (0..=GIFT_NOTICE_LEAD_DAYS).contains(&g.days_left(today)))
@@ -1460,6 +2043,25 @@ impl LiyuState {
                     kind: NoticeKind::PactDue,
                     text: format!("你答应的「{}」{}", p.text, when),
                     target: p.id,
+                });
+            }
+        }
+        if self.settings.notify_wish {
+            if let Some(w) = self
+                .friend_wishlists(today)
+                .into_iter()
+                .filter(|w| w.is_open(today) && w.open_count() > 0)
+                .find(|w| (0..=WISH_NOTICE_LEAD_DAYS).contains(&(w.event_on - today)))
+            {
+                let when = match w.event_on - today {
+                    0 => "就是今天".to_string(),
+                    1 => "就在明天".to_string(),
+                    d => format!("还有 {d} 天"),
+                };
+                out.push(Notice {
+                    kind: NoticeKind::WishSoon,
+                    text: format!("{}{}，心愿单上还有 {} 件没人送", w.event_name(""), when, w.open_count()),
+                    target: w.id,
                 });
             }
         }
@@ -1519,8 +2121,17 @@ impl LiyuState {
     /// 送出一份礼物：校验 → 付款（余额优先，余下模拟支付）→ 生成礼卡。返回礼物 id。
     pub fn send_gift(&mut self, d: &SendDraft, today: i64) -> Result<u64, &'static str> {
         self.validate_draft(d)?;
+        let claim = self.check_claim(d, today)?;
         let mut g = self.new_gift(DIR_SENT, d.item, today);
         g.peer = d.peer.trim().to_string();
+        if let Some((wid, _, owner)) = &claim {
+            g.peer = owner.clone();
+            g.wish_id = Some(*wid);
+        }
+        if let Some(day) = d.deliver_on.filter(|&day| day > today) {
+            g.sent_on = day;
+            g.booked_on = Some(today);
+        }
         g.unlock = d.unlock.id();
         match d.unlock {
             Unlock::GuessWho => {
@@ -1540,16 +2151,31 @@ impl LiyuState {
         g.message = d.message.trim().into();
         let (a, b) = self.pay_split(g.price, d.use_balance);
         let title = format!("送出 · {}", g.catalog().name);
+        let method = d.pay.and_then(|p| PAY_METHODS.get(p as usize).copied()).unwrap_or("模拟支付");
         let note = match (a > 0, b > 0) {
-            (true, true) => format!("余额抵 {} · 模拟支付 {}", yuan(a), yuan(b)),
+            (true, true) => format!("余额抵 {} · {method} {}", yuan(a), yuan(b)),
             (true, false) => format!("余额抵 {}", yuan(a)),
-            _ => format!("模拟支付 {}", yuan(b)),
+            _ => format!("{method} {}", yuan(b)),
         };
         let id = g.id;
         self.gifts.push(g);
+        if let Some((wid, idx, _)) = claim {
+            let x = &mut self.wishlist_mut(wid).unwrap().items[idx];
+            x.state = WISH_BY_ME;
+            x.gift_id = id;
+            x.claimed_on = today;
+            x.given_item = d.item;
+        }
         self.push_ledger(today, -a, b, &title, &note);
         self.save();
         Ok(id)
+    }
+
+    /// 去结算之前的校验：表单 + 心愿单认领，和 `send_gift` 的前两步完全一样，
+    /// 只是不动数据。结算页因此只会因为付款本身出错。
+    pub fn check_send(&self, d: &SendDraft, today: i64) -> Result<(), &'static str> {
+        self.validate_draft(d)?;
+        self.check_claim(d, today).map(|_| ())
     }
 
     /// 送礼人撤回：只在「待拆」可以，全额退回余额。
@@ -1562,6 +2188,7 @@ impl LiyuState {
         g.settled_on = today;
         let (price, title) = (g.price, format!("退回 · {}", g.catalog().name));
         self.push_ledger(today, price, 0, &title, "撤回礼物，全额退回");
+        self.release_wish(id);
         self.save();
         Ok(())
     }
@@ -1774,6 +2401,7 @@ impl LiyuState {
                 let (day, price, title) = (g.settled_on, g.price, format!("退回 · {}", g.catalog().name));
                 self.push_ledger(day, price, 0, &title, "7 天没拆开，全额退回");
             }
+            self.release_wish(*id);
         }
         if !due.is_empty() {
             self.save();
@@ -1845,6 +2473,10 @@ impl LiyuState {
         let mut new_pact: Option<(String, String)> = None;
         let mut return_gift: Option<(u16, String)> = None;
         let step = match g.state() {
+            GiftState::Sealed if g.is_scheduled(today) => {
+                g.sent_on = today;
+                SimStep::Delivered
+            }
             GiftState::Sealed if g.unlock() == Unlock::Free => {
                 g.set_state(GiftState::Revealed);
                 g.identity_known = true;
@@ -1926,6 +2558,316 @@ impl LiyuState {
         }
         self.save();
         Some(step)
+    }
+
+    // ---- 心愿单 ----
+
+    #[allow(clippy::too_many_arguments)]
+    fn push_demo_wish(
+        &mut self,
+        owner: &str,
+        occasion: u8,
+        title: &str,
+        note: &str,
+        event_on: i64,
+        created_on: i64,
+        closed_on: i64,
+        items: Vec<WishItem>,
+    ) -> u64 {
+        let id = self.take_id();
+        self.wishlists.push(Wishlist {
+            id,
+            owner: owner.into(),
+            occasion,
+            title: title.into(),
+            note: note.into(),
+            event_on,
+            created_on,
+            closed_on,
+            audience: Vec::new(),
+            items,
+        });
+        id
+    }
+
+    pub fn wishlist(&self, id: u64) -> Option<&Wishlist> {
+        self.wishlists.iter().find(|w| w.id == id)
+    }
+
+    fn wishlist_mut(&mut self, id: u64) -> Option<&mut Wishlist> {
+        self.wishlists.iter_mut().find(|w| w.id == id)
+    }
+
+    /// 我的心愿单：进行中的在前，日子近的在前。
+    pub fn my_wishlists(&self, today: i64) -> Vec<&Wishlist> {
+        let mut v: Vec<&Wishlist> = self.wishlists.iter().filter(|w| w.is_mine()).collect();
+        v.sort_by(|a, b| {
+            b.is_open(today)
+                .cmp(&a.is_open(today))
+                .then(a.event_on.cmp(&b.event_on))
+                .then(b.id.cmp(&a.id))
+        });
+        v
+    }
+
+    /// 好友的心愿单：进行中的按日子由近到远，结束了的放后面（新结束的在前）。
+    pub fn friend_wishlists(&self, today: i64) -> Vec<&Wishlist> {
+        let mut v: Vec<&Wishlist> = self.wishlists.iter().filter(|w| !w.is_mine()).collect();
+        v.sort_by(|a, b| {
+            let (oa, ob) = (a.is_open(today), b.is_open(today));
+            ob.cmp(&oa).then(if oa {
+                a.event_on.cmp(&b.event_on)
+            } else {
+                b.event_on.cmp(&a.event_on)
+            })
+        });
+        v
+    }
+
+    /// 「加到我的心愿单」加到哪张：进行中、日子最近的那张。
+    pub fn current_my_wishlist(&self, today: i64) -> Option<u64> {
+        self.my_wishlists(today).into_iter().find(|w| w.is_open(today)).map(|w| w.id)
+    }
+
+    /// 这位熟人进行中的心愿单（通讯录副标题用）。
+    pub fn wish_hint(&self, label: &str, today: i64) -> Option<String> {
+        let w = self.friend_wishlists(today).into_iter().find(|w| w.owner == label && w.is_open(today))?;
+        Some(format!("{}心愿单 · {} · {} 件没人送", w.occasion_label(), w.countdown(today), w.open_count()))
+    }
+
+    /// 一件心愿此刻的状态文案。我自己的看「谁送的」（揭晓后才说名字），好友的只看「有没有人送」。
+    pub fn wish_item_status(&self, list: &Wishlist, idx: usize, today: i64) -> String {
+        let Some(w) = list.items.get(idx) else {
+            return String::new();
+        };
+        if !list.is_mine() {
+            return match w.state {
+                WISH_OPEN if !list.is_open(today) => "没人送".into(),
+                WISH_OPEN => "还没人送".into(),
+                WISH_BY_ME => "你送的".into(),
+                _ => "已有人送".into(),
+            };
+        }
+        if w.is_open() {
+            return "还没人认领".into();
+        }
+        match self.gift(w.gift_id) {
+            Some(g) if g.is_scheduled(today) => format!("已被认领 · {} 送到", md_cn(g.sent_on)),
+            Some(g) if g.state().is_unrevealed() => "已被认领 · 礼物在礼盒里等你拆".into(),
+            Some(g) if g.shown_sender() != MYSTERY_FRIEND => format!("{} 送的", g.shown_sender()),
+            _ => "已被认领".into(),
+        }
+    }
+
+    /// 发布 / 保存前的校验。只返回第一条错。
+    pub fn validate_wish(&self, d: &WishDraft, today: i64) -> Result<(), &'static str> {
+        if d.title.trim().chars().count() > WISH_TITLE_MAX_CHARS {
+            return Err("标题最多 16 个字");
+        }
+        if d.note.trim().chars().count() > WISH_NOTE_MAX_CHARS {
+            return Err("想说的话最多 40 个字");
+        }
+        let old = d.id.and_then(|id| self.wishlist(id));
+        let unchanged_day = old.is_some_and(|w| w.event_on == d.event_on);
+        if d.event_on < today && !unchanged_day {
+            return Err("日子不能早于今天");
+        }
+        if d.event_on > today + WISH_MAX_AHEAD_DAYS {
+            return Err("最多提前半年发布");
+        }
+        if d.items.is_empty() {
+            return Err("至少放一件心愿");
+        }
+        if d.items.len() > WISH_MAX_ITEMS {
+            return Err("一张心愿单最多 8 件");
+        }
+        for (k, w) in d.items.iter().enumerate() {
+            if w.item.is_none() && !WISH_KINDS.contains(&w.kind.as_str()) {
+                return Err("选一下想要的是什么");
+            }
+            if w.wants.chars().count() > WISH_WANTS_MAX_CHARS {
+                return Err("要求最多 20 个字");
+            }
+            if w.item.is_some() && d.items[..k].iter().any(|x| x.item == w.item) {
+                return Err("同一件放了两次");
+            }
+        }
+        if let Some(old) = old {
+            if !old.is_mine() {
+                return Err("只能改自己的心愿单");
+            }
+            // 已经有人认领的那几件是别人的心意，编辑时不能拿掉。
+            if old.items.iter().filter(|w| !w.is_open()).any(|w| !d.items.contains(w)) {
+                return Err("已经有人认领的心愿不能删");
+            }
+        }
+        Ok(())
+    }
+
+    /// 发布新的，或者保存编辑。返回心愿单 id。
+    pub fn publish_wish(&mut self, d: &WishDraft, today: i64) -> Result<u64, &'static str> {
+        self.validate_wish(d, today)?;
+        let title = match d.title.trim() {
+            "" => d.default_title(&self.settings.nickname),
+            t => t.to_string(),
+        };
+        let audience: Vec<String> = d.audience.iter().map(|a| a.trim().to_string()).filter(|a| !a.is_empty()).collect();
+        let id = match d.id {
+            Some(id) => {
+                let w = self.wishlist_mut(id).ok_or("找不到这张心愿单")?;
+                w.occasion = d.occasion;
+                w.title = title;
+                w.note = d.note.trim().into();
+                w.event_on = d.event_on;
+                w.audience = audience;
+                w.items = d.items.clone();
+                id
+            }
+            None => {
+                let id = self.take_id();
+                self.wishlists.push(Wishlist {
+                    id,
+                    owner: String::new(),
+                    occasion: d.occasion,
+                    title,
+                    note: d.note.trim().into(),
+                    event_on: d.event_on,
+                    created_on: today,
+                    closed_on: 0,
+                    audience,
+                    items: d.items.clone(),
+                });
+                id
+            }
+        };
+        self.save();
+        Ok(id)
+    }
+
+    /// 把一件具体的商品加到我进行中的心愿单上。没有进行中的心愿单时返回错，界面转去发布一张。
+    pub fn add_to_wishlist(&mut self, list: u64, i: u16, today: i64) -> Result<(), &'static str> {
+        let w = self.wishlist_mut(list).ok_or("找不到这张心愿单")?;
+        if !w.is_mine() || !w.is_open(today) {
+            return Err("这张心愿单已经结束了");
+        }
+        if w.items.iter().any(|x| x.item == Some(i)) {
+            return Err("已经在心愿单上了");
+        }
+        if w.items.len() >= WISH_MAX_ITEMS {
+            return Err("心愿单满了，最多 8 件");
+        }
+        w.items.push(WishItem::exact(i));
+        self.save();
+        Ok(())
+    }
+
+    /// 提前结束：之后好友看得到，但不能再认领。
+    pub fn close_wish(&mut self, id: u64, today: i64) -> Result<(), &'static str> {
+        let w = self.wishlist_mut(id).ok_or("找不到这张心愿单")?;
+        if !w.is_mine() {
+            return Err("只能结束自己的心愿单");
+        }
+        if !w.is_open(today) {
+            return Err("这张心愿单已经结束了");
+        }
+        w.closed_on = today;
+        self.save();
+        Ok(())
+    }
+
+    /// 删掉：只有还没人认领时可以（认领过的是别人的心意，只能结束）。
+    pub fn delete_wish(&mut self, id: u64) -> Result<(), &'static str> {
+        let w = self.wishlist(id).ok_or("找不到这张心愿单")?;
+        if !w.is_mine() {
+            return Err("只能删自己的心愿单");
+        }
+        if w.claimed_count() > 0 {
+            return Err("已经有人认领了，只能结束，不能删除");
+        }
+        self.wishlists.retain(|w| w.id != id);
+        self.save();
+        Ok(())
+    }
+
+    /// 送礼时认领心愿：单子得是好友的、还开着，那件还没人送，送的东西对得上。
+    fn check_claim(&self, d: &SendDraft, today: i64) -> Result<Option<(u64, usize, String)>, &'static str> {
+        let Some((wid, idx)) = d.wish else {
+            if d.deliver_on.is_some_and(|day| day > today) {
+                return Err("只有心愿单上的礼物能约好日子送");
+            }
+            return Ok(None);
+        };
+        let w = self.wishlist(wid).ok_or("找不到这张心愿单")?;
+        if w.is_mine() {
+            return Err("这是你自己的心愿单");
+        }
+        if !w.is_open(today) {
+            return Err("心愿单已经结束了");
+        }
+        let wi = w.items.get(idx).ok_or("找不到这件心愿")?;
+        if !wi.is_open() {
+            return Err("这件已经有人送了");
+        }
+        if !wi.fits(d.item) {
+            return Err(if wi.is_exact() { "心愿单上要的是另一件" } else { "要送心愿单上说的那一类" });
+        }
+        if let Some(day) = d.deliver_on {
+            if day > w.event_on.max(today) {
+                return Err("送到的日子不能晚于 TA 的日子");
+            }
+        }
+        Ok(Some((wid, idx, w.owner.clone())))
+    }
+
+    /// 礼物退回（撤回 / 过期）时放开它认领的那件心愿，别人还能再送。
+    fn release_wish(&mut self, gift_id: u64) {
+        for w in &mut self.wishlists {
+            for x in &mut w.items {
+                if x.gift_id == gift_id && !x.is_open() {
+                    x.release();
+                }
+            }
+        }
+    }
+
+    /// 演示：替一位好友认领我心愿单上还没人送的第一件。礼物以「猜我是谁」送来，
+    /// 日子还没到就约在那天送到。返回 toast 文案。
+    pub fn simulate_wish_claim(&mut self, id: u64, today: i64) -> Result<String, &'static str> {
+        let w = self.wishlist(id).ok_or("找不到这张心愿单")?;
+        if !w.is_mine() || !w.is_open(today) {
+            return Err("这张心愿单已经结束了");
+        }
+        let idx = w.items.iter().position(|x| x.is_open()).ok_or("心愿都有人送啦")?;
+        let wi = w.items[idx].clone();
+        let event_on = w.event_on;
+        if self.contacts.is_empty() {
+            return Err("先加一位熟人，才有人来认领");
+        }
+        let who = self.contacts[(mix(id ^ (idx as u64 + 1)) % self.contacts.len() as u64) as usize].label.clone();
+        let pick = wish_candidates(&wi).first().map(|m| m.item).unwrap_or(0);
+        let day = event_on.max(today);
+        let mut g = self.new_gift(DIR_RECEIVED, pick, day);
+        g.peer = who;
+        g.unlock = Unlock::GuessWho.id();
+        g.clue = "看到你的心愿单啦，猜猜我是谁".into();
+        g.message = "心愿单上的那件，送你".into();
+        g.wish_id = Some(id);
+        if day > today {
+            g.booked_on = Some(today);
+        }
+        let gid = g.id;
+        self.gifts.push(g);
+        let x = &mut self.wishlist_mut(id).unwrap().items[idx];
+        x.state = WISH_BY_OTHERS;
+        x.gift_id = gid;
+        x.claimed_on = today;
+        x.given_item = pick;
+        self.save();
+        Ok(if day > today {
+            format!("有位朋友认领了「{}」，{} 送到", wi.title(), md_cn(day))
+        } else {
+            format!("有位朋友认领了「{}」，礼物在礼盒里", wi.title())
+        })
     }
 
     // ---- 熟人 ----
@@ -2059,7 +3001,7 @@ impl LiyuState {
 
     pub fn persisted(&self) -> PersistedState {
         PersistedState {
-            version: Some(2),
+            version: Some(STATE_VERSION),
             contacts: Some(self.contacts.clone()),
             directory: Some(self.directory.clone()),
             gifts: Some(self.gifts.clone()),
@@ -2067,6 +3009,7 @@ impl LiyuState {
             ledger: Some(self.ledger.clone()),
             settings: Some(self.settings.clone()),
             next_id: Some(self.next_id),
+            wishlists: Some(self.wishlists.clone()),
         }
     }
 
@@ -2089,6 +3032,9 @@ impl LiyuState {
         if let Some(v) = p.settings {
             self.settings = v;
         }
+        if let Some(v) = p.wishlists {
+            self.wishlists = v;
+        }
         // 自增 id 至少要比现有的都大，存档里的数字不可信时也不会撞号。
         let max_id = self
             .gifts
@@ -2096,6 +3042,7 @@ impl LiyuState {
             .map(|g| g.id)
             .chain(self.pacts.iter().map(|p| p.id))
             .chain(self.ledger.iter().map(|e| e.id))
+            .chain(self.wishlists.iter().map(|w| w.id))
             .max()
             .unwrap_or(0);
         self.next_id = p.next_id.unwrap_or(0).max(max_id + 1);
@@ -2115,11 +3062,12 @@ impl LiyuState {
         s
     }
 
-    /// 读取状态文件。不是礼遇格式（没有 gifts）或解析不了都算读不出来。
+    /// 读取状态文件。版本不是当前版本、不是礼遇格式（没有 gifts）或解析不了都算读不出来 ——
+    /// 旧版本的数据不做迁移。
     pub fn load_from(path: &std::path::Path) -> Option<PersistedState> {
         let text = std::fs::read_to_string(path).ok()?;
         let p = PersistedState::deserialize_json_lenient(&text).ok()?;
-        p.gifts.is_some().then_some(p)
+        (p.version == Some(STATE_VERSION) && p.gifts.is_some()).then_some(p)
     }
 
     /// 只把落盘的深浅选择读出来：注册预设比建视图早，那时还没有 `LiyuState`。
@@ -2269,7 +3217,18 @@ mod tests {
             contract: None,
             message: String::new(),
             use_balance: true,
+            wish: None,
+            deliver_on: None,
+            pay: None,
         }
+    }
+
+    fn friend_list(s: &LiyuState, owner: &str) -> u64 {
+        s.wishlists.iter().find(|w| w.owner == owner).map(|w| w.id).unwrap()
+    }
+
+    fn my_list(s: &LiyuState) -> u64 {
+        s.wishlists.iter().find(|w| w.is_mine()).map(|w| w.id).unwrap()
     }
 
     // ---- 日期 ----
@@ -2295,12 +3254,21 @@ mod tests {
     // ---- 目录与金额 ----
 
     #[test]
-    fn catalog_has_twelve_items_in_five_categories() {
-        assert_eq!(CATALOG.len(), 12);
+    fn catalog_covers_every_category_and_wish_kind() {
+        assert_eq!(CATALOG.len(), 33);
         for c in Category::ALL {
             assert!(!catalog_in(Some(c)).is_empty(), "{} 没有礼物", c.label());
         }
-        assert_eq!(catalog_in(None).len(), 12);
+        assert_eq!(catalog_in(None).len(), 33);
+        for k in WISH_KINDS {
+            assert!(CATALOG.iter().any(|c| c.kind == k), "心愿品类「{k}」在目录里没有商品");
+        }
+        for c in &CATALOG {
+            assert!(c.price >= 2900, "{} 太便宜", c.name);
+            assert!(!c.desc.is_empty() && !c.tags.is_empty(), "{} 缺描述或标签", c.name);
+        }
+        assert_eq!(related_items(12, 3).len(), 3);
+        assert!(related_items(12, 3).iter().all(|&j| item(j).cat == Category::Digital));
         assert_eq!(item(0).price, 10900);
         assert_eq!(item(999).name, CATALOG[0].name, "越界退回第一件");
     }
@@ -2597,7 +3565,6 @@ mod tests {
         let g = s.gift(id).unwrap();
         assert!(g.is_sent());
         assert_eq!(g.state(), GiftState::Sealed);
-        assert!(g.code.starts_with("LY-"));
 
         // 关掉余额抵扣：全部模拟支付。
         s.top_up(T);
@@ -2763,52 +3730,23 @@ mod tests {
         assert_eq!(s.simulate_step(id, T), None);
     }
 
-    // ---- 口令 ----
-
-    #[test]
-    fn codes_use_safe_charset_and_are_unique() {
-        let mut s = LiyuState::for_tests();
-        for k in 0..200 {
-            s.send_gift(&draft((k % 12) as u16), T).unwrap();
-        }
-        let mut codes: Vec<&str> = s.gifts.iter().map(|g| g.code.as_str()).collect();
-        for c in &codes {
-            assert_eq!(c.len(), 7);
-            assert!(c.starts_with("LY-"));
-            assert!(!c[3..].contains(['0', 'O', '1', 'I']), "{c}");
-        }
-        let n = codes.len();
-        codes.sort();
-        codes.dedup();
-        assert_eq!(codes.len(), n, "口令唯一");
-    }
-
-    #[test]
-    fn code_input_is_lenient() {
-        assert_eq!(normalize_code("ly-7k3m").as_deref(), Some("LY-7K3M"));
-        assert_eq!(normalize_code(" 7K3M ").as_deref(), Some("LY-7K3M"));
-        assert_eq!(normalize_code("LY 7K 3M").as_deref(), Some("LY-7K3M"));
-        assert_eq!(normalize_code("LY7K3M").as_deref(), Some("LY-7K3M"));
-        assert_eq!(normalize_code("7K3O"), None, "O 不在字符集");
-        assert_eq!(normalize_code(""), None);
-        let s = LiyuState::for_tests();
-        let g = &s.gifts[0];
-        assert_eq!(s.find_code(&g.code.to_lowercase()).map(|x| x.id), Some(g.id));
-    }
-
     // ---- 通知 ----
 
     #[test]
     fn demo_triggers_both_notices() {
         let mut s = LiyuState::for_tests();
         let n = s.due_notices(T);
-        assert_eq!(n.len(), 2);
+        assert_eq!(n.len(), 3);
         assert_eq!(n[0].kind, NoticeKind::GiftExpiring);
         assert_eq!(n[0].text, "有一份神秘礼物还没拆，2 天后会退回给 TA");
         assert_eq!(n[1].kind, NoticeKind::PactDue);
         assert!(n[1].text.contains("明天到期"), "{}", n[1].text);
+        assert_eq!(n[2].kind, NoticeKind::WishSoon);
+        assert_eq!(n[2].text, "林舟的生日还有 3 天，心愿单上还有 4 件没人送");
+        assert_eq!(n[2].target, friend_list(&s, "林舟"));
         s.settings.notify_gift = false;
         s.settings.notify_pact = false;
+        s.settings.notify_wish = false;
         assert!(s.due_notices(T).is_empty(), "开关是唯一的闸");
     }
 
@@ -2911,7 +3849,7 @@ mod tests {
     #[test]
     fn status_texts() {
         let s = LiyuState::for_tests();
-        let texts: Vec<String> = s.received().iter().map(|g| g.status_text(T)).collect();
+        let texts: Vec<String> = s.received(T).iter().map(|g| g.status_text(T)).collect();
         assert!(texts.contains(&"待拆 · 还剩 6 天".to_string()), "{texts:?}");
         assert!(texts.contains(&"已收下".to_string()));
         let sent: Vec<String> = s.sent().iter().map(|g| g.status_text(T)).collect();
@@ -2925,7 +3863,7 @@ mod tests {
         d.contract = Some("周末陪我看一场电影".into());
         let id = s.send_gift(&d, T).unwrap();
         while s.simulate_step(id, T).is_some() {}
-        let t = s.gift(id).unwrap().timeline();
+        let t = s.gift(id).unwrap().timeline(T);
         assert!(t.len() >= 3 && t.len() <= 5, "{t:?}");
         assert!(t[0].1.starts_with("送出礼卡"));
     }
@@ -2941,5 +3879,252 @@ mod tests {
     #[test]
     fn vcard_parsing() {
         assert_eq!(parse_vcard(SAMPLE_VCARD), vec!["周子墨", "林小满", "黄一诺", "吴凯文"]);
+    }
+
+    // ---- 心愿单 ----
+
+    #[test]
+    fn vague_wish_picks_matching_goods() {
+        let ids = |w: &WishItem| wish_candidates(w).iter().map(|m| m.item).collect::<Vec<_>>();
+        // 55 寸以上、¥3000 以内：43 寸的不要，贵的 65/75 寸超预算；剩下的便宜的在前。
+        let tv = WishItem::vague("电视", 300_000, "55 寸以上");
+        assert_eq!(ids(&tv), vec![31, 12, 32]);
+        assert_eq!(wish_candidates(&tv)[0].reason(), "符合 55寸 · 预算内");
+        assert_eq!(wish_candidates(&tv)[2].reason(), "符合 65寸 · 预算内");
+        // 不限预算、65 寸以上还要 120Hz：两台都命中的排前面（便宜的在前），只够尺寸的排后面。
+        let tv = WishItem::vague("电视", 0, "65寸以上 120Hz");
+        assert_eq!(ids(&tv), vec![13, 15, 32]);
+        assert!(wish_candidates(&tv)[..2].iter().all(|m| m.hits.contains(&"120Hz".to_string())));
+        // 什么要求都没写：同类全给，便宜的在前。
+        assert_eq!(ids(&WishItem::vague("绿植", 0, "")), vec![25, 24]);
+        // 命中要求多的排前面。
+        assert_eq!(ids(&WishItem::vague("绿植", 0, "大盆 好养"))[0], 24);
+        // 预算内一件都没有：放宽预算，标「超出预算」。
+        let ear = WishItem::vague("耳机", 10_000, "降噪");
+        let m = wish_candidates(&ear);
+        assert_eq!(m.len(), 1);
+        assert!(!m[0].within);
+        assert_eq!(m[0].reason(), "符合 降噪 · 超出预算");
+        // 具体的心愿只有那一件。
+        assert_eq!(ids(&WishItem::exact(6)), vec![6]);
+        assert_eq!(WishItem::vague("电视", 0, "").title(), "一台电视");
+        assert_eq!(WishItem::vague("耳机", 100_000, "降噪").sub(), "¥1000 以内 · 降噪");
+    }
+
+    #[test]
+    fn demo_wishlists_are_sorted_and_described() {
+        let s = LiyuState::for_tests();
+        let f: Vec<&str> = s.friend_wishlists(T).iter().map(|w| w.owner.as_str()).collect();
+        assert_eq!(f, vec!["林舟", "陈晓", "许宁"], "进行中的按日子近的在前，结束的在后");
+        let lin = s.wishlist(friend_list(&s, "林舟")).unwrap();
+        assert_eq!(lin.when_text(T), format!("{} · 还有 3 天", {
+            let (_, m, d) = days_to_civil(T + 3);
+            format!("{m} 月 {d} 日")
+        }));
+        assert_eq!(lin.progress_text(), "5 件心愿 · 1 件已有人送");
+        assert_eq!(s.wish_item_status(lin, 0, T), "还没人送");
+        assert_eq!(s.wish_item_status(lin, 1, T), "已有人送");
+        let xu = s.wishlist(friend_list(&s, "许宁")).unwrap();
+        assert!(!xu.is_open(T));
+        assert_eq!(xu.countdown(T), "已结束");
+        assert_eq!(s.wish_hint("陈晓", T).as_deref(), Some("乔迁心愿单 · 还有 12 天 · 3 件没人送"));
+        assert_eq!(s.wish_hint("许宁", T), None, "结束了的不提");
+        // 我的心愿单：林舟那份咖啡还没拆，不透露是谁。
+        let mine = s.wishlist(my_list(&s)).unwrap();
+        assert_eq!(s.wish_item_status(mine, 0, T), "已被认领 · 礼物在礼盒里等你拆");
+        assert_eq!(s.wish_item_status(mine, 1, T), "还没人认领");
+        assert_eq!(s.current_my_wishlist(T), Some(mine.id));
+    }
+
+    #[test]
+    fn sending_from_a_wishlist_claims_the_item() {
+        let mut s = LiyuState::for_tests();
+        let lid = friend_list(&s, "林舟");
+        let mut d = draft(17);
+        d.peer = String::new();
+        d.wish = Some((lid, 0));
+        d.pay = Some(1);
+        let before = s.ledger.len();
+        let id = s.send_gift(&d, T).unwrap();
+        let g = s.gift(id).unwrap();
+        assert_eq!(g.peer, "林舟", "收礼人就是心愿单的主人");
+        assert_eq!(g.wish_id, Some(lid));
+        assert_eq!(s.ledger.len(), before + 1);
+        assert!(s.ledger.last().unwrap().note.contains("支付宝"), "{}", s.ledger.last().unwrap().note);
+        let w = s.wishlist(lid).unwrap();
+        assert_eq!(w.items[0].state, WISH_BY_ME);
+        assert_eq!(w.items[0].gift_id, id);
+        assert_eq!(s.wish_item_status(w, 0, T), "你送的");
+        // 同一件不能再认领；已被别人认领的也不行。
+        assert_eq!(s.send_gift(&d, T), Err("这件已经有人送了"));
+        d.wish = Some((lid, 1));
+        d.item = 0;
+        assert_eq!(s.send_gift(&d, T), Err("这件已经有人送了"));
+        // 具体的心愿要同一件；含糊的同类就行。
+        d.wish = Some((lid, 3));
+        d.item = 1;
+        assert_eq!(s.send_gift(&d, T), Err("心愿单上要的是另一件"));
+        d.wish = Some((lid, 2));
+        d.item = 1;
+        assert_eq!(s.send_gift(&d, T), Err("要送心愿单上说的那一类"));
+        d.item = 9;
+        assert!(s.send_gift(&d, T).is_ok(), "文具盲盒也是盲盒，超出「潮玩」要求也能送");
+        // 撤回：心愿放开，别人还能送。
+        s.withdraw(id, T).unwrap();
+        assert_eq!(s.wishlist(lid).unwrap().items[0].state, WISH_OPEN);
+        // 自己的、结束了的心愿单都不能认领。
+        let mut d = draft(11);
+        d.wish = Some((my_list(&s), 2));
+        assert_eq!(s.send_gift(&d, T), Err("这是你自己的心愿单"));
+        d.wish = Some((friend_list(&s, "许宁"), 2));
+        d.item = 7;
+        assert_eq!(s.send_gift(&d, T), Err("心愿单已经结束了"));
+    }
+
+    #[test]
+    fn wish_gift_can_be_scheduled_for_the_day() {
+        let mut s = LiyuState::for_tests();
+        let lid = friend_list(&s, "陈晓");
+        let mut d = draft(12);
+        d.wish = Some((lid, 0));
+        d.deliver_on = Some(T + 13);
+        assert_eq!(s.send_gift(&d, T), Err("送到的日子不能晚于 TA 的日子"));
+        d.deliver_on = Some(T + 12);
+        let id = s.send_gift(&d, T).unwrap();
+        let g = s.gift(id).unwrap();
+        assert!(g.is_scheduled(T));
+        assert_eq!(g.booked_on, Some(T));
+        assert!(g.status_text(T).starts_with("待送达"), "{}", g.status_text(T));
+        assert_eq!(g.timeline(T).len(), 1, "还没送到，只有下单");
+        // 过了 7 天也不会过期：过期从送到那天算。
+        s.sweep(T + 8);
+        assert_eq!(s.gift(id).unwrap().state(), GiftState::Sealed);
+        // 演示模拟器：先把它提前送到。
+        assert_eq!(s.simulate_step(id, T), Some(SimStep::Delivered));
+        assert!(!s.gift(id).unwrap().is_scheduled(T));
+        assert_eq!(s.gift(id).unwrap().timeline(T).len(), 2);
+        // 不是心愿单的礼物不能约日子。
+        let mut d = draft(0);
+        d.deliver_on = Some(T + 3);
+        assert_eq!(s.send_gift(&d, T), Err("只有心愿单上的礼物能约好日子送"));
+    }
+
+    #[test]
+    fn expiry_releases_the_wish() {
+        let mut s = LiyuState::for_tests();
+        let lid = friend_list(&s, "陈晓");
+        let mut d = draft(22);
+        d.wish = Some((lid, 4));
+        s.send_gift(&d, T).unwrap();
+        assert!(s.sweep(T + EXPIRE_DAYS) >= 1);
+        assert_eq!(s.wishlist(lid).unwrap().items[4].state, WISH_OPEN, "没拆开退回了，心愿放开");
+    }
+
+    #[test]
+    fn publish_edit_close_delete() {
+        let mut s = LiyuState::for_tests();
+        let mut d = WishDraft::new(T);
+        d.occasion = 2;
+        assert_eq!(s.publish_wish(&d, T), Err("至少放一件心愿"));
+        d.items.push(WishItem::vague("", 0, ""));
+        assert_eq!(s.publish_wish(&d, T), Err("选一下想要的是什么"));
+        d.items[0] = WishItem::vague("电视", 300_000, "55 寸以上");
+        d.items.push(WishItem::exact(19));
+        d.items.push(WishItem::exact(19));
+        assert_eq!(s.publish_wish(&d, T), Err("同一件放了两次"));
+        d.items.pop();
+        d.event_on = T - 1;
+        assert_eq!(s.publish_wish(&d, T), Err("日子不能早于今天"));
+        d.event_on = T + WISH_MAX_AHEAD_DAYS + 1;
+        assert_eq!(s.publish_wish(&d, T), Err("最多提前半年发布"));
+        d.event_on = T + 30;
+        d.title = "这是一个特别特别特别特别长的标题呀".into();
+        assert_eq!(s.publish_wish(&d, T), Err("标题最多 16 个字"));
+        d.title.clear();
+        let id = s.publish_wish(&d, T).unwrap();
+        let w = s.wishlist(id).unwrap();
+        assert_eq!(w.title, "阿岚的乔迁心愿单", "没写标题用默认的");
+        assert!(w.is_mine());
+        // 加一件：重复的不行。
+        assert_eq!(s.add_to_wishlist(id, 19, T), Err("已经在心愿单上了"));
+        s.add_to_wishlist(id, 23, T).unwrap();
+        assert_eq!(s.wishlist(id).unwrap().items.len(), 3);
+        // 没人认领的可以删。
+        s.delete_wish(id).unwrap();
+        assert!(s.wishlist(id).is_none());
+        // 有人认领的：只能结束，编辑时也不能拿掉认领的那件。
+        let mine = my_list(&s);
+        assert_eq!(s.delete_wish(mine), Err("已经有人认领了，只能结束，不能删除"));
+        let mut e = WishDraft::from_list(s.wishlist(mine).unwrap());
+        e.items.remove(0);
+        assert_eq!(s.publish_wish(&e, T), Err("已经有人认领的心愿不能删"));
+        let mut e = WishDraft::from_list(s.wishlist(mine).unwrap());
+        e.items.remove(2);
+        e.note = "改一改".into();
+        s.publish_wish(&e, T).expect("日子没改，过了也能保存");
+        assert_eq!(s.wishlist(mine).unwrap().items.len(), 2);
+        s.close_wish(mine, T).unwrap();
+        assert!(!s.wishlist(mine).unwrap().is_open(T));
+        assert_eq!(s.close_wish(mine, T), Err("这张心愿单已经结束了"));
+        assert_eq!(s.current_my_wishlist(T), None);
+        // 好友的心愿单不能动。
+        let lin = friend_list(&s, "林舟");
+        assert!(s.delete_wish(lin).is_err());
+        assert!(s.close_wish(lin, T).is_err());
+    }
+
+    #[test]
+    fn friend_claims_my_wish_in_the_demo() {
+        let mut s = LiyuState::for_tests();
+        // 日子已经过了：礼物马上进礼盒。
+        let mine = my_list(&s);
+        let n = s.received(T).len();
+        let msg = s.simulate_wish_claim(mine, T).unwrap();
+        assert!(msg.contains("一副耳机"), "{msg}");
+        assert_eq!(s.received(T).len(), n + 1);
+        let w = s.wishlist(mine).unwrap();
+        assert_eq!(w.items[1].state, WISH_BY_OTHERS);
+        assert_eq!(w.items[1].given_item, 17, "按「降噪」挑中了降噪耳机");
+        assert_eq!(s.wish_item_status(w, 1, T), "已被认领 · 礼物在礼盒里等你拆");
+        let g = s.gift(w.items[1].gift_id).unwrap();
+        assert_eq!(g.title(), MYSTERY_GIFT, "没拆开之前不知道是什么");
+        // 日子还没到：约在那天送到，之前礼盒里看不到。
+        let mut d = WishDraft::new(T);
+        d.event_on = T + 5;
+        d.items.push(WishItem::exact(23));
+        let id = s.publish_wish(&d, T).unwrap();
+        let n = s.received(T).len();
+        s.simulate_wish_claim(id, T).unwrap();
+        assert_eq!(s.received(T).len(), n);
+        assert_eq!(s.received(T + 5).len(), n + 1);
+        let w = s.wishlist(id).unwrap();
+        assert_eq!(s.wish_item_status(w, 0, T), format!("已被认领 · {} 送到", md_cn(T + 5)));
+        assert_eq!(s.simulate_wish_claim(id, T), Err("心愿都有人送啦"));
+    }
+
+    #[test]
+    fn old_versions_are_not_read() {
+        let dir = std::env::temp_dir().join(format!("liyu-state-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("state.json");
+        std::fs::write(&path, r#"{"version":3,"gifts":[],"next_id":3}"#).unwrap();
+        assert!(LiyuState::load_from(&path).is_none(), "旧版本不迁移");
+        std::fs::write(&path, LiyuState::for_tests().persisted().serialize_json()).unwrap();
+        assert!(LiyuState::load_from(&path).is_some());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn wishlists_survive_save() {
+        let mut s = LiyuState::for_tests();
+        let mut d = WishDraft::new(T);
+        d.items.push(WishItem::vague("鲜花", 20_000, "向日葵"));
+        let id = s.publish_wish(&d, T).unwrap();
+        let text = s.persisted().serialize_json();
+        let p = PersistedState::deserialize_json_lenient(&text).unwrap();
+        let mut t = LiyuState::for_tests();
+        t.apply_persisted(p);
+        assert_eq!(t.wishlist(id), s.wishlist(id));
+        assert!(t.take_id() > id);
     }
 }

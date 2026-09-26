@@ -3,8 +3,8 @@
 //! 为什么是 SVG：离屏渲染一棵 widget 树再回读纹理，在应用层没有先例；SVG 零依赖、
 //! 纯文本、可单测，浏览器 / 聊天工具都能直接打开。
 //!
-//! 隐私边界（04-rules 5 节）：礼卡会被截图、会被转发，所以场景结构里**只有**玩法、
-//! 线索 / 问题 / 暗号提示、口令。礼物名、价格、送礼人、答案、寄语根本不进场景 ——
+//! 隐私边界（04-rules 隐私一节）：礼卡会被截图、会被转发，所以场景结构里**只有**玩法和
+//! 线索 / 问题 / 暗号提示（外加定文件名用的礼物 id）。礼物名、价格、送礼人、答案、寄语根本不进场景 ——
 //! 由类型保证，不靠调用方记得。
 
 use crate::data::{Gift, Unlock, MAX_ATTEMPTS};
@@ -60,8 +60,8 @@ pub struct ShareCardScene {
     pub prompt_title: String,
     /// 线索 / 问题 / 暗号提示，已按行切好。
     pub prompt_lines: Vec<String>,
-    /// `LY-7K3M`。
-    pub code: String,
+    /// 礼物 id，只用来给保存的文件起名，不画在卡上。
+    pub id: u64,
 }
 
 /// 每行最多几个字（900 宽、40 号字、左右各留 64）。
@@ -73,7 +73,7 @@ pub fn wrap_chars(s: &str, n: usize) -> Vec<String> {
     chars.chunks(n.max(1)).map(|c| c.iter().collect()).collect()
 }
 
-/// 从一份送出的礼物取礼卡场景。只拷玩法、线索、口令三样。
+/// 从一份送出的礼物取礼卡场景。只拷玩法和线索。
 pub fn scene_for(g: &Gift, style: ShareStyle) -> ShareCardScene {
     let u = g.unlock();
     let play = match u {
@@ -90,7 +90,7 @@ pub fn scene_for(g: &Gift, style: ShareStyle) -> ShareCardScene {
         play,
         prompt_title: u.clue_title().to_string(),
         prompt_lines: if prompt.is_empty() { Vec::new() } else { wrap_chars(&prompt, LINE_CHARS) },
-        code: g.code.clone(),
+        id: g.id,
     }
 }
 
@@ -140,25 +140,29 @@ pub fn render_svg(s: &ShareCardScene) -> String {
             y += 54.0;
         }
     }
-    out.push_str(&text(64.0, 950.0, 24, sub, "normal", "口令"));
-    out.push_str(&text(64.0, 1030.0, 84, accent, "bold", &s.code));
+    out.push_str(&text(64.0, 1010.0, 36, accent, "bold", CARD_SECRET));
     out.push_str(&format!(
         r#"<line x1="64" y1="1080" x2="836" y2="1080" stroke="{ring}" stroke-width="1.5"/>"#
     ));
     out.push_str(&text(64.0, 1130.0, 26, fg, "normal", "礼遇 LiYu"));
-    out.push_str(&text(530.0, 1130.0, 18, sub, "normal", "礼遇 · 礼盒 · 输入口令"));
+    out.push_str(&text(530.0, 1130.0, 18, sub, "normal", CARD_FOOT));
     out.push_str("</svg>");
     out
 }
 
-/// 礼卡保存路径：`<MAKEPAD_HOME>/liyu/cards/LY-XXXX.svg`。
-pub fn card_file(code: &str) -> Option<std::path::PathBuf> {
-    crate::data::LiyuState::data_dir().map(|d| d.join("cards").join(format!("{code}.svg")))
+/// 礼卡底部那句：拆开之前什么都不透露。
+pub const CARD_SECRET: &str = "拆开之前，是什么、谁送的都保密";
+/// 右下角的小字。
+pub const CARD_FOOT: &str = "礼遇 · 点开链接就能拆";
+
+/// 礼卡保存路径：`<MAKEPAD_HOME>/liyu/cards/gift-<id>.svg`。
+pub fn card_file(id: u64) -> Option<std::path::PathBuf> {
+    crate::data::LiyuState::data_dir().map(|d| d.join("cards").join(format!("gift-{id}.svg")))
 }
 
 /// 写礼卡文件（只落本机，不代发不上传）。没有 MAKEPAD_HOME 时返回 Ok(None)。
 pub fn save_card(scene: &ShareCardScene) -> std::io::Result<Option<std::path::PathBuf>> {
-    let Some(path) = card_file(&scene.code) else {
+    let Some(path) = card_file(scene.id) else {
         return Ok(None);
     };
     save_card_to(&path, scene)?;
@@ -198,6 +202,7 @@ mod tests {
                 contract: Some("周末陪我看一场电影".into()),
                 message: "天冷了多穿点".into(),
                 use_balance: true,
+                ..Default::default()
             };
             s.send_gift(&d, TEST_TODAY).unwrap();
         }
@@ -218,7 +223,7 @@ mod tests {
             if !g.contract.is_empty() {
                 assert!(!svg.contains(&g.contract), "礼卡带了契约");
             }
-            assert!(svg.contains(&g.code), "礼卡要有口令");
+            assert!(svg.contains(CARD_SECRET), "礼卡要有那句保密说明");
         }
     }
 
@@ -268,11 +273,11 @@ mod tests {
     #[test]
     fn save_writes_svg_file() {
         let dir = std::env::temp_dir().join(format!("liyu-card-{}", std::process::id()));
-        let path = dir.join("cards").join("LY-TEST.svg");
-        let sc = ShareCardScene { code: "LY-TEST".into(), ..Default::default() };
+        let path = dir.join("cards").join("gift-7.svg");
+        let sc = ShareCardScene { id: 7, ..Default::default() };
         save_card_to(&path, &sc).unwrap();
         let text = std::fs::read_to_string(&path).unwrap();
-        assert!(text.contains("LY-TEST"));
+        assert!(text.contains("礼遇 LiYu"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

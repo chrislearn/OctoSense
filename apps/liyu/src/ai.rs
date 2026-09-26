@@ -6,7 +6,7 @@
 //! - `get_gift_box_summary`：收到 / 送出各状态计数、余额、待兑现契约数。
 //!
 //! 边界由类型保证：目录工具只读常量表；礼盒摘要先压成 [`BoxSummary`]（只有计数和
-//! 金额），应答时根本拿不到答案、暗号、送礼人、地址、口令。没有任何写操作——
+//! 金额），应答时根本拿不到答案、暗号、送礼人、地址。没有任何写操作——
 //! 送礼、解谜、收下、折现都只能本人在界面上点。
 
 use crate::data::{item, yuan, Category, LiyuState, PactState, CATALOG};
@@ -15,7 +15,7 @@ use makepad_app_module::makepad_ai_services::wire::{Risk, ServiceCall, ServiceMa
 /// 本轮注册的工具列表。
 pub const TOOL_NAMES: [&str; 3] = ["list_gift_catalog", "suggest_gift", "get_gift_box_summary"];
 
-const CATALOG_ARGS: &str = r#"{"type":"object","properties":{"category":{"type":"string","description":"可选：咖啡茶饮 / 电影演出 / 潮流小物 / 盲盒 / 甜点鲜花（也认 coffee / movie / trendy / blind / sweet）"}}}"#;
+const CATALOG_ARGS: &str = r#"{"type":"object","properties":{"category":{"type":"string","description":"可选：咖啡茶饮 / 电影演出 / 潮流小物 / 盲盒 / 甜点鲜花 / 数码家电 / 家居生活 / 母婴亲子（也认 coffee / movie / trendy / blind / sweet / digital / home / baby）"}}}"#;
 const SUGGEST_ARGS: &str = r#"{"type":"object","properties":{"budget":{"type":"number","description":"预算，单位元"},"occasion":{"type":"string","description":"可选：场合，如 生日 / 感谢 / 道歉 / 约会 / 加油"}},"required":["budget"]}"#;
 const NO_ARGS: &str = r#"{"type":"object","properties":{}}"#;
 
@@ -23,7 +23,7 @@ pub fn manifest() -> ServiceManifest {
     ServiceManifest::new(
         "liyu",
         "礼遇 LiYu",
-        "礼遇演示应用：匿名悬念送礼。挑一份礼物、设一道谜题、附一份小契约，对方解开才知道是谁送的。只提供礼物目录、预算内挑礼建议和礼盒计数摘要；不会输出谜题答案、暗号、未揭晓的送礼人、地址或口令，也不能替人送礼、解谜、收下或折现。",
+        "礼遇演示应用：匿名悬念送礼。挑一份礼物、设一道谜题、附一份小契约，对方解开才知道是谁送的。只提供礼物目录、预算内挑礼建议和礼盒计数摘要；不会输出谜题答案、暗号、未揭晓的送礼人或地址，也不能替人送礼、解谜、收下或折现。",
     )
     .with_tool(ToolDef::new(
         TOOL_NAMES[0],
@@ -39,7 +39,7 @@ pub fn manifest() -> ServiceManifest {
     ))
     .with_tool(ToolDef::new(
         TOOL_NAMES[2],
-        "礼盒摘要：收到 / 送出的礼物按状态计数、余额、待兑现契约数。不含送礼人、答案或口令。",
+        "礼盒摘要：收到 / 送出的礼物按状态计数、余额、待兑现契约数。不含送礼人或答案。",
         NO_ARGS,
         Risk::Read,
     ))
@@ -61,7 +61,7 @@ pub struct BoxSummary {
 impl BoxSummary {
     pub fn from_state(s: &LiyuState) -> Self {
         let mut out = BoxSummary { balance: s.balance(), ..Default::default() };
-        for g in s.received() {
+        for g in s.received(crate::data::today_days()) {
             out.received[g.state().id() as usize] += 1;
         }
         for g in s.sent() {
@@ -119,7 +119,7 @@ pub fn answer(summary: &BoxSummary, call: &ServiceCall) -> ToolResult {
         "get_gift_box_summary" => ToolResult::ok(
             &call.call_id,
             summary_json(summary),
-            "只有计数与金额：不含送礼人、答案、暗号、地址或口令",
+            "只有计数与金额：不含送礼人、答案、暗号或地址",
         ),
         other => ToolResult::refused(
             &call.call_id,
@@ -141,6 +141,9 @@ pub fn parse_category(s: &str) -> Option<Category> {
             Category::Trendy => "trendy",
             Category::Blind => "blind",
             Category::Sweet => "sweet",
+            Category::Digital => "digital",
+            Category::Home => "home",
+            Category::Baby => "baby",
         };
         s == en || c.label() == s || c.label().starts_with(&s) || (s.chars().count() >= 2 && c.label().contains(&s))
     })
@@ -193,13 +196,16 @@ fn catalog_json(cat: Option<Category>) -> String {
 
 /// 场合 → 优先品类 + 一句话。认不出的场合按价格挑。
 fn occasion_hint(occasion: &str) -> (&'static [Category], &'static str) {
-    const RULES: [(&[&str], &[Category], &str); 6] = [
+    const RULES: [(&[&str], &[Category], &str); 9] = [
         (&["生日", "birthday"], &[Category::Sweet, Category::Blind], "生日配点甜的，或者拆盲盒的惊喜"),
         (&["感谢", "谢谢", "thanks"], &[Category::Coffee, Category::Sweet], "一杯咖啡的谢意刚刚好，不让对方有负担"),
         (&["道歉", "对不起", "sorry"], &[Category::Sweet, Category::Coffee], "先递一份甜的，话更好说"),
         (&["约会", "电影", "date"], &[Category::Movie, Category::Sweet], "票在手里，下一次见面就有了理由"),
         (&["加油", "考试", "上班", "打气"], &[Category::Coffee, Category::Blind], "提神的咖啡，或者一点小期待"),
-        (&["纪念", "毕业", "搬家", "乔迁"], &[Category::Trendy, Category::Sweet], "能留下来的小物件，看到就会想起你"),
+        (&["乔迁", "搬家", "新家"], &[Category::Home, Category::Digital], "新家缺的往往是用得上的东西，每天都会想起你"),
+        (&["结婚", "婚礼", "新婚", "wedding"], &[Category::Home, Category::Sweet], "两个人过日子用得上的，再配一束花"),
+        (&["宝宝", "满月", "出生", "baby"], &[Category::Baby, Category::Sweet], "给小朋友的第一份礼物，也照顾到新手爸妈"),
+        (&["纪念", "毕业"], &[Category::Trendy, Category::Digital], "能留下来的小物件，看到就会想起你"),
     ];
     let o = occasion.to_lowercase();
     RULES
@@ -390,7 +396,7 @@ mod tests {
     fn summary_counts_states_and_pacts() {
         let s = LiyuState::for_tests();
         let sum = BoxSummary::from_state(&s);
-        assert_eq!(sum.received.iter().sum::<u32>() as usize, s.received().len());
+        assert_eq!(sum.received.iter().sum::<u32>() as usize, s.received(crate::data::today_days()).len());
         assert_eq!(sum.sent.iter().sum::<u32>() as usize, s.sent().len());
         assert_eq!((sum.pacts_mine + sum.pacts_theirs) as usize, s.open_pacts());
         assert_eq!(STATE_KEYS[GiftState::CashedOut.id() as usize], "cashed_out");
@@ -413,6 +419,7 @@ mod tests {
             contract: Some("周末陪我看一场电影".into()),
             message: "天冷了多穿点".into(),
             use_balance: false,
+            ..Default::default()
         };
         s.send_gift(&d, TEST_TODAY).unwrap();
         s.settings.ship_phone = "13800138000".into();
@@ -421,7 +428,6 @@ mod tests {
 
         let mut forbidden: Vec<String> = Vec::new();
         for g in &s.gifts {
-            forbidden.push(g.code.clone());
             if !g.answer.is_empty() {
                 forbidden.push(g.answer.clone());
             }
@@ -453,7 +459,6 @@ mod tests {
                 assert!(!r.text.contains(f.as_str()), "{} 输出泄露 {f}", c.tool);
                 assert!(!r.note.contains(f.as_str()), "{} 备注泄露 {f}", c.tool);
             }
-            assert!(!r.text.contains("LY-"), "{} 输出带了口令", c.tool);
         }
     }
 

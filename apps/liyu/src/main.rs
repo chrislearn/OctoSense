@@ -1,6 +1,6 @@
 //! 「礼遇 LiYu」的独立窗口入口（模块形态由 lib.rs 的 LiyuModule 承载）。
 //! 注册三个只读 AI 工具（礼物目录 / 预算挑礼 / 礼盒摘要，见 ai.rs）：
-//! 应答经 LiyuView::ai_answer 取礼盒的匿名汇总，结构上不含送礼人、答案、暗号与口令。
+//! 应答经 LiyuView::ai_answer 取礼盒的匿名汇总，结构上不含送礼人、答案与暗号。
 pub use makepad_widgets;
 use makepad_app_module::makepad_ai_services::port::{AiServicePort, PortEvent};
 use makepad_app_module::makepad_ai_services::wire::{HostedDown, ServiceDown, ToolResult};
