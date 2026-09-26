@@ -1177,8 +1177,45 @@ script_mod! {
                                 spacing: 10.0
                                 pf_name_note := LiyuMuted { text: "显示名" }
                                 pf_name := LiyuInput { empty_text: "你的名字" }
-                                pf_avatar_note := LiyuMuted { text: "头像图片地址（HTTPS）" }
-                                pf_avatar := LiyuInput { empty_text: "https://…/avatar.png" }
+                                pf_avatar_note := LiyuMuted { text: "头像（本地图片，JPEG / PNG / WebP）" }
+                                pf_avatar_row := View {
+                                    width: Fill height: Fit
+                                    flow: Right
+                                    align: Align{x: 0.0, y: 0.5}
+                                    spacing: 10.0
+                                    pf_avatar_thumb := LiyuThumb { width: 64 height: 64 }
+                                    pf_avatar_col := View {
+                                        width: Fill height: Fit
+                                        flow: Down
+                                        spacing: 6.0
+                                        pf_avatar_status := LiyuMuted { text: "还没有头像，显示默认占位图" }
+                                        pf_avatar_pick_row := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            spacing: 8.0
+                                            pf_avatar_path := LiyuInput { empty_text: "本机图片文件路径，如 /Users/你/Pictures/me.jpg" }
+                                            pf_avatar_load := LiyuBtn { width: Fit text: "载入" }
+                                        }
+                                    }
+                                }
+                                pf_avatar_edit := View {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 8.0
+                                    pf_avatar_edit_note := LiyuMuted { text: "已载入原图：可选居中裁成正方形、旋转，确认后上传。" }
+                                    pf_avatar_edit_row := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 8.0
+                                        spacing: 8.0
+                                        pf_avatar_crop := LiyuBtnSm { width: Fit text: "裁成正方形" }
+                                        pf_avatar_rotate := LiyuBtnSm { width: Fit text: "旋转 90°" }
+                                        pf_avatar_confirm := LiyuBtnPrimary { width: Fit text: "确认上传" }
+                                        pf_avatar_cancel := LiyuBtnSm { width: Fit text: "取消" }
+                                    }
+                                }
+                                pf_avatar_delete := LiyuBtnSm { visible: false width: Fit text: "删除头像，恢复默认" }
                                 pf_save := LiyuBtnPrimary { width: Fit text: "保存资料" }
                             }
                             pf_contact_head := LiyuGroupHead { text: "联系方式" }
@@ -2806,6 +2843,19 @@ pub struct LiyuView {
     /// 商品图纹理，按目录下标懒加载；最后一格是问号图。
     #[rust]
     tex: Vec<Option<Texture>>,
+    // ---- 头像工坊（资料页）----
+    /// 正在编辑的头像会话（选图 → 裁切/旋转 → 确认上传或取消）。
+    #[rust]
+    avatar_session: Option<avatar::AvatarEditSession>,
+    /// 头像预览纹理（当前头像或编辑中快照）；None = 默认占位图。
+    #[rust]
+    avatar_tex: Option<Texture>,
+    /// 头像上传/删除进行中：禁用按钮并显示状态，防止重复提交。
+    #[rust]
+    avatar_busy: bool,
+    /// 待上传头像字节（断网时 profile_client 已落盘，这里留一份用于预览）。
+    #[rust]
+    avatar_pending_bytes: Option<Vec<u8>>,
     #[rust]
     fade_start: Option<f64>,
     #[rust]
@@ -4808,13 +4858,175 @@ impl LiyuView {
         self.update_page_visibility(cx);
     }
 
+    /// 把头像字节解码成纹理。统一走 AvatarEditSession 归一化（EXIF 校正 /
+    /// 尺寸上限在载入时已处理）再编码成 PNG，用仓内已验证的
+    /// ImageBuffer::from_png + into_new_mip_texture 上纹理。
+    fn avatar_texture(&mut self, cx: &mut Cx, bytes: &[u8]) -> Option<Texture> {
+        let session = avatar::AvatarEditSession::load_bytes(bytes).ok()?;
+        let enc = session
+            .fit_within(128)
+            .encode_final(avatar::AvatarFormat::Png)
+            .ok()?;
+        ImageBuffer::from_png(&enc.bytes)
+            .ok()
+            .map(|b| b.into_new_mip_texture(cx))
+    }
+
+    /// AvatarError → 界面用的静态文案（Msg = &'static str）。
+    fn avatar_err(e: &avatar::AvatarError) -> Msg {
+        match e {
+            avatar::AvatarError::Io(_) => "读取图片文件失败",
+            avatar::AvatarError::InputTooLarge => "图片文件过大（超过 32MB）",
+            avatar::AvatarError::DimensionsTooLarge => "图片尺寸过大",
+            avatar::AvatarError::UnsupportedFormat => "仅支持 JPEG / PNG / WebP",
+            avatar::AvatarError::CorruptImage => "图片损坏或不是合法图像",
+            avatar::AvatarError::InvalidCrop => "裁切区域无效",
+            avatar::AvatarError::EncodeFailed => "头像编码失败，请换一张图",
+            avatar::AvatarError::OutputTooLarge => "编码结果超过大小上限",
+        }
+    }
+
+    /// 当前应显示的头像字节：编辑中 > 待上传本地字节 > 已上传（服务端标识暂无法回显，用占位）。
+    /// 返回值连同来源说明一起给状态行用。
+    fn avatar_preview_bytes(&self) -> Option<(Vec<u8>, &'static str)> {
+        if let Some(session) = &self.avatar_session {
+            if let Ok(enc) = session.encode_final(avatar::AvatarFormat::Png) {
+                return Some((enc.bytes, "预览中，未确认"));
+            }
+        }
+        if let Some(bytes) = &self.avatar_pending_bytes {
+            return Some((bytes.clone(), "未同步"));
+        }
+        None
+    }
+
+    /// 刷新资料页头像区：预览图、状态文案、按钮可用性。
+    fn refresh_avatar(&mut self, cx: &mut Cx) {
+        let has_server_avatar = !self.profile.avatar_url.is_empty()
+            && !profile_client::avatar_pending(&self.profile);
+        let pending = profile_client::avatar_pending(&self.profile);
+        let editing = self.avatar_session.is_some();
+
+        // 预览图：编辑/待上传用本地字节；已上传头像服务端是标识不是可解码字节，先显占位。
+        if let Some((bytes, _)) = self.avatar_preview_bytes() {
+            self.avatar_tex = self.avatar_texture(cx, &bytes);
+        } else {
+            self.avatar_tex = None;
+        }
+        let img = self.view.image(cx, ids!(pf_avatar_thumb));
+        img.set_texture(cx, self.avatar_tex.clone());
+
+        let status = if self.avatar_busy {
+            "上传中…".to_string()
+        } else if editing {
+            let (w, h) = self.avatar_session.as_ref().map(|s| s.dimensions()).unwrap_or((0, 0));
+            format!("编辑中 · {w}×{h} · 确认后上传")
+        } else if pending {
+            "未同步 · 头像已保存在本机，联网后点「重试上传」".to_string()
+        } else if has_server_avatar {
+            "头像已同步到服务器".to_string()
+        } else {
+            "还没有头像，显示默认占位图".to_string()
+        };
+        self.set_text(cx, ids!(pf_avatar_status), &status);
+        self.show(cx, ids!(pf_avatar_edit), editing);
+        self.show(cx, ids!(pf_avatar_delete), has_server_avatar || pending);
+        // 重试上传按钮文案：pending 时把「确认上传」变成重试入口（编辑会话为空也能点）。
+        if pending && !editing {
+            self.set_text(cx, ids!(pf_avatar_load), "重试上传");
+        } else {
+            self.set_text(cx, ids!(pf_avatar_load), "载入");
+        }
+    }
+
+    /// 确认上传：编码最终字节 → 调 profile_client::upload_avatar。
+    /// 断网时字节由 profile_client 落盘，这里也留一份用于本机预览。
+    fn avatar_upload(&mut self, cx: &mut Cx) {
+        let Some(session) = self.avatar_session.take() else {
+            // 没有编辑会话 = 重试待上传（读回本地字节）。
+            if profile_client::avatar_pending(&self.profile) {
+                let Some(path) = profile_client::avatar_pending_path() else { return };
+                let Ok(bytes) = std::fs::read(&path) else {
+                    self.profile_err = Some("待上传头像本机缓存已丢失，请重新选图");
+                    self.refresh_avatar(cx);
+                    return;
+                };
+                return self.avatar_upload_bytes(cx, bytes, "image/png");
+            }
+            return;
+        };
+        // 默认输出 JPEG（体积小、服务端与 UI 的 512×512 约束一致）；保留 alpha 的图用 PNG。
+        let enc = match session.encode_final(avatar::AvatarFormat::Jpeg) {
+            Ok(e) => e,
+            Err(e) => {
+                self.profile_err = Some(match e {
+                    avatar::AvatarError::OutputTooLarge => "编码结果超过大小上限",
+                    _ => "头像编码失败，请换一张图",
+                });
+                self.refresh_avatar(cx);
+                return;
+            }
+        };
+        self.avatar_upload_bytes(cx, enc.bytes, enc.content_type);
+    }
+
+    fn avatar_upload_bytes(&mut self, cx: &mut Cx, bytes: Vec<u8>, content_type: &'static str) {
+        self.avatar_busy = true;
+        self.refresh_avatar(cx);
+        match profile_client::upload_avatar(&mut self.profile, &bytes, content_type) {
+            Ok(_) => {
+                self.avatar_busy = false;
+                self.avatar_pending_bytes = None;
+                self.toast(cx, "头像已上传");
+            }
+            Err(e) => {
+                self.avatar_busy = false;
+                if profile_client::avatar_pending(&self.profile) {
+                    // 断网待上传：留本地字节用于预览，状态行由 refresh_avatar 明示。
+                    self.avatar_pending_bytes = Some(bytes);
+                    self.toast(cx, "网络不可用，头像已保存在本机（未同步）");
+                } else {
+                    self.profile_err = Some(e);
+                }
+            }
+        }
+        self.refresh_avatar(cx);
+        self.refresh_profile(cx);
+    }
+
+    /// 删除头像：回默认占位；清本地编辑与待上传状态。
+    fn avatar_remove(&mut self, cx: &mut Cx) {
+        self.avatar_session = None;
+        self.avatar_pending_bytes = None;
+        match profile_client::delete_avatar(&mut self.profile) {
+            Ok(()) => self.toast(cx, "头像已删除，恢复默认"),
+            Err(e) => {
+                if !self.profile.online {
+                    self.toast(cx, "头像已在本机删除，联网后同步");
+                } else {
+                    self.profile_err = Some(e);
+                }
+            }
+        }
+        self.refresh_avatar(cx);
+        self.refresh_profile(cx);
+    }
+
     fn open_profile(&mut self, cx: &mut Cx) {
         self.profile = profile_client::load(&self.state.settings.nickname);
         self.profile_err = None;
         self.profile_edit_address = None;
+        // 重启后恢复待上传预览：本机还有未同步字节就显示出来并明示。
+        self.avatar_session = None;
+        self.avatar_busy = false;
+        self.avatar_pending_bytes = if profile_client::avatar_pending(&self.profile) {
+            profile_client::avatar_pending_path().and_then(|p| std::fs::read(p).ok())
+        } else {
+            None
+        };
         let p = self.profile.clone();
         self.set_text(cx, ids!(pf_name), &p.display_name);
-        self.set_text(cx, ids!(pf_avatar), &p.avatar_url);
+        self.set_text(cx, ids!(pf_avatar_path), "");
         self.set_text(cx, ids!(pf_phone), &p.phone);
         self.set_text(cx, ids!(pf_email), &p.email);
         self.set_text(cx, ids!(pf_phone_code), "");
@@ -4848,6 +5060,7 @@ impl LiyuView {
         }
         self.set_text(cx, ids!(pf_addr_add), if self.profile_edit_address.is_some() { "保存地址修改" } else { "添加地址" });
         self.show(cx, ids!(pf_addr_cancel), self.profile_edit_address.is_some());
+        self.refresh_avatar(cx);
         self.show(cx, ids!(pf_err), self.profile_err.is_some());
         if let Some(err) = self.profile_err { self.set_text(cx, ids!(pf_err), err); }
     }
@@ -5483,9 +5696,73 @@ impl LiyuView {
                     self.refresh_profile(cx);
                 }
             }
+            // ---- 头像工坊：选图 → 预览 → 裁切/旋转 → 确认/取消 ----
+            if self.clicked(cx, ids!(pf_avatar_load), actions) {
+                if profile_client::avatar_pending(&self.profile) && self.avatar_session.is_none() {
+                    // 待上传状态下「重试上传」：直接读本地字节重新上传，不需要再选图。
+                    self.avatar_upload(cx);
+                } else {
+                    let path = self.input_text(cx, ids!(pf_avatar_path));
+                    let trimmed = path.trim().to_string();
+                    if trimmed.is_empty() {
+                        self.profile_err = Some("请输入本机图片文件路径");
+                    } else {
+                        match avatar::AvatarEditSession::load_path(std::path::Path::new(&trimmed)) {
+                            Ok(session) => {
+                                self.avatar_session = Some(session);
+                                self.profile_err = None;
+                                // 载入后自动预览原图。
+                            }
+                            Err(e) => {
+                                self.profile_err = Some(Self::avatar_err(&e));
+                                self.avatar_session = None;
+                            }
+                        }
+                    }
+                    self.refresh_avatar(cx);
+                }
+            }
+            if self.clicked(cx, ids!(pf_avatar_crop), actions) {
+                if let Some(session) = self.avatar_session.take() {
+                    match session.crop_square_center() {
+                        Ok(s) => {
+                            self.avatar_session = Some(s);
+                            self.profile_err = None;
+                        }
+                        Err(e) => {
+                            self.avatar_session = None;
+                            self.profile_err = Some(Self::avatar_err(&e));
+                        }
+                    }
+                    self.refresh_avatar(cx);
+                }
+            }
+            if self.clicked(cx, ids!(pf_avatar_rotate), actions) {
+                if let Some(session) = self.avatar_session.take() {
+                    self.avatar_session = Some(session.rotate_quarters(1));
+                    self.profile_err = None;
+                    self.refresh_avatar(cx);
+                }
+            }
+            if self.clicked(cx, ids!(pf_avatar_confirm), actions) {
+                if self.avatar_session.is_some() {
+                    self.avatar_upload(cx);
+                }
+            }
+            if self.clicked(cx, ids!(pf_avatar_cancel), actions) {
+                self.avatar_session = None;
+                self.profile_err = None;
+                self.refresh_avatar(cx);
+            }
+            if self.clicked(cx, ids!(pf_avatar_delete), actions) {
+                self.avatar_remove(cx);
+            }
+
             if self.clicked(cx, ids!(pf_save), actions) {
                 let name = self.input_text(cx, ids!(pf_name));
-                let avatar = self.input_text(cx, ids!(pf_avatar));
+                // 头像不再走 URL 输入框：保存时带上当前 avatar_url（服务端标识
+                // 或 pending: 占位），由 save_profile 按长度校验后写回。
+                let avatar = self.profile.avatar_url.clone();
                 self.profile_err = profile_client::save_profile(&mut self.profile, &name, &avatar).err();
                 if self.profile_err.is_none() { self.toast(cx, "资料已保存"); self.refresh_me(cx); }
                 self.refresh_profile(cx);

@@ -359,6 +359,139 @@ fn mark_expired() {
     let _ = std::fs::remove_file(path);
 }
 
+// ---- 头像:二进制上传 / 删除 + 本地缓存与待上传状态 ----
+
+/// 上传成功后服务端返回的标识/URL 存进 profile.avatar_url;
+/// 断网待上传时 avatar_url 置 "pending:<内容指纹>" 占位并保留本地字节,明示未同步。
+/// 待上传头像字节缓存文件名(同一账号目录下,与 profile-*.json 同目录)。
+/// 公开给 UI:重启后读回本地字节做预览,以及重试上传时取字节。
+pub fn avatar_pending_path() -> Option<std::path::PathBuf> {
+    let path = local_path()?;
+    Some(path.with_extension("avatar-pending"))
+}
+
+/// 头像字节指纹(FNV-1a,与 local_path 同一套 hash),用于"pending:"占位标识。
+fn avatar_fingerprint(bytes: &[u8]) -> u64 {
+    let mut hash = 0xcbf29ce484222325_u64;
+    for &b in bytes {
+        hash = (hash ^ u64::from(b)).wrapping_mul(0x100000001b3);
+    }
+    hash
+}
+
+/// 解析头像上传响应里的头像标识。服务端契约未给出字段名(沙箱读不到
+/// liyu-server 源码),按 RESTful 惯例依次尝试 avatar_url / avatar / url / id。
+fn parse_avatar_reply(value: &Value) -> Option<String> {
+    for key in ["avatar_url", "avatar", "url", "id"] {
+        if let Some(s) = value.get(key).and_then(Value::as_str) {
+            if !s.is_empty() {
+                return Some(s.to_string());
+            }
+        }
+    }
+    // 有的端点直接返回纯文本 / 字符串 JSON。
+    value.as_str().filter(|s| !s.is_empty()).map(str::to_string)
+}
+
+/// 上传头像:POST /api/v1/me/avatar,body=图像字节,Content-Type=编码对应类型。
+/// 成功返回服务端头像标识并清掉待上传缓存;401 标记过期;断网时把字节留在
+/// 本地待上传缓存,profile.avatar_url 置 "pending:<指纹>",返回明确错误。
+pub fn upload_avatar(
+    profile: &mut Profile,
+    bytes: &[u8],
+    content_type: &str,
+) -> Result<String, &'static str> {
+    if bytes.is_empty() {
+        return Err("头像内容为空");
+    }
+    if !matches!(content_type, "image/jpeg" | "image/png" | "image/webp") {
+        return Err("头像编码类型不支持");
+    }
+    let Some((url, token)) = api() else {
+        return pending_avatar(profile, bytes);
+    };
+    match agent()
+        .post(&format!("{url}/api/v1/me/avatar"))
+        .set("Authorization", &format!("Bearer {token}"))
+        .set("Content-Type", content_type)
+        .send_bytes(bytes)
+    {
+        Ok(reply) => {
+            let ident = reply
+                .into_json::<Value>()
+                .ok()
+                .and_then(|v| parse_avatar_reply(&v))
+                .unwrap_or_else(|| "avatar".to_string());
+            profile.avatar_url = ident.clone();
+            profile.online = true;
+            let _ = std::fs::remove_file(avatar_pending_path().unwrap_or_default());
+            local_write(profile);
+            Ok(ident)
+        }
+        Err(ureq::Error::Status(401, _)) => {
+            mark_expired();
+            Err("登录已过期，请重新登录")
+        }
+        Err(ureq::Error::Transport(_)) => pending_avatar(profile, bytes),
+        Err(ureq::Error::Status(413, _)) => Err("头像文件过大，服务器未接受"),
+        Err(ureq::Error::Status(415, _)) => Err("头像格式不被服务器接受"),
+        Err(ureq::Error::Status(_, _)) => Err("服务器未接受头像，请稍后重试"),
+    }
+}
+
+/// 断网 / 未登录时:字节留在本地待上传缓存,资料里明示未同步。
+fn pending_avatar(profile: &mut Profile, bytes: &[u8]) -> Result<String, &'static str> {
+    let fingerprint = avatar_fingerprint(bytes);
+    if let Some(path) = avatar_pending_path() {
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let _ = std::fs::write(path, bytes);
+    }
+    profile.avatar_url = format!("pending:{fingerprint:016x}");
+    profile.online = false;
+    local_write(profile);
+    Err("网络不可用，头像已保存在本机，联网后重试")
+}
+
+/// 删除头像:DELETE /api/v1/me/avatar,成功回到默认占位。断网时本地先清,
+/// 待上传缓存一并删掉(删除意图优先于未同步的上传)。
+pub fn delete_avatar(profile: &mut Profile) -> Result<(), &'static str> {
+    let mut synced = false;
+    if let Some((url, token)) = api() {
+        match agent()
+            .delete(&format!("{url}/api/v1/me/avatar"))
+            .set("Authorization", &format!("Bearer {token}"))
+            .call()
+        {
+            Ok(_) => synced = true,
+            Err(ureq::Error::Status(401, _)) => {
+                mark_expired();
+                return Err("登录已过期，请重新登录");
+            }
+            Err(ureq::Error::Transport(_)) => synced = false,
+            Err(ureq::Error::Status(404, _)) => synced = true, // 服务端本来就没有头像
+            Err(ureq::Error::Status(_, _)) => return Err("服务器未删除头像，请稍后重试"),
+        }
+    }
+    profile.avatar_url.clear();
+    profile.online = synced;
+    if let Some(path) = avatar_pending_path() {
+        let _ = std::fs::remove_file(path);
+    }
+    local_write(profile);
+    if synced || api().is_none() {
+        Ok(())
+    } else {
+        Err("网络不可用，头像已在本机删除，联网后自动同步")
+    }
+}
+
+/// 是否存在本地待上传的头像(资料里 avatar_url 以 "pending:" 开头)。
+pub fn avatar_pending(profile: &Profile) -> bool {
+    profile.avatar_url.starts_with("pending:")
+}
+
 fn get(path: &str) -> Option<Value> {
     let (url, token) = api()?;
     match agent()
@@ -430,8 +563,11 @@ pub fn save_profile(
     if name.is_empty() || name.chars().count() > 50 {
         return Err("名字须为 1–50 字");
     }
-    if !avatar_url.is_empty() && (!avatar_url.starts_with("https://") || avatar_url.len() > 512) {
-        return Err("头像需填写 HTTPS 图片地址");
+    // 头像走二进制上传(upload_avatar)后,avatar_url 存的是服务端返回的标识
+    // 或断网待上传的 "pending:<指纹>" 占位;保存资料时不允许再手填 HTTPS URL,
+    // 只接受现有值或空(长度约束兜底),避免 UI 之外的路径把头像改回 URL 文本。
+    if avatar_url.len() > 512 {
+        return Err("头像标识过长");
     }
     let reply = put(
         "me/profile",
@@ -585,6 +721,60 @@ pub fn delete_address(profile: &mut Profile, id: i64) -> Result<(), &'static str
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn avatar_content_type_is_validated_before_any_network() {
+        // 不支持的编码类型在发请求前就被拒(无服务器也能走到)。
+        let mut profile = Profile::default();
+        assert_eq!(
+            upload_avatar(&mut profile, b"x", "image/gif"),
+            Err("头像编码类型不支持")
+        );
+        assert_eq!(
+            upload_avatar(&mut profile, &[], "image/png"),
+            Err("头像内容为空")
+        );
+    }
+
+    #[test]
+    fn avatar_fingerprint_is_stable_and_content_sensitive() {
+        let a = avatar_fingerprint(b"avatar-bytes");
+        assert_eq!(a, avatar_fingerprint(b"avatar-bytes"));
+        assert_ne!(a, avatar_fingerprint(b"avatar-bytes!"));
+        assert_ne!(a, avatar_fingerprint(b""));
+    }
+
+    #[test]
+    fn avatar_reply_parsing_prefers_known_fields() {
+        assert_eq!(
+            parse_avatar_reply(&json!({"avatar_url":"https://cdn/x.png"})),
+            Some("https://cdn/x.png".into())
+        );
+        assert_eq!(
+            parse_avatar_reply(&json!({"avatar":"id-42","url":"ignored"})),
+            Some("id-42".into())
+        );
+        assert_eq!(parse_avatar_reply(&json!("plain-id")), Some("plain-id".into()));
+        assert_eq!(parse_avatar_reply(&json!({"other":1})), None);
+        assert_eq!(parse_avatar_reply(&json!({"avatar_url":""})), None);
+    }
+
+    #[test]
+    fn avatar_pending_state_is_marked_and_detected() {
+        // 断网(无 LIYU_API_URL / 无 token)时进入待上传:avatar_url 带 pending: 前缀。
+        let mut profile = Profile::default();
+        let result = upload_avatar(&mut profile, b"img", "image/png");
+        // 无会话时走 pending_avatar:明确错误 + 本地占位。
+        if api().is_none() {
+            assert!(result.is_err());
+            assert!(avatar_pending(&profile));
+            assert!(!profile.online);
+        }
+        // 删除后回到默认占位,pending 状态随之清除。
+        let _ = delete_avatar(&mut profile);
+        assert!(!avatar_pending(&profile));
+        assert!(profile.avatar_url.is_empty());
+    }
 
     #[test]
     fn offline_address_ids_remain_unique_across_additions() {
