@@ -11,69 +11,6 @@
 //! - 没有真实支付；离线演示时「对方」由 `simulate_step` 驱动，
 //!   余额不够的部分记一条「模拟支付」，不影响余额。
 use makepad_widgets::makepad_micro_serde::*;
-use std::sync::atomic::{AtomicI64, Ordering};
-use std::sync::OnceLock;
-
-// One app process has one active LiYu identity. The server rejects stale revisions.
-static REMOTE_REVISION: AtomicI64 = AtomicI64::new(0);
-static REMOTE_TOKEN: OnceLock<String> = OnceLock::new();
-
-fn remote_config() -> Option<(String, String)> {
-    let url = std::env::var("LIYU_API_URL").ok()?;
-    if !(url.starts_with("http://") || url.starts_with("https://")) {
-        return None;
-    }
-    let url = url.trim_end_matches('/').to_string();
-    if let Ok(token) = std::env::var("LIYU_AUTH_TOKEN") {
-        if !token.is_empty() { return Some((url, token)); }
-    }
-    if let Some(token) = REMOTE_TOKEN.get() { return Some((url, token.clone())); }
-    // Test-stage convenience: the seeded demo account uses the same 123456
-    // password as every simulated account. A real deployment needs a login UI.
-    let identity = std::env::var("LIYU_IDENTIFIER").unwrap_or_else(|_| "demo@liyu.test".into());
-    let response: serde_json::Value = remote_agent()
-        .post(&format!("{url}/api/v1/auth/login"))
-        .send_json(serde_json::json!({"identifier": identity, "password": "123456"}))
-        .ok()?.into_json().ok()?;
-    let token = response.get("token")?.as_str()?.to_string();
-    let _ = REMOTE_TOKEN.set(token.clone());
-    Some((url, token))
-}
-
-fn remote_agent() -> ureq::Agent {
-    ureq::AgentBuilder::new()
-        .timeout(std::time::Duration::from_millis(450))
-        .build()
-}
-
-fn fetch_remote() -> Option<PersistedState> {
-    let (url, token) = remote_config()?;
-    let response: serde_json::Value = remote_agent()
-        .get(&format!("{url}/api/v1/state"))
-        .set("Authorization", &format!("Bearer {token}"))
-        .call().ok()?.into_json().ok()?;
-    let revision = response.get("revision")?.as_i64()?;
-    REMOTE_REVISION.store(revision, Ordering::SeqCst);
-    let state = response.get("state")?;
-    if state.is_null() { return None; }
-    let p = PersistedState::deserialize_json_lenient(&state.to_string()).ok()?;
-    (p.version == Some(STATE_VERSION) && p.gifts.is_some()).then_some(p)
-}
-
-fn push_remote(state: &PersistedState) {
-    let Some((url, token)) = remote_config() else { return };
-    let revision = REMOTE_REVISION.load(Ordering::SeqCst);
-    let Ok(value) = serde_json::from_str::<serde_json::Value>(&state.serialize_json()) else { return };
-    let body = serde_json::json!({"revision": revision, "state": value});
-    let Ok(reply) = remote_agent().put(&format!("{url}/api/v1/state"))
-        .set("Authorization", &format!("Bearer {token}"))
-        .send_json(body) else { return };
-    if let Ok(result) = reply.into_json::<serde_json::Value>() {
-        if let Some(next) = result.get("revision").and_then(|v| v.as_i64()) {
-            REMOTE_REVISION.store(next, Ordering::SeqCst);
-        }
-    }
-}
 
 // ---- 日期 ----
 //
@@ -3111,12 +3048,6 @@ impl LiyuState {
     /// 读存档并覆盖在演示数据上；没有存档用演示数据，存档坏了也用演示数据并留一句话。
     pub fn load(today: i64) -> Self {
         let mut s = Self::demo(today);
-        if !cfg!(test) {
-            if let Some(remote) = fetch_remote() {
-                s.apply_persisted(remote);
-                return s;
-            }
-        }
         if let Some(path) = Self::state_file() {
             if path.exists() {
                 match Self::load_from(&path) {
@@ -3149,7 +3080,6 @@ impl LiyuState {
         if let Some(path) = Self::state_file() {
             let _ = self.save_to(&path);
         }
-        push_remote(&self.persisted());
     }
 
     pub fn save_to(&self, path: &std::path::Path) -> std::io::Result<()> {
@@ -3920,7 +3850,24 @@ mod tests {
         assert!(texts.contains(&"待拆 · 还剩 6 天".to_string()), "{texts:?}");
         assert!(texts.contains(&"已收下".to_string()));
         let sent: Vec<String> = s.sent().iter().map(|g| g.status_text(T)).collect();
-        assert_eq!(sent, vec!["已揭晓 · 等 TA 决定", "TA 收下了"]);
+        assert_eq!(sent, vec!["已揭晓 · 等 TA 决定", "TA 已处理礼物"]);
+    }
+
+    #[test]
+    fn sender_cannot_infer_recipient_settlement_choice_from_display() {
+        let mut gift = Gift::blank(99, DIR_SENT, 0, T);
+        gift.settled_on = T;
+        gift.revealed_on = T;
+        let original_title = gift.catalog().name;
+        let mut displays = Vec::new();
+        for state in [GiftState::Accepted, GiftState::Exchanged, GiftState::CashedOut] {
+            gift.set_state(state);
+            gift.swap_item = 1;
+            gift.refund = 10_000;
+            displays.push((gift.title(), gift.status_text(T), gift.timeline(T)));
+        }
+        assert!(displays.iter().all(|d| d.0 == original_title));
+        assert!(displays.windows(2).all(|pair| pair[0] == pair[1]));
     }
 
     #[test]

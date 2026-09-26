@@ -110,6 +110,7 @@ impl LiyuView {
     pub(crate) fn open_product(&mut self, cx: &mut Cx, i: u16, wish: Option<WishAt>) {
         self.pd_item = i;
         self.pd_wish = wish;
+        self.pd_remote = crate::commerce_client::product_detail(i);
         self.refresh_product(cx);
         self.nav_to(cx, Overlay::Product);
     }
@@ -124,6 +125,11 @@ impl LiyuView {
         self.set_text(cx, ids!(pd_price), &yuan(it.price));
         self.set_text(cx, ids!(pd_tags), &it.tags.join(" · "));
         self.show(cx, ids!(pd_tags), !it.tags.is_empty());
+        let server_note = self.pd_remote.as_ref().map(|p| {
+            format!("服务器目录 · {} · {} · {}{}\n{}", p.name, p.brand, yuan(p.price_cents),
+                if p.available { "" } else { " · 暂不可购买" }, p.description)
+        }).unwrap_or_else(|| "离线演示商品 · 使用本地图片和商品资料".into());
+        self.set_text(cx, ids!(pd_server_note), &server_note);
         self.set_text(cx, ids!(pd_desc), it.desc);
         let form = if it.physical { "实物 · 包邮到家" } else { "电子券 · 券码直接进礼盒" };
         self.set_kv(cx, ids!(pd_kv_kind), "形态", form, "");
@@ -139,6 +145,7 @@ impl LiyuView {
         let ctx = self.wish_claimable(self.pd_wish).filter(|(_, wi)| wi.fits(i));
         self.show(cx, ids!(pd_ctx), ctx.is_some());
         self.show(cx, ids!(pd_addwish), ctx.is_none());
+        self.show(cx, ids!(pd_cart), ctx.is_none());
         let mut notes: Vec<String> = Vec::new();
         match &ctx {
             Some((l, wi)) => {

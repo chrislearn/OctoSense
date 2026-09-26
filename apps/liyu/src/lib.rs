@@ -17,6 +17,7 @@ pub mod ai;
 pub mod canvas;
 pub mod data;
 mod commerce_client;
+mod gift_client;
 mod profile_client;
 pub mod share;
 pub mod theme;
@@ -24,7 +25,8 @@ mod wishui;
 
 use canvas::LiyuShareCard;
 use data::*;
-use commerce_client::Commerce;
+use commerce_client::{Commerce, ProductDetail};
+use gift_client::GiftClient;
 use profile_client::Profile;
 use share::ShareStyle;
 use theme::{Pal, ThemeMode};
@@ -295,6 +297,7 @@ script_mod! {
                             width: Fill height: Fill
                             flow: Down
                             spacing: 14.0
+                            bx_mode := LiyuBadgeBlue { text: "" }
                             bx_seg := LiyuSegTrack {
                                 bs_recv := LiyuSeg { text: "收到的" }
                                 bs_sent := LiyuSeg { text: "送出的" }
@@ -325,6 +328,31 @@ script_mod! {
                                 }
                                 bx_more := LiyuMuted { visible: false margin: Inset{left: 12.0, top: 4.0, bottom: 6.0} text: "" }
                             }
+                        }
+
+                        // Online gift detail is separate from the legacy local demo gift state.
+                        page_online_gift := LiyuScrollY {
+                            visible: false width: Fill height: Fill flow: Down spacing: 14.0
+                            og_mode := LiyuBadgeBlue { text: "服务器礼物" }
+                            og_title := LiyuH2 { text: "" }
+                            og_body := LiyuCard { width: Fill height: Fit flow: Down padding: 14.0 spacing: 10.0
+                                og_summary := LiyuBody { text: "" }
+                                og_clue := LiyuMuted { text: "" }
+                                og_open := LiyuBtnPrimary { width: Fit text: "打开礼物" }
+                                og_answer := LiyuInput { empty_text: "输入答案" }
+                                og_answer_btn := LiyuBtn { width: Fit text: "提交答案" }
+                                og_agree := LiyuChip { text: "我同意附加契约" }
+                                og_ship_name := LiyuInput { empty_text: "收件人" }
+                                og_ship_phone := LiyuInput { empty_text: "收件手机号" }
+                                og_ship_address := LiyuInput { empty_text: "收件地址" }
+                                og_accept := LiyuBtnPrimary { width: Fit text: "确认收下" }
+                            }
+                            og_logistics := LiyuCard { visible: false width: Fill height: Fit flow: Down padding: 14.0 spacing: 10.0
+                                og_logistics_head := LiyuGroupHead { text: "物流信息" }
+                                og_logistics_text := LiyuBody { text: "" }
+                                og_confirm := LiyuBtn { width: Fit text: "确认收货" }
+                            }
+                            og_err := LiyuBad { visible: false text: "" }
                         }
 
                         // ================= 契约 =================
@@ -1224,14 +1252,14 @@ script_mod! {
                             ca_items := LiyuCard {
                                 width: Fill height: Fit flow: Down padding: 14.0 spacing: 10.0
                                 ca_empty := LiyuMuted { text: "购物车是空的" }
-                                ca_i0 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i0_text := LiyuMuted { width: Fill text: "" } ca_i0_del := LiyuBtnSm { width: Fit text: "移除" } }
-                                ca_i1 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i1_text := LiyuMuted { width: Fill text: "" } ca_i1_del := LiyuBtnSm { width: Fit text: "移除" } }
-                                ca_i2 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i2_text := LiyuMuted { width: Fill text: "" } ca_i2_del := LiyuBtnSm { width: Fit text: "移除" } }
-                                ca_i3 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i3_text := LiyuMuted { width: Fill text: "" } ca_i3_del := LiyuBtnSm { width: Fit text: "移除" } }
-                                ca_i4 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i4_text := LiyuMuted { width: Fill text: "" } ca_i4_del := LiyuBtnSm { width: Fit text: "移除" } }
-                                ca_i5 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i5_text := LiyuMuted { width: Fill text: "" } ca_i5_del := LiyuBtnSm { width: Fit text: "移除" } }
-                                ca_i6 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i6_text := LiyuMuted { width: Fill text: "" } ca_i6_del := LiyuBtnSm { width: Fit text: "移除" } }
-                                ca_i7 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i7_text := LiyuMuted { width: Fill text: "" } ca_i7_del := LiyuBtnSm { width: Fit text: "移除" } }
+                                ca_i0 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i0_img := LiyuThumb { width: 44 height: 44 } ca_i0_text := LiyuMuted { width: Fill text: "" } ca_i0_del := LiyuBtnSm { width: Fit text: "移除" } }
+                                ca_i1 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i1_img := LiyuThumb { width: 44 height: 44 } ca_i1_text := LiyuMuted { width: Fill text: "" } ca_i1_del := LiyuBtnSm { width: Fit text: "移除" } }
+                                ca_i2 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i2_img := LiyuThumb { width: 44 height: 44 } ca_i2_text := LiyuMuted { width: Fill text: "" } ca_i2_del := LiyuBtnSm { width: Fit text: "移除" } }
+                                ca_i3 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i3_img := LiyuThumb { width: 44 height: 44 } ca_i3_text := LiyuMuted { width: Fill text: "" } ca_i3_del := LiyuBtnSm { width: Fit text: "移除" } }
+                                ca_i4 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i4_img := LiyuThumb { width: 44 height: 44 } ca_i4_text := LiyuMuted { width: Fill text: "" } ca_i4_del := LiyuBtnSm { width: Fit text: "移除" } }
+                                ca_i5 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i5_img := LiyuThumb { width: 44 height: 44 } ca_i5_text := LiyuMuted { width: Fill text: "" } ca_i5_del := LiyuBtnSm { width: Fit text: "移除" } }
+                                ca_i6 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i6_img := LiyuThumb { width: 44 height: 44 } ca_i6_text := LiyuMuted { width: Fill text: "" } ca_i6_del := LiyuBtnSm { width: Fit text: "移除" } }
+                                ca_i7 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i7_img := LiyuThumb { width: 44 height: 44 } ca_i7_text := LiyuMuted { width: Fill text: "" } ca_i7_del := LiyuBtnSm { width: Fit text: "移除" } }
                                 ca_total := LiyuH2 { text: "合计 ¥0" }
                                 ca_checkout := LiyuBtnPrimary { width: Fit text: "生成测试订单" }
                             }
@@ -1272,6 +1300,7 @@ script_mod! {
                                         draw_text +: { color: liyu.warm text_style +: { font_size: 26.0 } }
                                     }
                                     pd_tags := LiyuMuted { text: "" draw_text +: { color: liyu.ink_3 } }
+                                    pd_server_note := LiyuMuted { text: "" }
                                     pd_ctx := LiyuCard2 {
                                         visible: false
                                         width: Fill height: Fit
@@ -2374,9 +2403,10 @@ const ASIDE_MIN: f64 = 900.0;
 
 /// 自己吃左右留白的那些容器：正文区不留左右内边距，滚动条才贴得住窗口边，
 /// 所以这一份留白落到每个可滚动页面（以及送礼页那条固定底栏）身上。
-const SIDE_PAD_VIEWS: [LiveId; 22] = [
+const SIDE_PAD_VIEWS: [LiveId; 23] = [
     live_id!(page_gift),
     live_id!(page_box),
+    live_id!(page_online_gift),
     live_id!(page_pact),
     live_id!(page_contacts),
     live_id!(page_me),
@@ -2407,6 +2437,10 @@ const CART_ITEM_ROWS: [LiveId; 8] = [
 const CART_ITEM_TEXT: [LiveId; 8] = [
     live_id!(ca_i0_text), live_id!(ca_i1_text), live_id!(ca_i2_text), live_id!(ca_i3_text),
     live_id!(ca_i4_text), live_id!(ca_i5_text), live_id!(ca_i6_text), live_id!(ca_i7_text),
+];
+const CART_ITEM_IMAGE: [LiveId; 8] = [
+    live_id!(ca_i0_img), live_id!(ca_i1_img), live_id!(ca_i2_img), live_id!(ca_i3_img),
+    live_id!(ca_i4_img), live_id!(ca_i5_img), live_id!(ca_i6_img), live_id!(ca_i7_img),
 ];
 const CART_ITEM_DELETE: [LiveId; 8] = [
     live_id!(ca_i0_del), live_id!(ca_i1_del), live_id!(ca_i2_del), live_id!(ca_i3_del),
@@ -2471,6 +2505,7 @@ enum Overlay {
     Settings,
     Profile,
     Cart,
+    OnlineGift,
     /// 商品详情（可以带着「这是谁心愿单上的哪一件」的上下文）。
     Product,
     /// 结算：订单 + 余额抵扣 + 付款方式，付完原地变成功页。
@@ -2534,6 +2569,14 @@ pub struct LiyuView {
     #[rust]
     commerce: Commerce,
     #[rust]
+    gift_client: GiftClient,
+    #[rust]
+    online_gift_id: Option<i64>,
+    #[rust]
+    online_gift_sent: bool,
+    #[rust]
+    online_gift_err: Option<Msg>,
+    #[rust]
     cart_draft_product: Option<u16>,
     #[rust]
     cart_friend_idx: usize,
@@ -2571,6 +2614,8 @@ pub struct LiyuView {
     /// 从好友心愿单进来的：这件对应哪条心愿。
     #[rust]
     pd_wish: Option<WishAt>,
+    #[rust]
+    pd_remote: Option<ProductDetail>,
     #[rust]
     rel_rows: Vec<u16>,
 
@@ -2926,6 +2971,7 @@ impl LiyuView {
             Overlay::Settings => self.refresh_settings(cx),
             Overlay::Profile => self.refresh_profile(cx),
             Overlay::Cart => self.refresh_cart(cx),
+            Overlay::OnlineGift => self.refresh_online_gift(cx),
             Overlay::Product => self.refresh_product(cx),
             Overlay::Checkout => self.refresh_checkout(cx),
             Overlay::Wishes => self.refresh_wishes(cx),
@@ -2945,6 +2991,7 @@ impl LiyuView {
             Overlay::Settings => live_id!(page_settings),
             Overlay::Profile => live_id!(page_profile),
             Overlay::Cart => live_id!(page_cart),
+            Overlay::OnlineGift => live_id!(page_online_gift),
             Overlay::Product => live_id!(page_product),
             Overlay::Checkout => live_id!(co_scroll),
             Overlay::Wishes => live_id!(page_wishes),
@@ -2967,7 +3014,8 @@ impl LiyuView {
                 | Overlay::Wish
                 | Overlay::WishEdit
                 | Overlay::WishPick
-                | Overlay::Cart,
+                | Overlay::Cart
+                | Overlay::OnlineGift,
             ) => self.pop_back(cx),
             Some(Overlay::Card) | Some(Overlay::Sent) => {
                 self.box_sent = true;
@@ -3005,6 +3053,7 @@ impl LiyuView {
         self.show(cx, ids!(page_settings), ov == Some(Overlay::Settings));
         self.show(cx, ids!(page_profile), ov == Some(Overlay::Profile));
         self.show(cx, ids!(page_cart), ov == Some(Overlay::Cart));
+        self.show(cx, ids!(page_online_gift), ov == Some(Overlay::OnlineGift));
         self.show(cx, ids!(page_product), ov == Some(Overlay::Product));
         self.show(cx, ids!(page_checkout), ov == Some(Overlay::Checkout));
         self.show(cx, ids!(page_wishes), ov == Some(Overlay::Wishes));
@@ -3043,6 +3092,7 @@ impl LiyuView {
             Some(Overlay::Settings) => "设置".into(),
             Some(Overlay::Profile) => "账户资料".into(),
             Some(Overlay::Cart) => "购物车".into(),
+            Some(Overlay::OnlineGift) => "服务器礼物".into(),
             Some(Overlay::Product) => "商品详情".into(),
             Some(Overlay::Checkout) => {
                 if self.co_paid.is_some() { "支付成功".into() } else { "确认订单".into() }
@@ -3741,6 +3791,47 @@ impl LiyuView {
     // ---- 礼盒 ----
 
     fn refresh_box(&mut self, cx: &mut Cx) {
+        let _ = self.gift_client.refresh();
+        self.set_text(cx, ids!(bx_mode), if self.gift_client.online {
+            "服务器礼盒 · 按收礼人/送礼人权限显示"
+        } else {
+            "离线演示礼盒 · 仅本机模拟数据"
+        });
+        if self.gift_client.online {
+            self.set_chip_group(cx, &BOX_SEGS, self.box_sent as usize);
+            let rows = if self.box_sent {
+                self.gift_client.outbox.iter().map(|g| {
+                    let title = CATALOG.get(g.product_id as usize).map(|p| p.name).unwrap_or("商品");
+                    (g.id, Some(g.product_id), format!("{} · 送给 {}", title, g.recipient_name),
+                     "服务器送出礼物".to_string(), format!("{} · 物流签收 {} · TA 确认 {}", g.state,
+                        if g.carrier_delivered { "是" } else { "否" }, if g.recipient_confirmed { "是" } else { "否" }))
+                }).collect::<Vec<_>>()
+            } else {
+                self.gift_client.inbox.iter().map(|g| {
+                    let revealed = g.product_id.is_some();
+                    let title = g.product_id.and_then(|i| CATALOG.get(i as usize)).map(|p| p.name)
+                        .unwrap_or("一份神秘礼物");
+                    (g.id, g.product_id, title.to_string(),
+                     if revealed { "已揭晓的礼物".into() } else { "拆开前不展示商品和送礼人".into() },
+                     g.state.clone())
+                }).collect::<Vec<_>>()
+            };
+            self.box_rows = rows.iter().map(|x| x.0 as u64).collect();
+            for (j, row) in BOX_ROWS.iter().enumerate() {
+                let Some((_, pic, title, sub, state)) = rows.get(j) else { self.show(cx, &[*row], false); continue };
+                self.show(cx, &[*row], true);
+                self.set_img(cx, &[*row, live_id!(bx_img)], *pic);
+                self.set_text(cx, &[*row, live_id!(bx_title)], title);
+                self.set_text(cx, &[*row, live_id!(bx_sub)], sub);
+                self.set_text(cx, &[*row, live_id!(bx_state)], state);
+            }
+            self.apply_list_state(cx, ids!(bx_empty), if self.box_sent { "暂无服务器送出礼物" } else { "暂无服务器收到礼物" }, "", rows.len());
+            let more = rows.len().saturating_sub(BOX_ROWS.len());
+            self.show(cx, ids!(bx_more), more > 0);
+            self.set_text(cx, ids!(bx_more), &format!("还有 {more} 份较早的没有显示"));
+            self.set_text(cx, ids!(ab1_b), &format!("服务器收到 {} 份\n服务器送出 {} 份", self.gift_client.inbox.len(), self.gift_client.outbox.len()));
+            return;
+        }
         let today = today_days();
         self.set_chip_group(cx, &BOX_SEGS, self.box_sent as usize);
         let gifts: Vec<Gift> = if self.box_sent {
@@ -3794,6 +3885,97 @@ impl LiyuView {
             ids!(ab1_b),
             &format!("收到 {recv} 份，{pending} 份等你处理\n送出 {sent} 份"),
         );
+    }
+
+    fn open_online_gift(&mut self, cx: &mut Cx, id: i64, sent_role: bool) {
+        self.online_gift_err = self.gift_client.detail(id, sent_role).err();
+        if let Some(err) = self.online_gift_err {
+            self.toast(cx, err);
+            if !self.gift_client.online { self.refresh_box(cx); }
+            return;
+        }
+        self.online_gift_id = Some(id);
+        self.online_gift_sent = sent_role;
+        self.view.check_box(cx, ids!(og_agree)).set_active(cx, false, Animate::No);
+        if let Some(address) = self.profile.addresses.first().cloned() {
+            self.set_text(cx, ids!(og_ship_name), &address.recipient_name);
+            self.set_text(cx, ids!(og_ship_phone), &address.phone);
+            self.set_text(cx, ids!(og_ship_address), &address.address);
+        }
+        self.refresh_online_gift(cx);
+        self.nav_to(cx, Overlay::OnlineGift);
+    }
+
+    fn refresh_online_gift(&mut self, cx: &mut Cx) {
+        self.show(cx, ids!(og_err), self.online_gift_err.is_some());
+        if let Some(err) = self.online_gift_err { self.set_text(cx, ids!(og_err), err); }
+        let sent = self.online_gift_sent;
+        self.set_text(cx, ids!(og_mode), if sent { "服务器送礼方视图 · 仅显示签收与确认结果" }
+            else { "服务器收礼方视图 · 物流仅你可见" });
+        self.show(cx, ids!(og_open), false);
+        self.show(cx, ids!(og_answer), false);
+        self.show(cx, ids!(og_answer_btn), false);
+        self.show(cx, ids!(og_agree), false);
+        self.show(cx, ids!(og_ship_name), false);
+        self.show(cx, ids!(og_ship_phone), false);
+        self.show(cx, ids!(og_ship_address), false);
+        self.show(cx, ids!(og_accept), false);
+        self.show(cx, ids!(og_logistics), false);
+        self.show(cx, ids!(og_clue), false);
+        if !self.gift_client.online {
+            self.set_text(cx, ids!(og_mode), "连接中断 · 在线礼物已暂停");
+            self.set_text(cx, ids!(og_title), "服务器暂时连不上");
+            self.set_text(cx, ids!(og_summary), "请返回礼盒查看本地演示数据。在线礼物的操作没有写入本地模拟状态。");
+            return;
+        }
+        if sent {
+            let Some(g) = self.gift_client.sent_detail.clone() else { return };
+            let product = CATALOG.get(g.product_id as usize).map(|p| p.name).unwrap_or("商品");
+            self.set_text(cx, ids!(og_title), &format!("{} · 送给 {}", product, g.recipient_name));
+            self.set_text(cx, ids!(og_summary), &format!("原订单金额 {} · 礼物状态 {}。收礼人的换购、折现和地址不会显示在这里。", yuan(g.price_cents), g.state));
+            self.show(cx, ids!(og_logistics), true);
+            self.set_text(cx, ids!(og_logistics_head), "送达状态");
+            self.set_text(cx, ids!(og_logistics_text), &format!("物流是否签收：{}\n收礼人是否确认收货：{}",
+                if g.carrier_delivered { "是" } else { "否" }, if g.recipient_confirmed { "是" } else { "否" }));
+            self.show(cx, ids!(og_confirm), false);
+            return;
+        }
+        let Some(g) = self.gift_client.received_detail.clone() else { return };
+        let revealed = g.product_id.is_some();
+        let title = g.product_id.and_then(|i| CATALOG.get(i as usize)).map(|p| p.name)
+            .unwrap_or("一份神秘礼物");
+        self.set_text(cx, ids!(og_title), title);
+        let summary = if revealed {
+            format!("状态：{} · {} · 来自 {}{}", g.state,
+                g.price_cents.map(yuan).unwrap_or_default(), g.sender_name.as_deref().unwrap_or("神秘的朋友"),
+                if g.message.is_empty() { String::new() } else { format!("\n寄语：{}", g.message) })
+        } else { format!("状态：{} · 解谜方式：{} · 剩余 {} 次机会", g.state, g.unlock_kind, g.attempts_left) };
+        self.set_text(cx, ids!(og_summary), &summary);
+        self.show(cx, ids!(og_clue), !g.clue.is_empty() || !g.contract_text.is_empty());
+        self.set_text(cx, ids!(og_clue), &format!("{}{}", if g.clue.is_empty() { String::new() } else { format!("线索：{}", g.clue) },
+            if g.contract_text.is_empty() { String::new() } else { format!("\n附加契约：{}", g.contract_text) }));
+        self.show(cx, ids!(og_open), g.state == "sealed");
+        self.show(cx, ids!(og_answer), g.state == "opened");
+        self.show(cx, ids!(og_answer_btn), g.state == "opened");
+        let accept = g.state == "revealed";
+        self.show(cx, ids!(og_agree), accept && !g.contract_text.is_empty());
+        self.show(cx, ids!(og_ship_name), accept && g.physical);
+        self.show(cx, ids!(og_ship_phone), accept && g.physical);
+        self.show(cx, ids!(og_ship_address), accept && g.physical);
+        self.show(cx, ids!(og_accept), accept);
+        if let Some(s) = self.gift_client.shipment.clone() {
+            self.show(cx, ids!(og_logistics), true);
+            self.set_text(cx, ids!(og_logistics_head), "我的物流详情");
+            self.set_text(cx, ids!(og_logistics_text), &format!("{} · 单号 {}\n收件人：{} · {}\n地址：{}\n物流签收：{} · 我已确认：{}\n{}",
+                s.carrier, s.tracking_number, s.recipient_name, s.recipient_phone, s.recipient_address,
+                if s.carrier_delivered { "是" } else { "否" }, if s.recipient_confirmed { "是" } else { "否" }, s.events.join("\n")));
+            self.show(cx, ids!(og_confirm), s.carrier_delivered && !s.recipient_confirmed);
+        } else if let Some(code) = g.voucher_code {
+            self.show(cx, ids!(og_logistics), true);
+            self.set_text(cx, ids!(og_logistics_head), "电子券");
+            self.set_text(cx, ids!(og_logistics_text), &format!("券码：{code}"));
+            self.show(cx, ids!(og_confirm), false);
+        }
     }
 
     // ---- 拆礼页 ----
@@ -4455,6 +4637,7 @@ impl LiyuView {
         let nick = self.state.settings.nickname.clone();
         let display = if self.profile.display_name.is_empty() { nick.clone() } else { self.profile.display_name.clone() };
         self.set_row(cx, ids!(row_profile), "账户资料", "名字、手机号、邮箱、头像和收货地址", &display);
+        self.set_row(cx, ids!(row_cart), "购物车", "挑礼页选商品，给已确认的好友下单", &format!("{} 件", self.commerce.items.len()));
         self.set_row(cx, ids!(row_settings), "设置", "深浅、称呼、通知、数据", &nick);
         self.set_row(cx, ids!(row_about), "关于礼遇", "重看开场三屏", "");
     }
@@ -4578,6 +4761,70 @@ impl LiyuView {
         self.show(cx, ids!(pf_addr_cancel), self.profile_edit_address.is_some());
         self.show(cx, ids!(pf_err), self.profile_err.is_some());
         if let Some(err) = self.profile_err { self.set_text(cx, ids!(pf_err), err); }
+    }
+
+    fn open_cart(&mut self, cx: &mut Cx, product: Option<u16>) {
+        self.cart_draft_product = product;
+        self.cart_error = self.commerce.refresh().err();
+        self.refresh_cart(cx);
+        self.nav_to(cx, Overlay::Cart);
+    }
+
+    fn refresh_cart(&mut self, cx: &mut Cx) {
+        let status = if self.commerce.online {
+            "已连接服务器 · 订单按服务器价格结算"
+        } else {
+            "离线演示模式 · 本地模拟订单，不会上传到服务器"
+        };
+        self.set_text(cx, ids!(ca_status), status);
+        self.show(cx, ids!(ca_pick), self.cart_draft_product.is_some());
+        if let Some(product) = self.cart_draft_product {
+            self.set_text(cx, ids!(ca_pick_title), &format!("加入购物车：{} · {}", item(product).name, yuan(item(product).price)));
+        }
+        let friends = self.commerce.friends.iter().take(CART_FRIEND_CHIPS.len())
+            .map(|f| f.display_name.clone()).collect::<Vec<_>>();
+        for (i, chip) in CART_FRIEND_CHIPS.iter().enumerate() {
+            self.show(cx, &[*chip], i < friends.len());
+            if let Some(name) = friends.get(i) { self.set_text(cx, &[*chip], name); }
+        }
+        if !friends.is_empty() {
+            self.cart_friend_idx = self.cart_friend_idx.min(friends.len() - 1);
+            self.set_chip_group(cx, &CART_FRIEND_CHIPS, self.cart_friend_idx);
+        }
+        self.set_text(cx, ids!(ca_friends_note), if friends.is_empty() {
+            "暂无已确认好友，请先在服务器添加并确认好友"
+        } else {
+            "选择已确认的好友作为收礼人"
+        });
+        let rows = self.commerce.items.iter().take(CART_ITEM_ROWS.len()).map(|x| {
+            let friend = self.commerce.friends.iter().find(|f| f.id == x.recipient_id)
+                .map(|f| f.display_name.as_str()).unwrap_or("好友");
+            format!("{} · 送给 {} · {}{}", x.name, friend, yuan(x.price_cents), if x.id < 0 { " · 本地演示" } else { "" })
+        }).collect::<Vec<_>>();
+        self.show(cx, ids!(ca_empty), self.commerce.items.is_empty());
+        for (i, row) in CART_ITEM_ROWS.iter().enumerate() {
+            self.show(cx, &[*row], i < rows.len());
+            if let Some(value) = rows.get(i) {
+                self.set_text(cx, &[*row, CART_ITEM_TEXT[i]], value);
+                self.set_img(cx, &[*row, CART_ITEM_IMAGE[i]], self.commerce.items.get(i).map(|x| x.product_id));
+            }
+        }
+        self.set_text(cx, ids!(ca_total), &format!("合计 {}{}", yuan(self.commerce.total()),
+            if self.commerce.items.len() > CART_ITEM_ROWS.len() { format!(" · 共 {} 件", self.commerce.items.len()) } else { String::new() }));
+        self.show(cx, ids!(ca_checkout), !self.commerce.items.is_empty());
+        self.show(cx, ids!(ca_order), self.commerce.order.is_some());
+        if let Some(order) = self.commerce.order.clone() {
+            let label = if order.offline { "本地模拟订单" } else { "服务器测试订单" };
+            let state = match order.status.as_str() {
+                "pending" | "pending_demo" => "待测试支付",
+                "paid_test" | "paid_demo" => "已完成测试支付",
+                _ => "状态待刷新",
+            };
+            self.set_text(cx, ids!(ca_order_text), &format!("{} #{} · {} · {}", label, order.id.abs(), yuan(order.total_cents), state));
+            self.show(cx, ids!(ca_pay), order.status == "pending" || order.status == "pending_demo");
+        }
+        self.show(cx, ids!(ca_error), self.cart_error.is_some());
+        if let Some(e) = self.cart_error { self.set_text(cx, ids!(ca_error), e); }
     }
 
     // ---- 事件 ----
@@ -4783,7 +5030,9 @@ impl LiyuView {
         for (j, row) in BOX_ROWS.iter().enumerate() {
             if self.clicked(cx, &[*row, live_id!(bx_hit)], actions) {
                 if let Some(id) = self.box_rows.get(j).copied() {
-                    if self.box_sent {
+                    if self.gift_client.online {
+                        self.open_online_gift(cx, id as i64, self.box_sent);
+                    } else if self.box_sent {
                         self.open_sent(cx, id);
                     } else {
                         self.open_received(cx, id);
@@ -4793,6 +5042,34 @@ impl LiyuView {
         }
         if self.clicked(cx, ids!(bx_empty.em_action), actions) {
             self.set_tab(cx, 0);
+        }
+
+        if self.overlay == Some(Overlay::OnlineGift) {
+            if let Some(id) = self.online_gift_id {
+                if self.clicked(cx, ids!(og_open), actions) {
+                    self.online_gift_err = self.gift_client.open(id).err();
+                    self.refresh_online_gift(cx);
+                }
+                let answer_enter = self.view.text_input(cx, ids!(og_answer)).returned(actions).is_some();
+                if self.clicked(cx, ids!(og_answer_btn), actions) || answer_enter {
+                    let answer = self.input_text(cx, ids!(og_answer));
+                    self.online_gift_err = self.gift_client.answer(id, &answer).err();
+                    if self.online_gift_err.is_none() { self.set_text(cx, ids!(og_answer), ""); }
+                    self.refresh_online_gift(cx);
+                }
+                if self.clicked(cx, ids!(og_accept), actions) {
+                    let agree = self.view.check_box(cx, ids!(og_agree)).active(cx);
+                    let name = self.input_text(cx, ids!(og_ship_name));
+                    let phone = self.input_text(cx, ids!(og_ship_phone));
+                    let address = self.input_text(cx, ids!(og_ship_address));
+                    self.online_gift_err = self.gift_client.accept(id, agree, &name, &phone, &address).err();
+                    self.refresh_online_gift(cx);
+                }
+                if self.clicked(cx, ids!(og_confirm), actions) {
+                    self.online_gift_err = self.gift_client.confirm(id).err();
+                    self.refresh_online_gift(cx);
+                }
+            }
         }
 
         // ---- 拆礼页 ----
@@ -4968,6 +5245,12 @@ impl LiyuView {
         if self.clicked(cx, &[live_id!(row_profile), live_id!(st_hit)], actions) {
             self.open_profile(cx);
         }
+        if self.clicked(cx, &[live_id!(row_cart), live_id!(st_hit)], actions) {
+            self.open_cart(cx, None);
+        }
+        if self.clicked(cx, ids!(pd_cart), actions) && self.overlay == Some(Overlay::Product) {
+            self.open_cart(cx, Some(self.pd_item));
+        }
         if self.clicked(cx, &[live_id!(row_wish), live_id!(st_hit)], actions)
             || self.clicked(cx, &[live_id!(row_mywish), live_id!(st_hit)], actions)
             || self.clicked(cx, ids!(ag3_go), actions)
@@ -5058,6 +5341,8 @@ impl LiyuView {
                 let code = self.input_text(cx, ids!(pf_register_code));
                 match profile_client::sign_in(&identifier, &password, &code, register) {
                     Ok(()) => {
+                        self.commerce = Commerce::default();
+                        self.gift_client = GiftClient::default();
                         self.open_profile(cx);
                         self.refresh_me(cx);
                         self.toast(cx, if register { "注册并登录成功" } else { "已登录" });
@@ -5067,6 +5352,8 @@ impl LiyuView {
             }
             if self.clicked(cx, ids!(pf_demo), actions) {
                 profile_client::use_demo();
+                self.commerce = Commerce::default();
+                self.gift_client = GiftClient::default();
                 self.open_profile(cx);
                 self.refresh_me(cx);
                 self.toast(cx, "已切回演示账号");
@@ -5134,6 +5421,46 @@ impl LiyuView {
                 self.set_text(cx, ids!(pf_addr_phone), "");
                 self.set_text(cx, ids!(pf_addr_text), "");
                 self.refresh_profile(cx);
+            }
+        }
+
+        if self.overlay == Some(Overlay::Cart) {
+            for (i, chip) in CART_FRIEND_CHIPS.iter().enumerate() {
+                if self.toggled(cx, &[*chip], actions) && i < self.commerce.friends.len() {
+                    self.cart_friend_idx = i;
+                    self.set_chip_group(cx, &CART_FRIEND_CHIPS, i);
+                }
+            }
+            if self.clicked(cx, ids!(ca_add), actions) {
+                if let (Some(product), Some(friend)) = (self.cart_draft_product,
+                    self.commerce.friends.get(self.cart_friend_idx).cloned()) {
+                    self.cart_error = self.commerce.add(product, friend.id).err();
+                    if self.cart_error.is_none() {
+                        self.cart_draft_product = None;
+                        self.toast(cx, "已加入购物车");
+                        let _ = self.commerce.refresh();
+                        self.refresh_me(cx);
+                    }
+                } else { self.cart_error = Some("请先选一位熟人"); }
+                self.refresh_cart(cx);
+            }
+            for (i, row) in CART_ITEM_ROWS.iter().enumerate() {
+                let Some(line) = self.commerce.items.get(i).cloned() else { continue };
+                if self.clicked(cx, &[*row, CART_ITEM_DELETE[i]], actions) {
+                    self.cart_error = self.commerce.remove(line.id).err();
+                    if self.cart_error.is_none() { self.toast(cx, "已移出购物车"); self.refresh_me(cx); }
+                    self.refresh_cart(cx);
+                }
+            }
+            if self.clicked(cx, ids!(ca_checkout), actions) {
+                self.cart_error = self.commerce.create_order().err();
+                if self.cart_error.is_none() { self.toast(cx, "订单已生成，可测试支付"); self.refresh_me(cx); }
+                self.refresh_cart(cx);
+            }
+            if self.clicked(cx, ids!(ca_pay), actions) {
+                self.cart_error = self.commerce.pay_test().err();
+                if self.cart_error.is_none() { self.toast(cx, "测试支付完成"); self.refresh_me(cx); }
+                self.refresh_cart(cx);
             }
         }
 
