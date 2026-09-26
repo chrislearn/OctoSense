@@ -1160,25 +1160,13 @@ script_mod! {
                             flow: Down
                             spacing: 14.0
                             pf_status := LiyuBadgeBlue { text: "" }
-                            pf_auth_head := LiyuGroupHead { text: "测试账号" }
-                            pf_auth_card := LiyuCard {
+                            pf_signout_row := View {
                                 width: Fill height: Fit
-                                flow: Down
-                                padding: 14.0
-                                spacing: 10.0
-                                pf_auth_note := LiyuMuted { text: "服务器上的演示密码和注册验证码都固定为 123456，不发送短信或邮件。" }
-                                pf_identifier := LiyuInput { empty_text: "邮箱或手机号作为账号标识" }
-                                pf_password := LiyuInput { empty_text: "测试密码 123456" is_password: true }
-                                pf_register_code := LiyuInput { empty_text: "注册验证码 123456" }
-                                pf_auth_actions := View {
-                                    width: Fill height: Fit
-                                    flow: Right{wrap: true}
-                                    wrap_spacing: 8.0
-                                    spacing: 8.0
-                                    pf_login := LiyuBtn { width: Fit text: "登录" }
-                                    pf_register := LiyuBtn { width: Fit text: "注册" }
-                                    pf_demo := LiyuBtnSm { width: Fit text: "切回演示账号" }
-                                }
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                spacing: 8.0
+                                pf_signout_note := LiyuMuted { width: Fill text: "登出会清除本机凭据并回到登录界面" }
+                                pf_signout := LiyuBtn { width: Fit text: "登出" }
                             }
                             pf_name_head := LiyuGroupHead { text: "基本资料" }
                             pf_name_card := LiyuCard {
@@ -1861,6 +1849,41 @@ script_mod! {
                                 wp32 := LiyuProductCard { }
                             }
                             wp_note := LiyuMuted { text: "" }
+                        }
+
+                        // ================= 认证闸（首次启动 / 登出 / 401 后的独立界面）=================
+                        //
+                        // 未认证时盖住整个应用：不是覆盖页、不在 Tab 里，登录 / 注册互切，
+                        // 断网时给「离线演示」入口。过了这一关才可能看到开场三屏或主界面。
+                        page_auth := View {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            align: Align{x: 0.5, y: 0.5}
+                            spacing: 14.0
+                            au_card := LiyuCard {
+                                width: 420 height: Fit
+                                flow: Down
+                                padding: 24.0
+                                spacing: 12.0
+                                au_title := LiyuH1 { text: "欢迎来到礼遇" }
+                                au_sub := LiyuMuted { text: "猜得到的心意。登录或注册后继续；没网也能先逛逛。" }
+                                au_identifier := LiyuInput { empty_text: "邮箱或手机号作为账号标识" }
+                                au_password := LiyuInput { empty_text: "密码" is_password: true }
+                                au_code := LiyuInput { visible: false empty_text: "注册验证码" }
+                                au_err := LiyuBad { visible: false text: "" }
+                                au_actions := View {
+                                    width: Fill height: Fit
+                                    flow: Right{wrap: true}
+                                    wrap_spacing: 8.0
+                                    spacing: 8.0
+                                    au_submit := LiyuBtnPrimary { width: Fit text: "登录" }
+                                    au_switch := LiyuLink { text: "没有账号？去注册" }
+                                }
+                                au_demo := LiyuBtn { width: Fit text: "先逛逛 · 离线演示" }
+                                au_demo_note := LiyuMuted { text: "离线演示与真实账号的数据完全分开，只保存在本机，不会上传。" }
+                                au_test_note := LiyuMuted { visible: false text: "测试服务器：密码与注册验证码均固定为 123456，不发送短信或邮件。" }
+                            }
                         }
 
                         // ================= 开场三屏 =================
@@ -2750,6 +2773,12 @@ pub struct LiyuView {
     // ---- 开场三屏 / 通知 / toast ----
     #[rust]
     intro: Option<usize>,
+    /// 认证闸:未登录也没选离线演示时 true,整应用被 page_auth 盖住。
+    #[rust]
+    auth_gate: bool,
+    /// 认证界面处于注册模式(验证码字段可见,按钮文案互换)。
+    #[rust]
+    auth_register: bool,
     #[rust]
     notice: Option<Notice>,
     /// 这次运行里已经发过的通知种类（只活在内存里，重启重新算一次没有坏处）。
@@ -3039,7 +3068,9 @@ impl LiyuView {
     }
 
     fn update_page_visibility(&mut self, cx: &mut Cx) {
-        let intro = self.intro.is_some();
+        let gate = self.auth_gate;
+        let intro = !gate && self.intro.is_some();
+        self.show(cx, ids!(page_auth), gate);
         self.show(cx, ids!(page_intro), intro);
         for (j, id) in PAGES.iter().enumerate() {
             self.show(cx, &[*id], !intro && self.overlay.is_none() && j == self.tab);
@@ -3338,8 +3369,8 @@ impl LiyuView {
 
     fn apply_shaping(&mut self, cx: &mut Cx, s: Shaping) {
         let phone = s.shape == Shape::Phone;
-        // 开场三屏里连导航都不给：三句话不该能被一脚跨过去。
-        let intro = self.intro.is_some();
+        // 开场三屏里连导航都不给：三句话不该能被一脚跨过去。认证闸同样全屏。
+        let intro = self.intro.is_some() || self.auth_gate;
         self.show(cx, ids!(sidebar), !phone && !intro);
         self.show(cx, ids!(topbar), !intro);
         self.show(cx, ids!(tabbar), phone && !intro);
@@ -4716,14 +4747,71 @@ impl LiyuView {
         self.show(cx, ids!(reset_confirm), self.reset_armed);
     }
 
+    // ---- 认证闸 ----
+
+    /// 进认证闸（首次启动、登出、401 之后）。清掉来路，只留这一屏。
+    fn enter_auth_gate(&mut self, cx: &mut Cx, err: Option<&'static str>) {
+        self.auth_gate = true;
+        self.auth_register = false;
+        self.overlay = None;
+        self.back_stack.clear();
+        self.intro = None;
+        self.profile_err = err;
+        self.update_page_visibility(cx);
+        self.refresh_auth(cx);
+    }
+
+    /// 刷新认证界面：登录 / 注册互切的字段与文案、测试服务器提示。
+    fn refresh_auth(&mut self, cx: &mut Cx) {
+        let reg = self.auth_register;
+        self.show(cx, ids!(au_code), reg);
+        self.set_text(cx, ids!(au_submit), if reg { "注册并登录" } else { "登录" });
+        self.set_text(
+            cx,
+            ids!(au_switch),
+            if reg { "已有账号？去登录" } else { "没有账号？去注册" },
+        );
+        // 固定密码 / 验证码说明只在测试服务器上出现。
+        self.show(cx, ids!(au_test_note), profile_client::is_test_server());
+        self.show(cx, ids!(au_err), self.profile_err.is_some());
+        if let Some(e) = self.profile_err {
+            self.set_text(cx, ids!(au_err), e);
+        }
+    }
+
+    fn show_auth_error(&mut self, cx: &mut Cx, err: &'static str) {
+        self.profile_err = Some(err);
+        self.refresh_auth(cx);
+    }
+
+    /// 登录 / 注册 / 进入演示之后：重置按账号隔离的客户端缓存，关闸进应用。
+    fn after_account_switch(&mut self, cx: &mut Cx, online: bool) {
+        self.auth_gate = false;
+        self.profile_err = None;
+        self.commerce = Commerce::default();
+        self.gift_client = GiftClient::default();
+        self.profile = profile_client::load(&self.state.settings.nickname);
+        self.refresh_all(cx);
+        self.set_tab(cx, 0);
+        if !self.state.settings.onboarded {
+            self.open_intro(cx, 0);
+        }
+        self.toast(
+            cx,
+            if online {
+                if self.auth_register { "注册并登录成功" } else { "已登录" }
+            } else {
+                "已进入离线演示，数据只在本机"
+            },
+        );
+        self.update_page_visibility(cx);
+    }
+
     fn open_profile(&mut self, cx: &mut Cx) {
         self.profile = profile_client::load(&self.state.settings.nickname);
         self.profile_err = None;
         self.profile_edit_address = None;
         let p = self.profile.clone();
-        self.set_text(cx, ids!(pf_identifier), &profile_client::active_identifier());
-        self.set_text(cx, ids!(pf_password), "");
-        self.set_text(cx, ids!(pf_register_code), "");
         self.set_text(cx, ids!(pf_name), &p.display_name);
         self.set_text(cx, ids!(pf_avatar), &p.avatar_url);
         self.set_text(cx, ids!(pf_phone), &p.phone);
@@ -4831,6 +4919,38 @@ impl LiyuView {
 
     fn handle_actions(&mut self, cx: &mut Cx, actions: &Actions) {
         let today = today_days();
+
+        // ---- 认证闸：全屏时只处理自己的几个按钮，别的一律不响应 ----
+        if self.auth_gate {
+            if self.clicked(cx, ids!(au_switch), actions) {
+                self.auth_register = !self.auth_register;
+                self.refresh_auth(cx);
+            }
+            let submit = self.clicked(cx, ids!(au_submit), actions)
+                || self.view.text_input(cx, ids!(au_password)).returned(actions).is_some();
+            if submit {
+                let identifier = self.input_text(cx, ids!(au_identifier));
+                let pass...[credential-redacted](cx, ids!(au_password));
+                let code = self.input_text(cx, ids!(au_code));
+                let register = self.auth_register;
+                match profile_client::sign_in(&identifier, &password, &code, register) {
+                    Ok(()) => self.after_account_switch(cx, true),
+                    Err(e) => self.show_auth_error(cx, e),
+                }
+            }
+            if self.clicked(cx, ids!(au_demo), actions) {
+                profile_client::use_demo();
+                self.after_account_switch(cx, false);
+            }
+            return;
+        }
+
+        // 401 / token 失效：不装在线、不静默重登，清会话回认证闸。
+        if profile_client::take_expired() {
+            self.profile.online = false;
+            self.enter_auth_gate(cx, "登录已过期，请重新登录");
+            return;
+        }
 
         // 导航（侧栏与底部导航是同一组 Tab 的两份控件）
         for i in 0..TABS.len() {
@@ -5333,30 +5453,17 @@ impl LiyuView {
         }
 
         if self.overlay == Some(Overlay::Profile) {
-            let login = self.clicked(cx, ids!(pf_login), actions);
-            let register = self.clicked(cx, ids!(pf_register), actions);
-            if login || register {
-                let identifier = self.input_text(cx, ids!(pf_identifier));
-                let password = self.input_text(cx, ids!(pf_password));
-                let code = self.input_text(cx, ids!(pf_register_code));
-                match profile_client::sign_in(&identifier, &password, &code, register) {
-                    Ok(()) => {
-                        self.commerce = Commerce::default();
-                        self.gift_client = GiftClient::default();
-                        self.open_profile(cx);
-                        self.refresh_me(cx);
-                        self.toast(cx, if register { "注册并登录成功" } else { "已登录" });
-                    }
-                    Err(err) => { self.profile_err = Some(err); self.refresh_profile(cx); }
-                }
-            }
-            if self.clicked(cx, ids!(pf_demo), actions) {
-                profile_client::use_demo();
+            // 登出：清凭据 → 清本机账号缓存 → 回认证闸。登录 / 注册已挪到认证闸。
+            if self.clicked(cx, ids!(pf_signout), actions) {
+                profile_client::logout();
+                profile_client::clear_local_cache();
                 self.commerce = Commerce::default();
                 self.gift_client = GiftClient::default();
-                self.open_profile(cx);
-                self.refresh_me(cx);
-                self.toast(cx, "已切回演示账号");
+                // 账号隔离：礼物 / 契约 / 流水 / 心愿单等本地缓存不留给下一个账号。
+                self.state = LiyuState::demo(today);
+                self.state.save();
+                self.enter_auth_gate(cx, None);
+                self.toast(cx, "已登出");
             }
             for (i, row_id) in PROFILE_ADDRESS_ROWS.iter().enumerate() {
                 let Some(address) = self.profile.addresses.get(i).cloned() else { continue };
@@ -5491,10 +5598,13 @@ impl Widget for LiyuView {
             LiyuState::ensure_sample_vcard();
             self.pal = Pal::read(cx);
             self.state.sweep(today_days());
+            // 先恢复本机会话:上次登录过就直接回账号;没有凭据、也没选过演示 → 认证闸。
+            profile_client::restore_session();
+            self.auth_gate = !profile_client::has_choice();
             self.profile = profile_client::load(&self.state.settings.nickname);
             self.refresh_all(cx);
             self.set_tab(cx, 0);
-            if !self.state.settings.onboarded {
+            if !self.auth_gate && !self.state.settings.onboarded {
                 self.open_intro(cx, 0);
             }
             if let Some(note) = self.state.load_note.take() {

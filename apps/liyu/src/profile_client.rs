@@ -1,13 +1,30 @@
 //! Small account-profile client. A local copy keeps the demo usable offline.
+//!
+//! 会话(token)持久化在 `$MAKEPAD_HOME/liyu/session.json` —— 与资料 JSON 分开,
+//! 密码永远不落盘。401 / token 失效时只标记过期、回到认证界面,绝不静默重登。
 use serde_json::{json, Value};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
+
+/// 账号怎么用上的:真实登录(有 token)、离线演示、还是没选过(首次启动)。
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub enum AuthMode {
+    /// 启动后还没登录也没选演示。
+    #[default]
+    None,
+    /// 服务器登录成功,持有 token。
+    Account,
+    /// 用户明确点了「离线演示」。
+    Demo,
+}
 
 #[derive(Default)]
 struct AuthState {
     identifier: String,
     token: Option<String>,
-    selected: bool,
+    mode: AuthMode,
+    /// 会话被服务器拒绝过(401):不再用旧资料装在线,必须重新登录。
+    expired: bool,
 }
 static AUTH: OnceLock<Mutex<AuthState>> = OnceLock::new();
 
@@ -17,11 +34,104 @@ fn auth() -> &'static Mutex<AuthState> {
 
 pub fn active_identifier() -> String {
     let state = auth().lock().unwrap();
-    if state.selected {
+    if state.mode != AuthMode::None {
         state.identifier.clone()
     } else {
         std::env::var("LIYU_IDENTIFIER").unwrap_or_else(|_| "demo@liyu.test".into())
     }
+}
+
+pub fn mode() -> AuthMode {
+    auth().lock().map(|s| s.mode).unwrap_or_default()
+}
+
+/// 已经有过一次明确的身份选择(登录或离线演示):false = 首次启动该显示认证界面。
+pub fn has_choice() -> bool {
+    auth().lock().map(|s| s.mode != AuthMode::None).unwrap_or(false)
+}
+
+/// 真实账号会话还有效(有 token 且没被 401 否掉)。
+pub fn is_online() -> bool {
+    auth()
+        .lock()
+        .map(|s| s.mode == AuthMode::Account && s.token.is_some() && !s.expired)
+        .unwrap_or(false)
+}
+
+/// token 被服务器拒绝过:界面据此弹回认证,而不是继续显示伪在线资料。
+pub fn take_expired() -> bool {
+    match auth().lock() {
+        Ok(mut s) => {
+            let was = s.expired;
+            s.expired = false;
+            was
+        }
+        Err(_) => false,
+    }
+}
+
+/// 测试服务器(契约文档:演示密码与验证码固定 123456)才显示测试提示。
+pub fn is_test_server() -> bool {
+    std::env::var("LIYU_API_URL")
+        .map(|u| u.contains("test") || u.contains("localhost") || u.contains("127.0.0.1"))
+        .unwrap_or(false)
+}
+
+// ---- 会话持久化:独立的 session.json,不混进资料 JSON ----
+
+fn session_path() -> Option<std::path::PathBuf> {
+    Some(std::path::PathBuf::from(std::env::var_os("MAKEPAD_HOME")?).join("liyu/session.json"))
+}
+
+fn session_save() {
+    let Ok(state) = auth().lock() else { return };
+    let Some(path) = session_path() else { return };
+    if state.mode == AuthMode::Account {
+        if let Some(token) = &state.token {
+            if let Some(dir) = path.parent() {
+                let _ = std::fs::create_dir_all(dir);
+            }
+            let value = json!({"identifier": state.identifier, "token": token});
+            let _ = std::fs::write(path, value.to_string());
+            return;
+        }
+    }
+    // 演示 / 登出:本机不留凭据。
+    let _ = std::fs::remove_file(path);
+}
+
+/// 启动时恢复上次登录的会话。有凭据就回到 Account,没有就是 None(首次启动)。
+pub fn restore_session() {
+    let Some(path) = session_path() else { return };
+    let Ok(bytes) = std::fs::read(&path) else { return };
+    let Ok(value) = serde_json::from_slice::<Value>(&bytes) else { return };
+    let Some(identifier) = value.get("identifier").and_then(Value::as_str) else {
+        return;
+    };
+    let Some(token) = value.get("token").and_then(Value::as_str) else {
+        return;
+    };
+    if identifier.is_empty() || token.is_empty() {
+        return;
+    }
+    if let Ok(mut state) = auth().lock() {
+        state.identifier = identifier.into();
+        state.token = Some(token.into());
+        state.mode = AuthMode::Account;
+        state.expired = false;
+    }
+}
+
+/// 登出:清内存会话 + 删本机凭据文件。调用方负责重置按账号隔离的本地缓存。
+pub fn logout() {
+    if let Ok(mut state) = auth().lock() {
+        state.identifier.clear();
+        state.token = None;
+        state.mode = AuthMode::None;
+        state.expired = false;
+    }
+    let Some(path) = session_path() else { return };
+    let _ = std::fs::remove_file(path);
 }
 
 #[derive(Clone, Default)]
@@ -43,6 +153,7 @@ pub struct Address {
     pub is_default: bool,
 }
 
+/// 按当前账号标识派生的本机资料文件:切账号自然换一份,不串号。
 fn local_path() -> Option<std::path::PathBuf> {
     let mut hash = 0xcbf29ce484222325_u64;
     for b in active_identifier().bytes() {
@@ -73,6 +184,12 @@ fn local_write(profile: &Profile) {
         })).collect::<Vec<_>>()
     });
     let _ = std::fs::write(path, value.to_string());
+}
+
+/// 登出 / 换号时清掉指定账号的本机资料缓存(礼物等业务数据在 data.rs 侧同样按账号隔离)。
+pub fn clear_local_cache() {
+    let Some(path) = local_path() else { return };
+    let _ = std::fs::remove_file(path);
 }
 
 fn next_local_address_id(profile: &Profile) -> i64 {
@@ -137,6 +254,8 @@ fn agent() -> ureq::Agent {
         .build()
 }
 
+/// 取一个可用会话。不会再去用固定密码重登:没有 token 就没有会话,
+/// 让界面回到认证入口,而不是装作还在线。
 fn api() -> Option<(String, String)> {
     let url = std::env::var("LIYU_API_URL")
         .ok()?
@@ -145,35 +264,11 @@ fn api() -> Option<(String, String)> {
     if !(url.starts_with("http://") || url.starts_with("https://")) {
         return None;
     }
-    let (identifier, selected, cached) = {
-        let state = auth().lock().ok()?;
-        let identifier = if state.selected {
-            state.identifier.clone()
-        } else {
-            std::env::var("LIYU_IDENTIFIER").unwrap_or_else(|_| "demo@liyu.test".into())
-        };
-        (identifier, state.selected, state.token.clone())
-    };
-    if let Some(token) = cached {
-        return Some((url, token));
+    let state = auth().lock().ok()?;
+    if state.mode != AuthMode::Account || state.expired {
+        return None;
     }
-    if !selected {
-        if let Ok(token) = std::env::var("LIYU_AUTH_TOKEN") {
-            if !token.is_empty() {
-                return Some((url, token));
-            }
-        }
-    }
-    let response: Value = agent()
-        .post(&format!("{url}/api/v1/auth/login"))
-        .send_json(json!({"identifier":identifier,"password":"123456"}))
-        .ok()?
-        .into_json()
-        .ok()?;
-    let token = response.get("token")?.as_str()?.to_string();
-    if let Ok(mut state) = auth().lock() {
-        state.token = Some(token.clone());
-    }
+    let token = state.token.clone()?;
     Some((url, token))
 }
 
@@ -189,11 +284,19 @@ pub fn sign_in(
     if identifier.is_empty() || identifier.len() > 254 {
         return Err("请输入账号标识");
     }
-    if password != "123456" {
-        return Err("测试密码是 123456");
+    if password.is_empty() || password.len() > 128 {
+        return Err("请输入密码");
     }
-    if register && code != "123456" {
-        return Err("测试验证码是 123456");
+    // 固定验证码说明只在测试服务器上提示;真实服务器按服务端校验来。
+    if is_test_server() {
+        if password != "123456" {
+            return Err("测试密码是 123456");
+        }
+        if register && code != "123456" {
+            return Err("测试验证码是 123456");
+        }
+    } else if register && code.is_empty() {
+        return Err("请输入验证码");
     }
     let Some(url) = std::env::var("LIYU_API_URL")
         .ok()
@@ -220,30 +323,56 @@ pub fn sign_in(
         .get("token")
         .and_then(Value::as_str)
         .ok_or("服务器响应无效")?;
-    let mut state = auth().lock().map_err(|_| "登录状态暂不可用")?;
-    state.identifier = identifier;
-    state.token = Some(token.into());
-    state.selected = true;
+    {
+        let mut state = auth().lock().map_err(|_| "登录状态暂不可用")?;
+        state.identifier = identifier;
+        state.token = Some(token.into());
+        state.mode = AuthMode::Account;
+        state.expired = false;
+    }
+    // token 落盘,重启可恢复;密码只在这次请求里用过,不保存。
+    session_save();
     Ok(())
 }
 
+/// 进入离线演示:本机身份,不发请求、不保存凭据。与真实账号严格区隔。
 pub fn use_demo() {
     if let Ok(mut state) = auth().lock() {
         state.identifier = "demo@liyu.test".into();
         state.token = None;
-        state.selected = true;
+        state.mode = AuthMode::Demo;
+        state.expired = false;
     }
+    // 演示不持有凭据:任何遗留的 session.json 都不该在演示名下生效。
+    let Some(path) = session_path() else { return };
+    let _ = std::fs::remove_file(path);
+}
+
+/// 401 / token 失效:只标记过期并丢弃内存里的 token。绝不在这里重登 ——
+/// 重登是用户在认证界面里点出来的,不能藏在一次资料读取背后。
+fn mark_expired() {
+    if let Ok(mut state) = auth().lock() {
+        state.expired = true;
+        state.token = None;
+    }
+    let Some(path) = session_path() else { return };
+    let _ = std::fs::remove_file(path);
 }
 
 fn get(path: &str) -> Option<Value> {
     let (url, token) = api()?;
-    agent()
+    match agent()
         .get(&format!("{url}/api/v1/{path}"))
         .set("Authorization", &format!("Bearer {token}"))
         .call()
-        .ok()?
-        .into_json()
-        .ok()
+    {
+        Ok(reply) => reply.into_json().ok(),
+        Err(ureq::Error::Status(401, _)) => {
+            mark_expired();
+            None
+        }
+        Err(_) => None,
+    }
 }
 
 fn put(path: &str, value: Value, patch: bool) -> Result<Option<Value>, &'static str> {
@@ -260,6 +389,10 @@ fn put(path: &str, value: Value, patch: bool) -> Result<Option<Value>, &'static 
         .send_json(value)
     {
         Ok(reply) => Ok(reply.into_json().ok()),
+        Err(ureq::Error::Status(401, _)) => {
+            mark_expired();
+            Err("登录已过期，请重新登录")
+        }
         Err(ureq::Error::Transport(_)) => Ok(None),
         Err(ureq::Error::Status(409, _)) => Err("该手机号或邮箱已被使用"),
         Err(ureq::Error::Status(_, _)) => Err("服务器未接受修改，请检查输入"),
