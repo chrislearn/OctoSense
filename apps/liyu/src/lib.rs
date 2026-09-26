@@ -463,6 +463,25 @@ script_mod! {
                                     me_wallet := LiyuBtnSm { width: Fit text: "钱包与流水" }
                                 }
                             }
+                            me_draft := LiyuCard {
+                                visible: false
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 14.0
+                                spacing: 8.0
+                                draw_bg +: { color: liyu.card border_color: liyu.line_notice border_size: 1.0 }
+                                me_draft_l := LiyuMuted { text: "AI 开好的送礼草稿，待本人确认" }
+                                me_draft_t := LiyuWarmText { text: "" }
+                                me_draft_note := LiyuMuted { text: "" }
+                                me_draft_row := View {
+                                    width: Fill height: Fit
+                                    flow: Right{wrap: true}
+                                    wrap_spacing: 8.0
+                                    spacing: 8.0
+                                    me_draft_confirm := LiyuBtnPrimary { width: Fit text: "确认送出（仅本机记录）" }
+                                    me_draft_cancel := LiyuBtnSm { width: Fit text: "取消草稿" }
+                                }
+                            }
                             me_stats := View {
                                 width: Fill height: Fit
                                 flow: Right
@@ -4798,6 +4817,17 @@ impl LiyuView {
         self.set_row(cx, ids!(row_cart), "购物车", "挑礼页选商品，给已确认的好友下单", &format!("{} 件", self.commerce.items.len()));
         self.set_row(cx, ids!(row_settings), "设置", "深浅、称呼、通知、数据", &nick);
         self.set_row(cx, ids!(row_about), "关于礼遇", "重看开场三屏", "");
+        // AI 草稿闸:有待本人确认的草稿就显示确认条(商品/寄语/确认/取消)。
+        let draft = self.draft_pending.clone();
+        let show_draft = draft.as_ref().is_some_and(|d| d.status == ai_draft::DraftStatus::AwaitingConfirm);
+        self.show(cx, ids!(me_draft), show_draft);
+        if show_draft {
+            let d = draft.unwrap();
+            let it = crate::data::item(d.item_index);
+            self.set_text(cx, ids!(me_draft_t), &format!("{} · {}", it.name, crate::data::yuan(it.price)));
+            let note = if d.note.is_empty() { "（无寄语）".to_string() } else { format!("寄语:{}", d.note) };
+            self.set_text(cx, ids!(me_draft_note), &note);
+        }
     }
 
     fn refresh_wallet(&mut self, cx: &mut Cx) {
@@ -5825,6 +5855,12 @@ impl LiyuView {
         if self.overlay == Some(Overlay::Profile) {
             // 登出：清凭据 → 清本机账号缓存 → 回认证闸。登录 / 注册已挪到认证闸。
             if self.clicked(cx, ids!(pf_signout), actions) {
+                // 账号切换:先让草稿闸把旧账号未终态草稿作废,再清凭据。
+                let old_account = profile_client::active_identifier();
+                if let Some(g) = self.draft_gate.as_ref() {
+                    g.switch_account(&old_account, "", 0);
+                }
+                self.draft_pending = None;
                 profile_client::logout();
                 profile_client::clear_local_cache();
                 self.commerce = Commerce::default();
@@ -5834,6 +5870,37 @@ impl LiyuView {
                 self.state.save();
                 self.enter_auth_gate(cx, None);
                 self.toast(cx, "已登出");
+            }
+            // AI 草稿闸:本人确认(仅本机记录为已确认,不发送/不扣款)或取消。
+            if self.clicked(cx, ids!(me_draft_confirm), actions) {
+                let account = profile_client::active_identifier();
+                let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
+                // 先算 outcome 并取回草稿(结束 draft_gate 不可变借用),再 mutate self。
+                let (confirmed, updated) = if let (Some(g), Some(d)) = (self.draft_gate.as_ref(), self.draft_pending.clone()) {
+                    (g.confirm(&account, &d.draft_id, now_ms).is_confirmed(), g.draft(&d.draft_id))
+                } else {
+                    (false, None)
+                };
+                if self.draft_pending.is_some() {
+                    self.toast(cx, if confirmed { "草稿已确认(本机记录,未发送)" } else { "草稿已不可确认(超时/已取消)" });
+                    self.draft_pending = updated;
+                    self.refresh_me(cx);
+                }
+            }
+            if self.clicked(cx, ids!(me_draft_cancel), actions) {
+                let account = profile_client::active_identifier();
+                let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
+                let cancelled = if let (Some(g), Some(d)) = (self.draft_gate.as_ref(), self.draft_pending.clone()) {
+                    g.cancel(&account, &d.draft_id, now_ms);
+                    true
+                } else {
+                    false
+                };
+                if cancelled {
+                    self.toast(cx, "草稿已取消");
+                    self.draft_pending = None;
+                    self.refresh_me(cx);
+                }
             }
             for (i, row_id) in PROFILE_ADDRESS_ROWS.iter().enumerate() {
                 let Some(address) = self.profile.addresses.get(i).cloned() else { continue };
@@ -6038,6 +6105,15 @@ impl Widget for LiyuView {
         // 独立窗口换主题走的是 app_main 的 LiveEdit，Rebake 会把 DSL 里的文案刷回去。
         if let Event::LiveEdit = event {
             self.after_restyle(cx);
+        }
+        // 窗口关闭:未确认的 AI 草稿作废(旧确认不可复用)。
+        if let Event::WindowCloseRequested(_) = event {
+            let account = profile_client::active_identifier();
+            let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
+            if let (Some(g), Some(d)) = (self.draft_gate.as_ref(), self.draft_pending.clone()) {
+                g.window_closed(&account, &d.draft_id, now_ms);
+                self.draft_pending = None;
+            }
         }
         // 切页淡入：150ms 内 alpha 从 1 衰减到 0。
         if let Some(nf) = self.next_frame.is_event(event) {
