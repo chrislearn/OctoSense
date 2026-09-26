@@ -4904,10 +4904,10 @@ impl LiyuView {
     /// 返回值连同来源说明一起给状态行用。
     fn avatar_preview_bytes(&self) -> Option<(Vec<u8>, &'static str)> {
         if let Some(session) = &self.avatar_session {
-            // 按当前锚点从原图即时裁切预览(原图保留,锚点切换不破坏)。
+            // 按当前锚点从原图即时裁切预览(原图保留,锚点切换不破坏),再缩到 512 上限。
             let cropped = session.crop_anchor(self.avatar_crop_anchor).ok();
             if let Some(s) = cropped {
-                if let Ok(enc) = s.encode_final(avatar::AvatarFormat::Png) {
+                if let Ok(enc) = s.fit_within_max().encode_final(avatar::AvatarFormat::Png) {
                     return Some((enc.bytes, "预览中，未确认"));
                 }
             }
@@ -4995,19 +4995,23 @@ impl LiyuView {
             }
             return;
         };
-        // 确认时按当前锚点从原图裁切编码(原图已按需旋转,此处取最终裁图)。
-        let session = match session.crop_anchor(self.avatar_crop_anchor) {
-            Ok(s) => s,
+        // 确认时按当前锚点从原图裁切编码(原图已按需旋转,此处取最终裁图),再缩到 512 上限。
+        let cropped = match session.crop_anchor(self.avatar_crop_anchor) {
+            Ok(s) => s.fit_within_max(),
             Err(e) => {
+                // 裁切失败保留 session 可重试(恢复原图会话)。
+                self.avatar_session = Some(session);
                 self.profile_err = Some(Self::avatar_err(&e));
                 self.refresh_avatar(cx);
                 return;
             }
         };
         // 默认输出 JPEG（体积小、服务端与 UI 的 512×512 约束一致）；保留 alpha 的图用 PNG。
-        let enc = match session.encode_final(avatar::AvatarFormat::Jpeg) {
+        let enc = match cropped.encode_final(avatar::AvatarFormat::Jpeg) {
             Ok(e) => e,
             Err(e) => {
+                // 编码失败保留 session 可重试,不丢编辑成果。
+                self.avatar_session = Some(session);
                 self.profile_err = Some(match e {
                     avatar::AvatarError::OutputTooLarge => "编码结果超过大小上限",
                     _ => "头像编码失败，请换一张图",

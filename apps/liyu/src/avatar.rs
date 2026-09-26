@@ -716,6 +716,36 @@ mod tests {
     }
 
     #[test]
+    fn crop_anchor_then_fit_within_max_caps_high_pixel_images() {
+        // 高像素图全链路:锚点裁切(取最大正方形)→ fit_within_max(512),输出不超 512×512。
+        let mut img = RgbaImage::new(3000, 2000);
+        for y in 0..2000 {
+            for x in 0..3000 {
+                img.put_pixel(x, y, Rgba([(x % 256) as u8, (y % 256) as u8, 128, 255]));
+            }
+        }
+        let bytes = png_bytes(&img);
+        let session = AvatarEditSession::load_bytes(&bytes).unwrap();
+        for anchor in [0u8, 2, 4, 8] {
+            let (w, h) = session
+                .crop_anchor(anchor)
+                .expect("锚点裁切")
+                .fit_within_max()
+                .dimensions();
+            assert!(w <= 512 && h <= 512, "anchor {anchor} 输出 {w}x{h} 超 512");
+            assert_eq!(w, h, "anchor {anchor} 裁切应为正方形");
+        }
+        // 编码可产出(不panic),且 PNG/JPEG 都在大小上限内。
+        let enc = session
+            .crop_anchor(4)
+            .unwrap()
+            .fit_within_max()
+            .encode_final(AvatarFormat::Jpeg)
+            .expect("高像素图 JPEG 编码");
+        assert!(enc.bytes.len() <= 2 * 1024 * 1024, "JPEG 超 2MB");
+    }
+
+    #[test]
     fn crop_rejects_out_of_bounds_and_empty() {
         let bytes = png_bytes(&solid(10, 10, [0, 0, 0, 255]));
         let s = || AvatarEditSession::load_bytes(&bytes).unwrap();
