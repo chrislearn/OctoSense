@@ -8,9 +8,72 @@
 //! - 日期一律是「天序号」（1970-01-01 起的 UTC 天数），`today` 从外面传进来，
 //!   所以过期、到期、通知这些跟时间有关的规则都能直接写单测；
 //! - 枚举落盘存 `u8`，读出来认不得的值一律退回第一项，不 panic；
-//! - 没有服务器、没有真实支付：「对方」由 `simulate_step` 驱动，
+//! - 没有真实支付；离线演示时「对方」由 `simulate_step` 驱动，
 //!   余额不够的部分记一条「模拟支付」，不影响余额。
 use makepad_widgets::makepad_micro_serde::*;
+use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::OnceLock;
+
+// One app process has one active LiYu identity. The server rejects stale revisions.
+static REMOTE_REVISION: AtomicI64 = AtomicI64::new(0);
+static REMOTE_TOKEN: OnceLock<String> = OnceLock::new();
+
+fn remote_config() -> Option<(String, String)> {
+    let url = std::env::var("LIYU_API_URL").ok()?;
+    if !(url.starts_with("http://") || url.starts_with("https://")) {
+        return None;
+    }
+    let url = url.trim_end_matches('/').to_string();
+    if let Ok(token) = std::env::var("LIYU_AUTH_TOKEN") {
+        if !token.is_empty() { return Some((url, token)); }
+    }
+    if let Some(token) = REMOTE_TOKEN.get() { return Some((url, token.clone())); }
+    // Test-stage convenience: the seeded demo account uses the same 123456
+    // password as every simulated account. A real deployment needs a login UI.
+    let identity = std::env::var("LIYU_IDENTIFIER").unwrap_or_else(|_| "demo@liyu.test".into());
+    let response: serde_json::Value = remote_agent()
+        .post(&format!("{url}/api/v1/auth/login"))
+        .send_json(serde_json::json!({"identifier": identity, "password": "123456"}))
+        .ok()?.into_json().ok()?;
+    let token = response.get("token")?.as_str()?.to_string();
+    let _ = REMOTE_TOKEN.set(token.clone());
+    Some((url, token))
+}
+
+fn remote_agent() -> ureq::Agent {
+    ureq::AgentBuilder::new()
+        .timeout(std::time::Duration::from_millis(450))
+        .build()
+}
+
+fn fetch_remote() -> Option<PersistedState> {
+    let (url, token) = remote_config()?;
+    let response: serde_json::Value = remote_agent()
+        .get(&format!("{url}/api/v1/state"))
+        .set("Authorization", &format!("Bearer {token}"))
+        .call().ok()?.into_json().ok()?;
+    let revision = response.get("revision")?.as_i64()?;
+    REMOTE_REVISION.store(revision, Ordering::SeqCst);
+    let state = response.get("state")?;
+    if state.is_null() { return None; }
+    let p = PersistedState::deserialize_json_lenient(&state.to_string()).ok()?;
+    (p.version == Some(STATE_VERSION) && p.gifts.is_some()).then_some(p)
+}
+
+fn push_remote(state: &PersistedState) {
+    let Some((url, token)) = remote_config() else { return };
+    let revision = REMOTE_REVISION.load(Ordering::SeqCst);
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(&state.serialize_json()) else { return };
+    let body = serde_json::json!({"revision": revision, "state": value});
+    let Ok(reply) = remote_agent().put(&format!("{url}/api/v1/state"))
+        .set("Authorization", &format!("Bearer {token}"))
+        .send_json(body) else { return };
+    if let Ok(result) = reply.into_json::<serde_json::Value>() {
+        if let Some(next) = result.get("revision").and_then(|v| v.as_i64()) {
+            REMOTE_REVISION.store(next, Ordering::SeqCst);
+        }
+    }
+}
 
 // ---- 日期 ----
 //
@@ -848,6 +911,9 @@ impl Gift {
 
     /// 列表上的名字：收到的、还没揭晓的只说「一份神秘礼物」。
     pub fn title(&self) -> String {
+        if self.is_sent() {
+            return self.catalog().name.to_string();
+        }
         if !self.is_sent() && self.revealed_on == 0 {
             return MYSTERY_GIFT.to_string();
         }
@@ -891,9 +957,8 @@ impl Gift {
                 GiftState::Sealed => "待拆 · TA 还没打开".into(),
                 GiftState::Opened => format!("解谜中 · 猜错 {} 次", self.attempts),
                 GiftState::Revealed => "已揭晓 · 等 TA 决定".into(),
-                GiftState::Accepted => "TA 收下了".into(),
-                GiftState::Exchanged => "TA 换了一份更喜欢的".into(),
-                GiftState::CashedOut => "TA 折成了余额".into(),
+                GiftState::Accepted | GiftState::Exchanged | GiftState::CashedOut =>
+                    "TA 已处理礼物".into(),
                 GiftState::Expired => "已过期 · 已全额退回".into(),
                 GiftState::Withdrawn => "已撤回 · 已全额退回".into(),
             }
@@ -938,10 +1003,8 @@ impl Gift {
         }
         if self.settled_on > 0 {
             let s = match self.state() {
-                GiftState::Accepted if self.has_contract() => "TA 收下了，契约生效".to_string(),
-                GiftState::Accepted => "TA 收下了".to_string(),
-                GiftState::Exchanged => format!("TA 换成了{}", self.final_item().name),
-                GiftState::CashedOut => "TA 折成了余额".to_string(),
+                GiftState::Accepted | GiftState::Exchanged | GiftState::CashedOut =>
+                    "TA 已处理礼物".to_string(),
                 GiftState::Expired => format!("7 天没拆开，已全额退回 {}", yuan(self.price)),
                 GiftState::Withdrawn => format!("你撤回了礼物，已全额退回 {}", yuan(self.price)),
                 _ => String::new(),
@@ -1578,11 +1641,8 @@ impl SimStep {
             SimStep::Opened => "TA 打开了礼卡，第一次没猜中",
             SimStep::Revealed { known: true } => "TA 答对了，知道是你",
             SimStep::Revealed { known: false } => "TA 机会用完，礼物拆开了，没透露你",
-            SimStep::Accepted { pact: true } => "TA 收下了，契约生效",
-            SimStep::Accepted { pact: false } => "TA 收下了",
-            SimStep::Exchanged => "TA 换了一份更喜欢的",
-            SimStep::CashedOut { returned: true } => "TA 折成了余额，还给你回了一份礼",
-            SimStep::CashedOut { returned: false } => "TA 折成了余额",
+            SimStep::Accepted { .. } | SimStep::Exchanged | SimStep::CashedOut { .. } =>
+                "TA 已处理礼物",
         }
     }
 }
@@ -3051,6 +3111,12 @@ impl LiyuState {
     /// 读存档并覆盖在演示数据上；没有存档用演示数据，存档坏了也用演示数据并留一句话。
     pub fn load(today: i64) -> Self {
         let mut s = Self::demo(today);
+        if !cfg!(test) {
+            if let Some(remote) = fetch_remote() {
+                s.apply_persisted(remote);
+                return s;
+            }
+        }
         if let Some(path) = Self::state_file() {
             if path.exists() {
                 match Self::load_from(&path) {
@@ -3083,6 +3149,7 @@ impl LiyuState {
         if let Some(path) = Self::state_file() {
             let _ = self.save_to(&path);
         }
+        push_remote(&self.persisted());
     }
 
     pub fn save_to(&self, path: &std::path::Path) -> std::io::Result<()> {
