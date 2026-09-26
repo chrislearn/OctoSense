@@ -6277,6 +6277,24 @@ mod layout_tests {
     }
 
     #[test]
+    fn merged_manifest_has_six_tools_with_draft_act_risk() {
+        // 合并清单 = 只读投影 5 个 Read + 草稿闸 1 个 Act(prepare_gift_draft),无重复名。
+        let m = merge_manifests(ai::manifest(), ai_draft::manifest());
+        m.validate().unwrap();
+        assert_eq!(m.tools.len(), 6, "合并后应有 5 只读 + 1 草稿闸");
+        use makepad_app_module::makepad_ai_services::wire::Risk;
+        let read = m.tools.iter().filter(|t| t.risk == Risk::Read).count();
+        let act = m.tools.iter().filter(|t| t.risk == Risk::Act).count();
+        assert_eq!(read, 5, "5 个只读工具");
+        assert_eq!(act, 1, "1 个 Risk::Act 草稿工具");
+        let draft = m.tool("prepare_gift_draft").expect("草稿工具在合并清单里");
+        assert_eq!(draft.risk, Risk::Act);
+        // brief 不再声称「只有五个只读工具」。
+        assert!(m.brief.contains("prepare_gift_draft"), "brief 应提及可准备草稿");
+        assert!(m.brief.contains("本机"), "brief 应说明草稿只在本机");
+    }
+
+    #[test]
     fn the_aside_column_only_appears_when_the_desktop_shape_has_room() {
         assert!(shaping_for(size(1280.0, 800.0)).aside);
         assert!(!shaping_for(size(820.0, 700.0)).aside);
