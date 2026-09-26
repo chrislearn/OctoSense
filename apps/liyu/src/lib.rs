@@ -2857,6 +2857,10 @@ pub struct LiyuView {
     /// 待上传头像字节（断网时 profile_client 已落盘，这里留一份用于预览）。
     #[rust]
     avatar_pending_bytes: Option<Vec<u8>>,
+    /// 已上传头像的服务端字节缓存:(avatar_url, 解码前字节)。只在 URL 变化时重新 GET,
+    /// 避免 refresh_avatar 反复同步请求卡界面。
+    #[rust]
+    avatar_server_cache: Option<(String, Vec<u8>)>,
     #[rust]
     fade_start: Option<f64>,
     #[rust]
@@ -4901,9 +4905,12 @@ impl LiyuView {
             return Some((bytes.clone(), "未同步"));
         }
         // 已上传头像:GET 服务端图像字节回显(avatar_url 是 /api/v1/media/avatars/<hex>)。
+        // 走 URL 缓存(见 refresh_avatar),只读不重复请求。
         if !self.profile.avatar_url.is_empty() && !profile_client::avatar_pending(&self.profile) {
-            if let Some(bytes) = profile_client::fetch_avatar_bytes(&self.profile.avatar_url) {
-                return Some((bytes, "已同步"));
+            if let Some((url, bytes)) = &self.avatar_server_cache {
+                if *url == self.profile.avatar_url {
+                    return Some((bytes.clone(), "已同步"));
+                }
             }
         }
         None
@@ -4913,6 +4920,19 @@ impl LiyuView {
     fn refresh_avatar(&mut self, cx: &mut Cx) {
         let has_server_avatar = !self.profile.avatar_url.is_empty()
             && !profile_client::avatar_pending(&self.profile);
+        // 已上传头像按 URL 缓存:URL 变化才同步 GET(带 2MiB 上限),避免反复刷新卡界面/无界内存。
+        if has_server_avatar {
+            let stale = self
+                .avatar_server_cache
+                .as_ref()
+                .map_or(true, |(u, _)| *u != self.profile.avatar_url);
+            if stale {
+                self.avatar_server_cache = profile_client::fetch_avatar_bytes(&self.profile.avatar_url)
+                    .map(|b| (self.profile.avatar_url.clone(), b));
+            }
+        } else {
+            self.avatar_server_cache = None;
+        }
         let pending = profile_client::avatar_pending(&self.profile);
         let editing = self.avatar_session.is_some();
 

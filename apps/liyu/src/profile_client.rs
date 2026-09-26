@@ -584,9 +584,11 @@ pub fn fetch_avatar_bytes(avatar_url: &str) -> Option<Vec<u8>> {
     {
         Ok(reply) => {
             use std::io::Read;
+            // 限制读取到头像契约上限(服务端 1 MiB,留余量到 2 MiB),防无界内存/卡界面。
             let mut buf = Vec::new();
             reply
                 .into_reader()
+                .take(2 * 1024 * 1024)
                 .read_to_end(&mut buf)
                 .ok()
                 .filter(|_| !buf.is_empty())
