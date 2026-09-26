@@ -19,87 +19,87 @@ script_mod! {
 
     // ---- 夜（默认）----
     //
-    // 底色是夜蓝，强调色是暖杏。暖杏在夜里可以直接当文字色用；到了昼版
+    // 底色是深紫莓，强调色是暖金。暖金在夜里可以直接当文字色用；到了昼版
     // 它在白底上读不出来，所以「暖色文字」和「暖色面」是两个角色。
     mod.liyu_themes.dark = {
         // 面
-        bg: #x0b1220           // 页面底
-        bg_chrome: #x0d1626    // 侧栏 / 底部导航
-        card: #x152235         // 主卡
-        card_2: #x111c2c       // 次卡
-        well: #x101a2c         // 内凹（输入框、分段轨道）
-        well_focus: #x142238
-        raise: #x1b2a44        // 浮层（toast / 通知）
-        face: #x203049         // 首字圆底
+        bg: #x191021           // 页面底
+        bg_chrome: #x1c1228    // 侧栏 / 底部导航
+        card: #x271a36         // 主卡
+        card_2: #x211530       // 次卡
+        well: #x1f142c         // 内凹（输入框、分段轨道）
+        well_focus: #x261a36
+        raise: #x2e1f40        // 浮层（toast / 通知）
+        face: #x352446         // 首字圆底
 
         // 线
-        line: #x1d2b42         // 常规描边
-        line_soft: #x26364c    // 主卡描边、未走到的步点
-        line_strong: #x30456b  // hover 描边、浮层描边
-        line_notice: #x3a4f74  // 通知卡描边
+        line: #x2b1e3d         // 常规描边
+        line_soft: #x3a294f    // 主卡描边、未走到的步点
+        line_strong: #x4c3668  // hover 描边、浮层描边
+        line_notice: #x5a4078  // 通知卡描边
 
         // 字
-        ink: #xe7edf8          // 正文
-        ink_2: #xa4b2c9        // 次文
-        ink_3: #x7b8aa3        // 三级文（注脚）
-        ink_4: #x6b7a99        // 图表刻度这类最轻的字
-        ink_ghost: #x3c4c6b    // 空态图标
-        ink_hint: #x6d7d97     // 输入框占位
-        ink_arrow: #x5d6f8d    // 设置行的箭头
+        ink: #xf2ecf8          // 正文
+        ink_2: #xc4b4d4        // 次文
+        ink_3: #x9b8aab        // 三级文（注脚）
+        ink_4: #x887a99        // 图表刻度这类最轻的字
+        ink_ghost: #x4d3b63    // 空态图标
+        ink_hint: #x8a7b9c     // 输入框占位
+        ink_arrow: #x746586    // 设置行的箭头
 
         // 暖色（强调）
-        warm: #xffca91         // 暖色文字 / 图标 / 曲线
-        warm_hi: #xffd9a8      // 暖色 hover
-        warm_wash: #xffca9166  // 曲线下的浅填充
-        map_glow: #xffca91     // 街区插图的光晕
+        warm: #xf0c883         // 暖色文字 / 图标 / 曲线
+        warm_hi: #xf7d69e      // 暖色 hover
+        warm_wash: #xf0c88366  // 曲线下的浅填充
+        map_glow: #xf0c883     // 街区插图的光晕
 
-        // 券面（暖底卡：两套主题下都是暖杏纸）
-        coupon: #xffca91
-        coupon_off: #x8f7c66   // 已核销 / 已过期
-        on_warm: #x5a3d1e      // 券面次文
-        on_warm_hi: #x2b1c0d   // 券面主文
-        warm_btn: #x2b1c0d     // 券面上的按钮底
-        warm_btn_hi: #x3a2812
-        on_warm_btn: #xffca91  // 券面按钮上的字
-        on_warm_btn_hi: #xffd9a8
+        // 券面（暖底卡：两套主题下都是暖金纸）
+        coupon: #xf0c883
+        coupon_off: #x8a7558   // 已核销 / 已过期
+        on_warm: #x5c4220      // 券面次文
+        on_warm_hi: #x2c1c0a   // 券面主文
+        warm_btn: #x2c1c0a     // 券面上的按钮底
+        warm_btn_hi: #x3d2912
+        on_warm_btn: #xf0c883  // 券面按钮上的字
+        on_warm_btn_hi: #xf7d69e
 
-        // 蓝色（操作）
-        blue: #x82b5ff         // 主按钮底 / 文字链 / 选中描边
-        blue_hi: #x9cc4ff
-        blue_lo: #x6ba3f0
-        blue_soft: #xa8ccff    // 文字链 hover
-        sel: #x2c4d7d          // 选中文字的底
-        on_blue: #x05070e      // 主按钮上的字与图标
-        off_bg: #x2a3550       // 禁用底
-        off_ink: #x63708a      // 禁用字
+        // 紫色（操作）
+        blue: #x9d90f2         // 主按钮底 / 文字链 / 选中描边
+        blue_hi: #xb3a8f5
+        blue_lo: #x8a7ce8
+        blue_soft: #xbcb0f7    // 文字链 hover
+        sel: #x463a75          // 选中文字的底
+        on_blue: #x0b0812      // 主按钮上的字与图标
+        off_bg: #x342844       // 禁用底
+        off_ink: #x746784      // 禁用字
 
         // 语义
-        good: #x9be2bf
-        bad: #xff9eab
-        bad_line: #x4a2530
+        good: #x8fd8b2
+        bad: #xff97a8
+        bad_line: #x552836
 
         // 交互态
-        hl: #x1d2b4a           // hover / pressed 高亮块
-        hl_soft: #x1d2b4a55
-        hl_active: #x24375c    // 分段控件选中
+        hl: #x2c1f45           // hover / pressed 高亮块
+        hl_soft: #x2c1f4555
+        hl_active: #x3a2a58    // 分段控件选中
         wash_1: #xffffff08     // 整行按钮的三档蒙版
         wash_2: #xffffff0a
         wash_3: #xffffff14
 
         // 开关
-        track_off: #x24354f
-        knob: #x8fa2bf
-        knob_on: #x0b1220
+        track_off: #x322549
+        knob: #xa895be
+        knob_on: #x191021
 
         // 街区插图
-        map_bg: #x0a1120
-        map_road: #x16223c
-        map_block: #x101a2e
+        map_bg: #x140e1c
+        map_road: #x231636
+        map_block: #x1a1228
 
         // 强度刻度（回忆热力）
-        heat_0: #x2b3a52
-        heat_1: #x5b6f92
-        ring_track: #x22334d
+        heat_0: #x3b2a4d
+        heat_1: #x8a68a8
+        ring_track: #x2c2040
 
         // 滚动条手柄（半透明，压在页面底上）
         bar: #xffffff1f
@@ -329,20 +329,20 @@ fn rgba(c: u32) -> Vec4f {
 impl Default for Pal {
     fn default() -> Self {
         Self {
-            ink: rgba(0xe7edf8ff),
-            ink_2: rgba(0xa4b2c9ff),
-            ink_3: rgba(0x7b8aa3ff),
-            ink_ghost: rgba(0x3c4c6bff),
-            line_soft: rgba(0x26364cff),
-            warm: rgba(0xffca91ff),
-            blue: rgba(0x82b5ffff),
-            bad: rgba(0xff9eabff),
-            good: rgba(0x9be2bfff),
-            coupon: rgba(0xffca91ff),
-            coupon_off: rgba(0x8f7c66ff),
-            track_off: rgba(0x24354fff),
-            heat_0: rgba(0x2b3a52ff),
-            heat_1: rgba(0x5b6f92ff),
+            ink: rgba(0xf2ecf8ff),
+            ink_2: rgba(0xc4b4d4ff),
+            ink_3: rgba(0x9b8aabff),
+            ink_ghost: rgba(0x4d3b63ff),
+            line_soft: rgba(0x3a294fff),
+            warm: rgba(0xf0c883ff),
+            blue: rgba(0x9d90f2ff),
+            bad: rgba(0xff97a8ff),
+            good: rgba(0x8fd8b2ff),
+            coupon: rgba(0xf0c883ff),
+            coupon_off: rgba(0x8a7558ff),
+            track_off: rgba(0x322549ff),
+            heat_0: rgba(0x3b2a4dff),
+            heat_1: rgba(0x8a68a8ff),
         }
     }
 }
