@@ -1204,13 +1204,13 @@ script_mod! {
                                     width: Fill height: Fit
                                     flow: Down
                                     spacing: 8.0
-                                    pf_avatar_edit_note := LiyuMuted { text: "已载入原图：可选居中裁成正方形、旋转，确认后上传。" }
+                                    pf_avatar_edit_note := LiyuMuted { text: "已载入原图：选裁切位置（九宫格循环）、旋转，确认后上传。" }
                                     pf_avatar_edit_row := View {
                                         width: Fill height: Fit
                                         flow: Right{wrap: true}
                                         wrap_spacing: 8.0
                                         spacing: 8.0
-                                        pf_avatar_crop := LiyuBtnSm { width: Fit text: "裁成正方形" }
+                                        pf_avatar_anchor := LiyuBtnSm { width: Fit text: "裁切位置：居中" }
                                         pf_avatar_rotate := LiyuBtnSm { width: Fit text: "旋转 90°" }
                                         pf_avatar_confirm := LiyuBtnPrimary { width: Fit text: "确认上传" }
                                         pf_avatar_cancel := LiyuBtnSm { width: Fit text: "取消" }
@@ -2857,6 +2857,9 @@ pub struct LiyuView {
     /// 待上传头像字节（断网时 profile_client 已落盘，这里留一份用于预览）。
     #[rust]
     avatar_pending_bytes: Option<Vec<u8>>,
+    /// 裁切对齐位置(0-8,3×3 网格:0=左上,4=居中,8=右下)。点「裁切」按此位置取最大正方形。
+    #[rust]
+    avatar_crop_anchor: u8,
     /// 已上传头像的服务端字节缓存:(avatar_url, 解码前字节)。只在 URL 变化时重新 GET,
     /// 避免 refresh_avatar 反复同步请求卡界面。
     #[rust]
@@ -5184,6 +5187,8 @@ impl LiyuView {
                             if let Some(path) = fda.path() {
                                 match avatar::AvatarEditSession::load_path(path) {
                                     Ok(session) => {
+                                        self.avatar_crop_anchor = 4; // 重置为居中
+                                        self.set_text(cx, ids!(pf_avatar_anchor), "裁切位置：居中");
                                         self.avatar_session = Some(session);
                                         self.profile_err = None;
                                     }
@@ -5781,12 +5786,23 @@ impl LiyuView {
                     cx.open_select_file_dialog(dialog);
                 }
             }
-            if self.clicked(cx, ids!(pf_avatar_crop), actions) {
+            if self.clicked(cx, ids!(pf_avatar_anchor), actions) {
+                // 九宫格位置循环:0 左上 → 4 居中 → 8 右下,按位置裁最大正方形。
+                self.avatar_crop_anchor = (self.avatar_crop_anchor + 1) % 9;
+                let a = self.avatar_crop_anchor;
                 if let Some(session) = self.avatar_session.take() {
-                    match session.crop_square_center() {
+                    let (w, h) = session.dimensions();
+                    let side = w.min(h);
+                    let col = (a % 3) as u32;
+                    let row = (a / 3) as u32;
+                    let x = (w - side) * col / 2;
+                    let y = (h - side) * row / 2;
+                    match session.crop(x, y, side, side) {
                         Ok(s) => {
                             self.avatar_session = Some(s);
                             self.profile_err = None;
+                            let name = ["左上","上中","右上","左中","居中","右中","左下","下中","右下"][a as usize];
+                            self.set_text(cx, ids!(pf_avatar_anchor), &format!("裁切位置:{name}"));
                         }
                         Err(e) => {
                             self.avatar_session = None;
