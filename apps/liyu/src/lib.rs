@@ -452,20 +452,27 @@ script_mod! {
  account_avatar := LiyuThumb { width: 56 height: 56 }
  account_name := Label { width: Fill height: Fit align: Align{x: 0.5, y: 0.5} text: "" draw_text +: { color: liyu.ink wrap: None max_lines: 1 text_overflow: Ellipsis text_style +: { font_size: 13.0 } } }
  }
+ account_info_head := LiyuMuted { text: "用户信息" }
  account_categories := LiyuCard { width: Fill height: Fit flow: Down spacing: 2.0
  acc_mcat0 := mod.widgets.AccountCategoryRow { text: "个人资料" }
  acc_mcat1 := mod.widgets.AccountCategoryRow { text: "账号与联系方式" }
  acc_mcat2 := mod.widgets.AccountCategoryRow { text: "收货地址" }
+ }
+ account_data_head := LiyuMuted { text: "我的数据" }
+ account_shortcuts := LiyuCard { width: Fill height: Fit flow: Down spacing: 2.0
+ account_wishes := mod.widgets.AccountCategoryRow { width: Fill text: "心愿单" }
+ account_received := mod.widgets.AccountCategoryRow { width: Fill text: "收到的礼物" }
+ account_sent := mod.widgets.AccountCategoryRow { width: Fill text: "送出的礼物" }
+ account_drafts := mod.widgets.AccountCategoryRow { width: Fill text: "送礼草稿" }
+ account_cart := mod.widgets.AccountCategoryRow { width: Fill text: "购物车与订单" }
+ account_wallet := mod.widgets.AccountCategoryRow { width: Fill text: "钱包与流水" }
+ }
+ account_settings_head := LiyuMuted { text: "应用设置" }
+ account_settings_menu := LiyuCard { width: Fill height: Fit flow: Down spacing: 2.0
  acc_mcat3 := mod.widgets.AccountCategoryRow { text: "通用" }
  acc_mcat4 := mod.widgets.AccountCategoryRow { text: "通知" }
  acc_mcat5 := mod.widgets.AccountCategoryRow { text: "数据管理" }
  acc_mcat6 := mod.widgets.AccountCategoryRow { text: "关于" }
- }
- account_shortcuts := LiyuCard { width: Fill height: Fit flow: Down spacing: 2.0
- account_wallet := mod.widgets.AccountCategoryRow { width: Fill text: "钱包与流水" }
- account_cart := mod.widgets.AccountCategoryRow { width: Fill text: "购物车与订单" }
- account_wishes := mod.widgets.AccountCategoryRow { width: Fill text: "我的心愿单" }
- account_drafts := mod.widgets.AccountCategoryRow { width: Fill text: "送礼草稿" }
  }
  }
  account_detail := View { width: Fill height: Fill flow: Down spacing: 12.0
@@ -6179,6 +6186,16 @@ impl LiyuView {
             }
         }
 
+        for (id,sent) in [(live_id!(account_received),false),(live_id!(account_sent),true)] {
+            if self.account_shortcut_clicked(cx,id,actions) {
+                if self.account_has_unsaved_changes(cx) {
+                    self.toast(cx,"有未保存的修改，请保存或取消");
+                } else {
+                    self.box_sent=sent;
+                    self.set_tab(cx,1);
+                }
+            }
+        }
         if self.clicked(cx, ids!(account_intro), actions) { self.open_intro(cx,0); }
         if self.account_shortcut_clicked(cx, live_id!(account_drafts), actions) {
             if let Some(nav)=self.account_nav.as_mut() { nav.pop_discarding(); }
