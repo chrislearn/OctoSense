@@ -190,6 +190,37 @@ script_mod! {
                             }
                         }
 
+                        account_workspace := View {
+                            width: Fill height: Fill flow: Right
+ me_list := LiyuScrollY { width: 200 height: Fill flow: Down spacing: 12.0
+ account_identity := LiyuCard { width: Fill height: Fit flow: Down spacing: 8.0 align: Align{x: 0.5, y: 0.0}
+ account_avatar := LiyuThumb { width: 56 height: 56 }
+ account_name := Label { width: Fill height: Fit align: Align{x: 0.5, y: 0.5} text: "" draw_text +: { color: liyu.ink wrap: None max_lines: 1 text_overflow: Ellipsis text_style +: { font_size: 13.0 } } }
+ }
+ account_info_head := LiyuMuted { text: "用户信息" }
+ account_categories := LiyuCard { width: Fill height: Fit flow: Down spacing: 2.0
+ acc_mcat0 := mod.widgets.AccountCategoryRow { text: "个人资料" }
+ acc_mcat1 := mod.widgets.AccountCategoryRow { text: "账号与联系方式" }
+ acc_mcat2 := mod.widgets.AccountCategoryRow { text: "收货地址" }
+ }
+ account_data_head := LiyuMuted { text: "我的数据" }
+ account_shortcuts := LiyuCard { width: Fill height: Fit flow: Down spacing: 2.0
+ account_wishes := mod.widgets.AccountCategoryRow { width: Fill text: "心愿单" }
+ account_received := mod.widgets.AccountCategoryRow { width: Fill text: "收到的礼物" }
+ account_sent := mod.widgets.AccountCategoryRow { width: Fill text: "送出的礼物" }
+ account_drafts := mod.widgets.AccountCategoryRow { width: Fill text: "送礼草稿" }
+ account_cart := mod.widgets.AccountCategoryRow { width: Fill text: "购物车与订单" }
+ account_wallet := mod.widgets.AccountCategoryRow { width: Fill text: "钱包与流水" }
+ }
+ account_settings_head := LiyuMuted { text: "应用设置" }
+ account_settings_menu := LiyuCard { width: Fill height: Fit flow: Down spacing: 2.0
+ acc_mcat3 := mod.widgets.AccountCategoryRow { text: "通用" }
+ acc_mcat4 := mod.widgets.AccountCategoryRow { text: "通知" }
+ acc_mcat5 := mod.widgets.AccountCategoryRow { text: "数据管理" }
+ acc_mcat6 := mod.widgets.AccountCategoryRow { text: "关于" }
+ }
+ }
+                            workspace_pages := View { width: Fill height: Fill flow: Down
                         // ================= 挑礼 =================
                         page_gift := LiyuScrollY {
                             width: Fill height: Fill
@@ -446,34 +477,7 @@ script_mod! {
  // Keep account edits inside their own draw list, separate from app navigation.
  new_batch: true
  visible: false width: Fill height: Fill flow: Right spacing: 16.0
- me_list := LiyuScrollY { width: 200 height: Fill flow: Down spacing: 12.0
- account_identity := LiyuCard { width: Fill height: Fit flow: Down spacing: 8.0 align: Align{x: 0.5, y: 0.0}
- account_avatar := LiyuThumb { width: 56 height: 56 }
- account_name := Label { width: Fill height: Fit align: Align{x: 0.5, y: 0.5} text: "" draw_text +: { color: liyu.ink wrap: None max_lines: 1 text_overflow: Ellipsis text_style +: { font_size: 13.0 } } }
- }
- account_info_head := LiyuMuted { text: "用户信息" }
- account_categories := LiyuCard { width: Fill height: Fit flow: Down spacing: 2.0
- acc_mcat0 := mod.widgets.AccountCategoryRow { text: "个人资料" }
- acc_mcat1 := mod.widgets.AccountCategoryRow { text: "账号与联系方式" }
- acc_mcat2 := mod.widgets.AccountCategoryRow { text: "收货地址" }
- }
- account_data_head := LiyuMuted { text: "我的数据" }
- account_shortcuts := LiyuCard { width: Fill height: Fit flow: Down spacing: 2.0
- account_wishes := mod.widgets.AccountCategoryRow { width: Fill text: "心愿单" }
- account_received := mod.widgets.AccountCategoryRow { width: Fill text: "收到的礼物" }
- account_sent := mod.widgets.AccountCategoryRow { width: Fill text: "送出的礼物" }
- account_drafts := mod.widgets.AccountCategoryRow { width: Fill text: "送礼草稿" }
- account_cart := mod.widgets.AccountCategoryRow { width: Fill text: "购物车与订单" }
- account_wallet := mod.widgets.AccountCategoryRow { width: Fill text: "钱包与流水" }
- }
- account_settings_head := LiyuMuted { text: "应用设置" }
- account_settings_menu := LiyuCard { width: Fill height: Fit flow: Down spacing: 2.0
- acc_mcat3 := mod.widgets.AccountCategoryRow { text: "通用" }
- acc_mcat4 := mod.widgets.AccountCategoryRow { text: "通知" }
- acc_mcat5 := mod.widgets.AccountCategoryRow { text: "数据管理" }
- acc_mcat6 := mod.widgets.AccountCategoryRow { text: "关于" }
- }
- }
+
  account_detail := View { width: Fill height: Fill flow: Down spacing: 12.0
  account_header := View { width: Fill height: Fit flow: Right spacing: 8.0
  acc_back := LiyuBtnSm { width: Fit text: "‹ 返回" }
@@ -500,6 +504,7 @@ script_mod! {
                                     me_wallet := LiyuBtnSm { width: Fit text: "钱包与流水" }
                                 }
                             }
+                            account_draft_empty := LiyuMuted { visible: false text: "暂无待确认的送礼草稿" }
                             me_draft := LiyuCard {
                                 visible: false
                                 width: Fill height: Fit
@@ -1286,6 +1291,49 @@ script_mod! {
                             }
                         }
 
+                        // ================= 独立收礼 / 送礼列表 =================
+                        page_account_received := LiyuScrollY {
+                            visible: false width: Fill height: Fill flow: Down spacing: 14.0
+                            received_gift_note := LiyuMuted { text: "收到的礼物" }
+                            received_gift_retry := LiyuBtnSm { width: Fit text: "刷新" }
+                            received_gift_list := LiyuCard { width: Fill height: Fit flow: Down padding: 6.0 spacing: 0.0
+                                received_gift_0 := LiyuBoxRow { }
+                                received_gift_1 := LiyuBoxRow { }
+                                received_gift_2 := LiyuBoxRow { }
+                                received_gift_3 := LiyuBoxRow { }
+                                received_gift_4 := LiyuBoxRow { }
+                                received_gift_5 := LiyuBoxRow { }
+                                received_gift_6 := LiyuBoxRow { }
+                                received_gift_7 := LiyuBoxRow { }
+                                received_gift_8 := LiyuBoxRow { }
+                                received_gift_9 := LiyuBoxRow { }
+                                received_gift_10 := LiyuBoxRow { }
+                                received_gift_11 := LiyuBoxRow { }
+                                received_gift_empty := LiyuEmpty { }
+                            }
+                            received_gift_more := LiyuMuted { visible: false text: "" }
+                        }
+                        page_account_sent := LiyuScrollY {
+                            visible: false width: Fill height: Fill flow: Down spacing: 14.0
+                            sent_gift_note := LiyuMuted { text: "送出的礼物" }
+                            sent_gift_retry := LiyuBtnSm { width: Fit text: "刷新" }
+                            sent_gift_list := LiyuCard { width: Fill height: Fit flow: Down padding: 6.0 spacing: 0.0
+                                sent_gift_0 := LiyuBoxRow { }
+                                sent_gift_1 := LiyuBoxRow { }
+                                sent_gift_2 := LiyuBoxRow { }
+                                sent_gift_3 := LiyuBoxRow { }
+                                sent_gift_4 := LiyuBoxRow { }
+                                sent_gift_5 := LiyuBoxRow { }
+                                sent_gift_6 := LiyuBoxRow { }
+                                sent_gift_7 := LiyuBoxRow { }
+                                sent_gift_8 := LiyuBoxRow { }
+                                sent_gift_9 := LiyuBoxRow { }
+                                sent_gift_10 := LiyuBoxRow { }
+                                sent_gift_11 := LiyuBoxRow { }
+                                sent_gift_empty := LiyuEmpty { }
+                            }
+                            sent_gift_more := LiyuMuted { visible: false text: "" }
+                        }
                         // ================= 钱包与流水（覆盖页）=================
                         page_wallet := LiyuScrollY {
                             visible: false
@@ -1970,6 +2018,9 @@ script_mod! {
                             wp_note := LiyuMuted { text: "" }
                         }
 
+                            }
+                        }
+
                         // ================= 认证闸（首次启动 / 登出 / 401 后的独立界面）=================
                         //
                         // 未认证时盖住整个应用：不是覆盖页、不在 Tab 里，登录 / 注册互切，
@@ -2549,7 +2600,7 @@ const ASIDE_MIN: f64 = 900.0;
 
 /// 自己吃左右留白的那些容器：正文区不留左右内边距，滚动条才贴得住窗口边，
 /// 所以这一份留白落到每个可滚动页面（以及送礼页那条固定底栏）身上。
-const SIDE_PAD_VIEWS: [LiveId; 23] = [
+const SIDE_PAD_VIEWS: [LiveId; 25] = [
     live_id!(page_gift),
     live_id!(page_box),
     live_id!(page_online_gift),
@@ -2562,6 +2613,8 @@ const SIDE_PAD_VIEWS: [LiveId; 23] = [
     live_id!(page_open),
     live_id!(page_sent),
     live_id!(page_wallet),
+    live_id!(page_account_received),
+    live_id!(page_account_sent),
     live_id!(page_settings),
     live_id!(page_profile),
     live_id!(page_cart),
@@ -2648,6 +2701,8 @@ enum Overlay {
     /// 送出详情。
     Sent,
     Wallet,
+    ReceivedGifts,
+    SentGifts,
     Settings,
     Profile,
     Cart,
@@ -2665,6 +2720,75 @@ enum Overlay {
     /// 挑一件：替好友的含糊心愿挑，或者给自己的心愿单挑。
     WishPick,
 }
+
+/// A data destination in the account workspace, independent of the gift-box tab.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AccountSection {
+    Wishes,
+    Received,
+    Sent,
+    Drafts,
+    Cart,
+    Wallet,
+}
+impl AccountSection {
+    const ALL: [Self; 6] = [
+        Self::Wishes,
+        Self::Received,
+        Self::Sent,
+        Self::Drafts,
+        Self::Cart,
+        Self::Wallet,
+    ];
+    fn id(self) -> LiveId {
+        match self {
+            Self::Wishes => live_id!(account_wishes),
+            Self::Received => live_id!(account_received),
+            Self::Sent => live_id!(account_sent),
+            Self::Drafts => live_id!(account_drafts),
+            Self::Cart => live_id!(account_cart),
+            Self::Wallet => live_id!(account_wallet),
+        }
+    }
+    fn label(self) -> &'static str {
+        match self {
+            Self::Wishes => "心愿单",
+            Self::Received => "收到的礼物",
+            Self::Sent => "送出的礼物",
+            Self::Drafts => "送礼草稿",
+            Self::Cart => "购物车与订单",
+            Self::Wallet => "钱包与流水",
+        }
+    }
+}
+const RECEIVED_GIFT_ROWS: [LiveId; 12] = [
+    live_id!(received_gift_0),
+    live_id!(received_gift_1),
+    live_id!(received_gift_2),
+    live_id!(received_gift_3),
+    live_id!(received_gift_4),
+    live_id!(received_gift_5),
+    live_id!(received_gift_6),
+    live_id!(received_gift_7),
+    live_id!(received_gift_8),
+    live_id!(received_gift_9),
+    live_id!(received_gift_10),
+    live_id!(received_gift_11),
+];
+const SENT_GIFT_ROWS: [LiveId; 12] = [
+    live_id!(sent_gift_0),
+    live_id!(sent_gift_1),
+    live_id!(sent_gift_2),
+    live_id!(sent_gift_3),
+    live_id!(sent_gift_4),
+    live_id!(sent_gift_5),
+    live_id!(sent_gift_6),
+    live_id!(sent_gift_7),
+    live_id!(sent_gift_8),
+    live_id!(sent_gift_9),
+    live_id!(sent_gift_10),
+    live_id!(sent_gift_11),
+];
 
 /// 心愿单上的一件：（心愿单 id, 第几件）。
 type WishAt = (u64, usize);
@@ -2827,6 +2951,12 @@ pub struct LiyuView {
     box_sent: bool,
     #[rust]
     box_rows: Vec<u64>,
+    #[rust]
+    account_section: Option<AccountSection>,
+    #[rust]
+    received_gift_rows: Vec<i64>,
+    #[rust]
+    sent_gift_rows: Vec<i64>,
 
     // ---- 礼卡页 ----
     #[rust]
@@ -3159,6 +3289,7 @@ impl LiyuView {
         self.import_menu = false;
         self.add_error = None;
         self.tab = i;
+        self.account_section = None;
         for (j, id) in TABS.iter().enumerate() {
             for root in [live_id!(sidebar), live_id!(tabbar)] {
                 self.view
@@ -3236,6 +3367,8 @@ impl LiyuView {
             Overlay::Open => self.refresh_open(cx),
             Overlay::Sent => self.refresh_sent(cx),
             Overlay::Wallet => self.refresh_wallet(cx),
+            Overlay::ReceivedGifts => self.refresh_account_gifts(cx, false),
+            Overlay::SentGifts => self.refresh_account_gifts(cx, true),
             Overlay::Settings => self.refresh_settings(cx),
             Overlay::Profile => self.refresh_profile(cx),
             Overlay::Cart => self.refresh_cart(cx),
@@ -3256,6 +3389,8 @@ impl LiyuView {
             Overlay::Open => live_id!(page_open),
             Overlay::Sent => live_id!(page_sent),
             Overlay::Wallet => live_id!(page_wallet),
+            Overlay::ReceivedGifts => live_id!(page_account_received),
+            Overlay::SentGifts => live_id!(page_account_sent),
             Overlay::Settings => live_id!(page_settings),
             Overlay::Profile => live_id!(page_profile),
             Overlay::Cart => live_id!(page_cart),
@@ -3284,6 +3419,19 @@ impl LiyuView {
             self.overlay = None;
             self.update_page_visibility(cx); return;
         }
+        if self.tab == 4 && self.account_section.is_some() {
+            if let Some(o) = self.back_stack.pop() {
+                self.overlay = Some(o);
+                if matches!(o, Overlay::ReceivedGifts | Overlay::SentGifts) { let _ = self.gift_client.refresh(); }
+                self.refresh_overlay(cx, o);
+            } else {
+                self.account_section = None;
+                self.overlay = None;
+                self.refresh_me(cx);
+            }
+            self.update_page_visibility(cx);
+            return;
+        }
         match self.overlay {
             Some(
                 Overlay::Send
@@ -3294,7 +3442,9 @@ impl LiyuView {
                 | Overlay::WishEdit
                 | Overlay::WishPick
                 | Overlay::Cart
-                | Overlay::OnlineGift,
+                | Overlay::OnlineGift
+                | Overlay::ReceivedGifts
+                | Overlay::SentGifts,
             ) => self.pop_back(cx),
             Some(Overlay::Card) | Some(Overlay::Sent) => {
                 self.box_sent = true;
@@ -3327,12 +3477,15 @@ impl LiyuView {
         for (j, id) in PAGES.iter().enumerate() {
             self.show(cx, &[*id], !gate && !intro && j == self.tab && (self.overlay.is_none() || (j == 4 && matches!(self.overlay, Some(Overlay::Profile | Overlay::Settings)))));
         }
+        self.show(cx, ids!(account_workspace), !intro && !gate);
         let ov = if intro || gate { None } else { self.overlay };
         self.show(cx, ids!(page_send), ov == Some(Overlay::Send));
         self.show(cx, ids!(page_card), ov == Some(Overlay::Card));
         self.show(cx, ids!(page_open), ov == Some(Overlay::Open));
         self.show(cx, ids!(page_sent), ov == Some(Overlay::Sent));
         self.show(cx, ids!(page_wallet), ov == Some(Overlay::Wallet));
+        self.show(cx, ids!(page_account_received), ov == Some(Overlay::ReceivedGifts));
+        self.show(cx, ids!(page_account_sent), ov == Some(Overlay::SentGifts));
         self.show(cx, ids!(page_settings), ov == Some(Overlay::Settings));
         self.show(cx, ids!(page_profile), ov == Some(Overlay::Profile));
         self.refresh_account_nav(cx);
@@ -3355,7 +3508,7 @@ impl LiyuView {
 
     fn refresh_topbar(&mut self, cx: &mut Cx) {
         let title: String = match self.overlay {
-            None => TAB_TITLES[self.tab].into(),
+            None => self.account_section.filter(|_| self.tab == 4).map_or(TAB_TITLES[self.tab], AccountSection::label).into(),
             Some(Overlay::Send) => {
                 if self.draft.wish.is_some() {
                     "认领心愿".into()
@@ -3376,6 +3529,8 @@ impl LiyuView {
             },
             Some(Overlay::Sent) => "送出详情".into(),
             Some(Overlay::Wallet) => "钱包与流水".into(),
+            Some(Overlay::ReceivedGifts) => "收到的礼物".into(),
+            Some(Overlay::SentGifts) => "送出的礼物".into(),
             Some(Overlay::Settings) => "设置".into(),
             Some(Overlay::Profile) => "账户资料".into(),
             Some(Overlay::Cart) => "购物车".into(),
@@ -3460,8 +3615,11 @@ impl LiyuView {
                 _ => self.refresh_me(cx),
             }
         }
-        if self.overlay == Some(Overlay::Wallet) {
-            self.refresh_wallet(cx);
+        match self.overlay {
+            Some(Overlay::Wallet) => self.refresh_wallet(cx),
+            Some(Overlay::ReceivedGifts) => self.refresh_account_gifts(cx, false),
+            Some(Overlay::SentGifts) => self.refresh_account_gifts(cx, true),
+            _ => {},
         }
     }
 
@@ -3682,9 +3840,16 @@ impl LiyuView {
             aside.layout.padding.right = side;
             aside.walk.width = Size::Fixed(ASIDE_COL + side);
         }
+        // 正文宽度：窗口减去侧栏、右列和页面自己的左右留白；再留 6px 给滚动条和取整，
+        // 宁可每张卡窄一点，也别被挤掉一列。
+        let nav_w = if phone || intro { 0.0 } else { SIDEBAR_W };
+        let aside_w = if s.aside && !intro && self.tab != 4 { ASIDE_COL + side } else { 0.0 };
+        let account_menu_w = if self.tab == 4 && self.last_size.x >= 820.0 && !intro { 200.0 + side } else { 0.0 };
+        self.content_w = (self.last_size.x - nav_w - aside_w - account_menu_w - 2.0 * side - 6.0).max(240.0);
+        let compact_content = phone || self.content_w < 640.0;
         // 礼卡页：宽屏左卡右操作，手机竖排。
         if let Some(mut row) = self.view.view(cx, ids!(cd_row)).borrow_mut() {
-            row.layout.flow = if phone {
+            row.layout.flow = if compact_content {
                 Flow::Down
             } else {
                 Flow::Right { row_align: RowAlign::Top, wrap: false }
@@ -3692,25 +3857,24 @@ impl LiyuView {
         }
         // 竖排时卡片占整行并居中，不然贴左边、右侧空一块。
         if let Some(mut prev) = self.view.view(cx, ids!(cd_prev)).borrow_mut() {
-            prev.walk.width = if phone { Size::fill() } else { Size::fit() };
-            prev.layout.align.x = if phone { 0.5 } else { 0.0 };
+            prev.walk.width = if compact_content { Size::fill() } else { Size::fit() };
+            prev.layout.align.x = if compact_content { 0.5 } else { 0.0 };
         }
-        // 正文宽度：窗口减去侧栏、右列和页面自己的左右留白；再留 6px 给滚动条和取整，
-        // 宁可每张卡窄一点，也别被挤掉一列。
-        let nav_w = if phone || intro { 0.0 } else { SIDEBAR_W };
-        let aside_w = if s.aside && !intro && self.tab != 4 { ASIDE_COL + side } else { 0.0 };
-        self.content_w = (self.last_size.x - nav_w - aside_w - 2.0 * side - 6.0).max(240.0);
+        if let Some(mut menu) = self.view.view(cx, ids!(me_list)).borrow_mut() {
+            menu.walk.margin.left = side;
+            menu.walk.margin.right = if self.last_size.x < 820.0 { side } else { 0.0 };
+        }
         self.layout_tiles(cx);
         self.refresh_account_nav(cx);
         // 商品详情：宽屏左图右信息，手机图在上、占满一行（最多 360）。
         if let Some(mut top) = self.view.view(cx, ids!(pd_top)).borrow_mut() {
-            top.layout.flow = if phone {
+            top.layout.flow = if compact_content {
                 Flow::Down
             } else {
                 Flow::Right { row_align: RowAlign::Top, wrap: false }
             };
         }
-        let pd = if phone { self.content_w.min(360.0).floor() } else { 300.0 };
+        let pd = if compact_content { (self.content_w - 36.0).clamp(0.0, 360.0).floor() } else { 300.0 };
         self.set_img_size(cx, ids!(pd_img), pd);
         self.redraw(cx);
     }
@@ -4205,7 +4369,13 @@ impl LiyuView {
         self.online_gift_err = self.gift_client.detail(id, sent_role).err();
         if let Some(err) = self.online_gift_err {
             self.toast(cx, err);
-            if !self.gift_client.online { self.refresh_box(cx); }
+            if !self.gift_client.online {
+                match self.account_section {
+                    Some(AccountSection::Received) => self.refresh_account_gifts(cx, false),
+                    Some(AccountSection::Sent) => self.refresh_account_gifts(cx, true),
+                    _ => self.refresh_box(cx),
+                }
+            }
             return;
         }
         self.online_gift_id = Some(id);
@@ -4970,6 +5140,166 @@ impl LiyuView {
         }
     }
 
+    fn open_account_section(&mut self, cx: &mut Cx, section: AccountSection) {
+        if self.account_has_unsaved_changes(cx) {
+            self.toast(cx, "有未保存的修改，请保存或取消");
+            self.refresh_account_nav(cx);
+            return;
+        }
+        if self.account_edit.is_some() {
+            self.cancel_account_edit(cx);
+        }
+        self.tab = 4;
+        self.account_section = Some(section);
+        self.profile_err = None;
+        self.nick_err = None;
+        self.account_nav = Some(account_nav::AccountNavModel::new());
+        self.overlay = None;
+        self.back_stack.clear();
+        self.send_from = 4;
+        match section {
+            AccountSection::Wishes => self.open_wishes(cx),
+            AccountSection::Cart => self.open_cart(cx, None),
+            AccountSection::Wallet => {
+                self.refresh_wallet(cx);
+                self.open_overlay(cx, Overlay::Wallet);
+            }
+            AccountSection::Received | AccountSection::Sent => {
+                let sent = section == AccountSection::Sent;
+                let _ = self.gift_client.refresh();
+                self.refresh_account_gifts(cx, sent);
+                self.open_overlay(
+                    cx,
+                    if sent {
+                        Overlay::SentGifts
+                    } else {
+                        Overlay::ReceivedGifts
+                    },
+                );
+            }
+            AccountSection::Drafts => {
+                self.refresh_me(cx);
+                self.update_page_visibility(cx);
+            }
+        }
+        self.refresh_account_nav(cx);
+    }
+
+    /// Render dedicated account lists with independent widget IDs and row mappings.
+    /// Sharing the role-specific API client does not couple these pages to page_box.
+    fn refresh_account_gifts(&mut self, cx: &mut Cx, sent: bool) {
+        let rows = if sent {
+            self.gift_client
+                .outbox
+                .iter()
+                .map(|g| {
+                    let title = CATALOG
+                        .get(g.product_id as usize)
+                        .map(|p| p.name)
+                        .unwrap_or("商品");
+                    (
+                        g.id,
+                        Some(g.product_id),
+                        format!("{} · 送给 {}", title, g.recipient_name),
+                        "已送出的礼物".to_string(),
+                        format!(
+                            "{} · 物流签收 {} · TA 确认 {}",
+                            g.state,
+                            if g.carrier_delivered { "是" } else { "否" },
+                            if g.recipient_confirmed { "是" } else { "否" }
+                        ),
+                    )
+                })
+                .collect::<Vec<_>>()
+        } else {
+            self.gift_client
+                .inbox
+                .iter()
+                .map(|g| {
+                    let title = g
+                        .product_id
+                        .and_then(|i| CATALOG.get(i as usize))
+                        .map(|p| p.name)
+                        .unwrap_or("一份神秘礼物");
+                    (
+                        g.id,
+                        g.product_id,
+                        title.to_string(),
+                        if g.product_id.is_some() {
+                            "已揭晓的礼物".into()
+                        } else {
+                            "拆开前不展示商品和送礼人".into()
+                        },
+                        g.state.clone(),
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        let rows = if self.gift_client.online {
+            rows
+        } else {
+            Vec::new()
+        };
+        if sent {
+            self.sent_gift_rows = rows.iter().map(|r| r.0).collect();
+        } else {
+            self.received_gift_rows = rows.iter().map(|r| r.0).collect();
+        }
+        let (widgets, empty, more, note) = if sent {
+            (
+                &SENT_GIFT_ROWS,
+                live_id!(sent_gift_empty),
+                live_id!(sent_gift_more),
+                live_id!(sent_gift_note),
+            )
+        } else {
+            (
+                &RECEIVED_GIFT_ROWS,
+                live_id!(received_gift_empty),
+                live_id!(received_gift_more),
+                live_id!(received_gift_note),
+            )
+        };
+        self.set_text(
+            cx,
+            &[note],
+            if sent {
+                "送出的礼物 · 按送礼人权限显示"
+            } else {
+                "收到的礼物 · 按收礼人权限显示"
+            },
+        );
+        for (j, row) in widgets.iter().enumerate() {
+            self.show(cx, &[*row], j < rows.len());
+            if let Some((_, image, title, subtitle, state)) = rows.get(j) {
+                self.set_img(cx, &[*row, live_id!(bx_img)], *image);
+                self.set_text(cx, &[*row, live_id!(bx_title)], title);
+                self.set_text(cx, &[*row, live_id!(bx_sub)], subtitle);
+                self.set_text(cx, &[*row, live_id!(bx_state)], state);
+            }
+        }
+        self.apply_list_state(
+            cx,
+            &[empty],
+            if !self.gift_client.online {
+                "礼物加载失败"
+            } else if sent {
+                "还没有送出的礼物"
+            } else {
+                "还没有收到的礼物"
+            },
+            if self.gift_client.online {
+                ""
+            } else {
+                "请检查服务器连接后刷新"
+            },
+            rows.len(),
+        );
+        let overflow = rows.len().saturating_sub(widgets.len());
+        self.show(cx, &[more], overflow > 0);
+        self.set_text(cx, &[more], &format!("还有 {overflow} 份较早的礼物未显示"));
+    }
+
     fn refresh_account_nav(&mut self, cx: &mut Cx) {
         use account_nav::AccountCategory as C;
         let desktop = self.last_size.x >= 820.0;
@@ -4986,8 +5316,14 @@ impl LiyuView {
         } else {
             None
         };
-        let detail = category.is_some();
-        self.show(cx, ids!(me_list), desktop || !detail);
+        let detail = category.is_some() || self.account_section.is_some() || self.overlay.is_some();
+        let account_visible = self.tab == 4 && !self.auth_gate && self.intro.is_none();
+        self.show(cx, ids!(me_list), account_visible && (desktop || !detail));
+        self.show(
+            cx,
+            ids!(workspace_pages),
+            !account_visible || desktop || detail,
+        );
         self.show(cx, ids!(account_detail), desktop || detail);
         if let Some(mut v) = self.view.view(cx, ids!(me_list)).borrow_mut() {
             v.walk.width = if desktop {
@@ -4996,15 +5332,49 @@ impl LiyuView {
                 Size::fill()
             };
         }
-        self.show(cx, ids!(account_landing), !detail);
+        self.show(
+            cx,
+            ids!(account_landing),
+            category.is_none() && self.overlay.is_none(),
+        );
         self.show(cx, ids!(account_about), category == Some(C::About));
+        let drafts = self.account_section == Some(AccountSection::Drafts);
+        for id in [
+            live_id!(me_identity),
+            live_id!(me_bal),
+            live_id!(me_stats),
+            live_id!(me_rows),
+        ] {
+            self.show(cx, &[id], !drafts);
+        }
+        self.show(
+            cx,
+            ids!(account_draft_empty),
+            drafts && self.draft_pending.is_none(),
+        );
         self.show(cx, ids!(acc_back), !desktop || self.account_edit.is_some());
-        self.set_text(cx, ids!(acc_title), category.map_or("我", C::label));
+        self.set_text(
+            cx,
+            ids!(acc_title),
+            self.account_section
+                .map_or_else(|| category.map_or("我", C::label), AccountSection::label),
+        );
         for (i, cat) in C::ALL.iter().enumerate() {
             self.set_text(cx, &[account_ui::LIST_CATEGORY_IDS[i]], cat.label());
         }
-        if let Some(cat) = category {
-            self.set_chip_group(cx, &account_ui::LIST_CATEGORY_IDS, cat as usize);
+        for (i, id) in account_ui::LIST_CATEGORY_IDS.iter().enumerate() {
+            let selected = self.account_section.is_none() && category == Some(C::ALL[i]);
+            let chip = self.view.check_box(cx, &[*id]);
+            if chip.active(cx) != selected {
+                chip.set_active(cx, selected, Animate::Yes);
+            }
+        }
+        for section in AccountSection::ALL {
+            let chip = self.view.check_box(cx, &[section.id()]);
+            let selected = self.account_section == Some(section);
+            if chip.active(cx) != selected {
+                chip.set_active(cx, selected, Animate::Yes);
+            }
         }
         let editing = self.account_edit;
         if let Some(field) = editing {
@@ -5039,7 +5409,7 @@ impl LiyuView {
         );
         if let Some(mut v) = self.view.view(cx, ids!(account_detail)).borrow_mut() {
             v.walk.width = if desktop {
-                Size::Fixed((self.content_w - 216.0).clamp(280.0, 720.0))
+                Size::Fixed(self.content_w.clamp(280.0, 720.0))
             } else {
                 Size::fill()
             };
@@ -5104,7 +5474,7 @@ impl LiyuView {
         self.show(cx, ids!(nk_edit), editing != Some(4));
         self.show(cx, ids!(nk_save), false);
         self.set_text(cx, ids!(nk_value), &self.state.settings.nickname.clone());
-        self.show(cx, ids!(account_drafts), self.draft_pending.is_some());
+        self.show(cx, ids!(account_drafts), true);
         self.show(cx, ids!(pf_name_editor), editing == Some(0));
         for (id, field) in [
             (live_id!(pf_phone_editor), 1),
@@ -5206,13 +5576,7 @@ impl LiyuView {
     }
 
     fn account_shortcut_clicked(&mut self, cx: &mut Cx, id: LiveId, actions: &Actions) -> bool {
-        let changed = self.view.check_box(cx, &[id]).changed(actions).is_some();
-        if changed {
-            self.view
-                .check_box(cx, &[id])
-                .set_active(cx, false, Animate::Yes);
-        }
-        changed
+        self.view.check_box(cx, &[id]).changed(actions).is_some()
     }
 
     fn cancel_account_edit(&mut self, cx: &mut Cx) {
@@ -5981,8 +6345,24 @@ impl LiyuView {
                 self.open_preview(cx);
             }
             if self.clicked(cx, ids!(cd_done), actions) {
-                self.box_sent = true;
-                self.set_tab(cx, 1);
+                if self.tab == 4 && self.account_section.is_some() { self.go_back(cx); }
+                else { self.box_sent = true; self.set_tab(cx, 1); }
+            }
+        }
+
+        for (sent, retry, empty, row_ids) in [
+            (false, live_id!(received_gift_retry), live_id!(received_gift_empty), &RECEIVED_GIFT_ROWS),
+            (true, live_id!(sent_gift_retry), live_id!(sent_gift_empty), &SENT_GIFT_ROWS),
+        ] {
+            if self.clicked(cx, &[retry], actions) || self.clicked(cx, &[empty, live_id!(em_action)], actions) {
+                let _ = self.gift_client.refresh();
+                self.refresh_account_gifts(cx, sent);
+            }
+            for (j, row) in row_ids.iter().enumerate() {
+                if self.clicked(cx, &[*row, live_id!(bx_hit)], actions) {
+                    let id = if sent { self.sent_gift_rows.get(j) } else { self.received_gift_rows.get(j) }.copied();
+                    if let Some(id) = id { self.open_online_gift(cx, id, sent); }
+                }
             }
         }
 
@@ -6091,8 +6471,8 @@ impl LiyuView {
                 self.start_return(cx);
             }
             if self.clicked(cx, ids!(odn_home), actions) {
-                self.box_sent = false;
-                self.set_tab(cx, 1);
+                if self.tab == 4 && self.account_section.is_some() { self.go_back(cx); }
+                else { self.box_sent = false; self.set_tab(cx, 1); }
             }
         }
 
@@ -6198,33 +6578,18 @@ impl LiyuView {
             }
         }
 
-        for (id,sent) in [(live_id!(account_received),false),(live_id!(account_sent),true)] {
-            if self.account_shortcut_clicked(cx,id,actions) {
-                if self.account_has_unsaved_changes(cx) {
-                    self.toast(cx,"有未保存的修改，请保存或取消");
-                } else {
-                    self.box_sent=sent;
-                    self.set_tab(cx,1);
-                }
+        for section in AccountSection::ALL {
+            if self.account_shortcut_clicked(cx, section.id(), actions) {
+                self.open_account_section(cx, section);
             }
         }
         if self.clicked(cx, ids!(account_intro), actions) { self.open_intro(cx,0); }
-        if self.account_shortcut_clicked(cx, live_id!(account_drafts), actions) {
-            if let Some(nav)=self.account_nav.as_mut() { nav.pop_discarding(); }
-            self.overlay=None;
-            // Show the account overview, including the pending draft, on phones too.
-            self.update_page_visibility(cx);
-            self.show(cx, ids!(me_list), false);
-            self.show(cx, ids!(account_detail), true);
-            self.show(cx, ids!(acc_back), true);
-        }
         // ---- 我 ----
         if self.clicked(cx, &[live_id!(row_wallet), live_id!(st_hit)], actions)
             || self.clicked(cx, ids!(me_wallet), actions)
-            || self.account_shortcut_clicked(cx, live_id!(account_wallet), actions)
         {
-            self.refresh_wallet(cx);
-            self.open_overlay(cx, Overlay::Wallet);
+            if self.tab == 4 { self.open_account_section(cx, AccountSection::Wallet); }
+            else { self.refresh_wallet(cx); self.open_overlay(cx, Overlay::Wallet); }
         }
         if self.clicked(cx, &[live_id!(row_settings), live_id!(st_hit)], actions) {
             self.open_settings(cx);
@@ -6232,8 +6597,8 @@ impl LiyuView {
         if self.clicked(cx, &[live_id!(row_profile), live_id!(st_hit)], actions) {
             self.open_profile(cx);
         }
-        if self.clicked(cx, &[live_id!(row_cart), live_id!(st_hit)], actions) || self.account_shortcut_clicked(cx, live_id!(account_cart), actions) {
-            self.open_cart(cx, None);
+        if self.clicked(cx, &[live_id!(row_cart), live_id!(st_hit)], actions) {
+            self.open_account_section(cx, AccountSection::Cart);
         }
         if self.clicked(cx, ids!(pd_cart), actions) && self.overlay == Some(Overlay::Product) {
             self.open_cart(cx, Some(self.pd_item));
@@ -6241,9 +6606,9 @@ impl LiyuView {
         if self.clicked(cx, &[live_id!(row_wish), live_id!(st_hit)], actions)
             || self.clicked(cx, &[live_id!(row_mywish), live_id!(st_hit)], actions)
             || self.clicked(cx, ids!(ag3_go), actions)
-            || self.account_shortcut_clicked(cx, live_id!(account_wishes), actions)
         {
-            self.open_wishes(cx);
+            if self.tab == 4 { self.open_account_section(cx, AccountSection::Wishes); }
+            else { self.open_wishes(cx); }
         }
         if self.clicked(cx, &[live_id!(row_about), live_id!(st_hit)], actions) {
             self.open_intro(cx, 0);
@@ -6496,6 +6861,8 @@ impl LiyuView {
                     continue;
                 }
                 if self.account_edit.is_some() { self.cancel_account_edit(cx); }
+                self.account_section = None;
+                self.back_stack.clear();
                 self.account_nav.get_or_insert_with(account_nav::AccountNavModel::new).select(*cat);
                 match i {
                     0..=2 if self.overlay != Some(Overlay::Profile) => self.open_profile(cx),
@@ -6893,6 +7260,210 @@ mod layout_tests {
             view.go_back(&mut cx);
             assert!(view.account_nav.as_ref().unwrap().depth() == 1);
         }
+    }
+
+    #[test]
+    fn account_data_menu_keeps_desktop_menu_and_mobile_return_at_all_sizes() {
+        let mut cx = Cx::new(Box::new(|_, _| {}));
+        let root = cx.with_vm(|vm| {
+            makepad_widgets::script_mod(vm);
+            LIYU_MODULE.register(vm);
+            let value = script_eval!(vm, { use mod.widgets.* LiyuView {} });
+            WidgetRef::script_from_value(vm, value)
+        });
+        let mut view = root.borrow_mut::<LiyuView>().unwrap();
+        view.tab = 4;
+        view.auth_gate = false;
+        view.box_rows = vec![999];
+        view.box_sent = true;
+        for (width, height) in [
+            (412.0, 892.0),
+            (820.0, 700.0),
+            (1000.0, 700.0),
+            (1280.0, 800.0),
+        ] {
+            view.last_size = size(width, height);
+            view.shaping = Some(shaping_for(view.last_size));
+            view.account_nav = Some(account_nav::AccountNavModel::new());
+            view.update_page_visibility(&mut cx);
+            for section in AccountSection::ALL {
+                let uid = view.view.widget(&cx, &[section.id()]).widget_uid();
+                let actions =
+                    cx.capture_actions(|cx| cx.widget_action(uid, CheckBoxAction::Change(true)));
+                view.handle_actions(&mut cx, &actions);
+                assert_eq!(view.tab, 4);
+                assert_eq!(view.account_section, Some(section));
+                assert!(view.view.widget(&cx, ids!(workspace_pages)).visible());
+                assert_eq!(
+                    view.view.widget(&cx, ids!(me_list)).visible(),
+                    width >= 820.0
+                );
+                let page = match section {
+                    AccountSection::Wishes => live_id!(page_wishes),
+                    AccountSection::Received => live_id!(page_account_received),
+                    AccountSection::Sent => live_id!(page_account_sent),
+                    AccountSection::Drafts => live_id!(page_me),
+                    AccountSection::Cart => live_id!(page_cart),
+                    AccountSection::Wallet => live_id!(page_wallet),
+                };
+                assert!(
+                    view.view.widget(&cx, &[page]).visible(),
+                    "{}",
+                    section.label()
+                );
+                if width >= 820.0 {
+                    assert!(view.content_w <= width - SIDEBAR_W - 200.0 - 20.0);
+                    let tile = view.view.view(&cx, ids!(wp0)).borrow().unwrap().walk.width;
+                    assert!(matches!(tile, Size::Fixed(w) if w < view.content_w / 2.0));
+                }
+                assert!(!view.view.widget(&cx, ids!(page_box)).visible());
+                assert_eq!(view.box_rows, vec![999]);
+                assert!(view.box_sent);
+                for other in AccountSection::ALL {
+                    assert_eq!(
+                        view.view.check_box(&cx, &[other.id()]).active(&cx),
+                        other == section
+                    );
+                }
+                for id in account_ui::LIST_CATEGORY_IDS {
+                    assert!(!view.view.check_box(&cx, &[id]).active(&cx));
+                }
+                view.go_back(&mut cx);
+                assert_eq!(view.tab, 4);
+                assert_eq!(view.account_section, None);
+                assert_eq!(view.overlay, None);
+                assert!(view.view.widget(&cx, ids!(me_list)).visible());
+                assert_eq!(
+                    view.view.widget(&cx, ids!(workspace_pages)).visible(),
+                    width >= 820.0
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn data_menu_does_not_discard_an_unsaved_profile_edit_or_its_selection() {
+        let mut cx = Cx::new(Box::new(|_, _| {}));
+        let root = cx.with_vm(|vm| {
+            makepad_widgets::script_mod(vm);
+            LIYU_MODULE.register(vm);
+            let value = script_eval!(vm, { use mod.widgets.* LiyuView {} });
+            WidgetRef::script_from_value(vm, value)
+        });
+        let mut view = root.borrow_mut::<LiyuView>().unwrap();
+        view.tab = 4;
+        view.last_size = size(1000.0, 700.0);
+        view.shaping = Some(shaping_for(view.last_size));
+        view.account_nav = Some(account_nav::AccountNavModel::new());
+        view.account_nav
+            .as_mut()
+            .unwrap()
+            .select(account_nav::AccountCategory::Profile);
+        view.account_nav.as_mut().unwrap().begin_edit("0", "原名");
+        view.profile.display_name = "原名".into();
+        view.overlay = Some(Overlay::Profile);
+        view.account_edit = Some(0);
+        view.set_text(&mut cx, ids!(pf_name), "未保存的名字");
+        view.update_page_visibility(&mut cx);
+        let uid = view.view.widget(&cx, ids!(account_wallet)).widget_uid();
+        let actions = cx.capture_actions(|cx| cx.widget_action(uid, CheckBoxAction::Change(true)));
+        view.handle_actions(&mut cx, &actions);
+        assert_eq!(view.overlay, Some(Overlay::Profile));
+        assert_eq!(view.account_section, None);
+        assert_eq!(view.account_edit, Some(0));
+        assert_eq!(view.input_text(&mut cx, ids!(pf_name)), "未保存的名字");
+        assert!(view.view.check_box(&cx, ids!(acc_mcat0)).active(&cx));
+        assert!(!view.view.check_box(&cx, ids!(account_wallet)).active(&cx));
+    }
+
+    #[test]
+    fn account_wishlist_child_returns_to_right_panel_before_menu() {
+        let mut cx = Cx::new(Box::new(|_, _| {}));
+        let root = cx.with_vm(|vm| {
+            makepad_widgets::script_mod(vm);
+            LIYU_MODULE.register(vm);
+            let value = script_eval!(vm, { use mod.widgets.* LiyuView {} });
+            WidgetRef::script_from_value(vm, value)
+        });
+        let mut view = root.borrow_mut::<LiyuView>().unwrap();
+        view.tab = 4;
+        view.last_size = size(1000.0, 700.0);
+        view.shaping = Some(shaping_for(view.last_size));
+        view.open_account_section(&mut cx, AccountSection::Wishes);
+        let uid = view.view.widget(&cx, ids!(mw_new)).widget_uid();
+        let actions = cx.capture_actions(|cx| {
+            cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
+        });
+        view.handle_actions(&mut cx, &actions);
+        assert_eq!(view.overlay, Some(Overlay::WishEdit));
+        assert!(view.view.widget(&cx, ids!(me_list)).visible());
+        assert_eq!(view.back_stack, vec![Overlay::Wishes]);
+        view.go_back(&mut cx);
+        assert_eq!(view.overlay, Some(Overlay::Wishes));
+        assert!(view.view.widget(&cx, ids!(page_wishes)).visible());
+        assert!(view.view.widget(&cx, ids!(me_list)).visible());
+        view.go_back(&mut cx);
+        assert_eq!(view.overlay, None);
+        view.set_tab(&mut cx, 0);
+        view.open_wishes(&mut cx);
+        assert!(!view.view.widget(&cx, ids!(me_list)).visible());
+        assert!(view.view.widget(&cx, ids!(page_wishes)).visible());
+    }
+
+    #[test]
+    fn account_gift_pages_have_independent_role_rows_and_preserve_box() {
+        let mut cx = Cx::new(Box::new(|_, _| {}));
+        let root = cx.with_vm(|vm| {
+            makepad_widgets::script_mod(vm);
+            LIYU_MODULE.register(vm);
+            let value = script_eval!(vm, { use mod.widgets.* LiyuView {} });
+            WidgetRef::script_from_value(vm, value)
+        });
+        let mut view = root.borrow_mut::<LiyuView>().unwrap();
+        view.box_rows = vec![999];
+        view.gift_client.online = true;
+        view.gift_client.inbox = vec![gift_client::ReceivedGift {
+            id: 11,
+            state: "sealed".into(),
+            product_id: None,
+            sender_name: Some("未揭晓的送礼人".into()),
+            ..Default::default()
+        }];
+        view.gift_client.outbox = vec![gift_client::SentGift {
+            id: 22,
+            product_id: 0,
+            recipient_name: "收礼人".into(),
+            state: "sent".into(),
+            ..Default::default()
+        }];
+        view.refresh_account_gifts(&mut cx, false);
+        view.refresh_account_gifts(&mut cx, true);
+        assert_eq!(view.received_gift_rows, vec![11]);
+        assert_eq!(view.sent_gift_rows, vec![22]);
+        assert_eq!(view.box_rows, vec![999]);
+        assert_eq!(
+            view.input_text(&mut cx, ids!(received_gift_0.bx_title)),
+            "一份神秘礼物"
+        );
+        assert!(view
+            .input_text(&mut cx, ids!(sent_gift_0.bx_title))
+            .contains("收礼人"));
+        assert_ne!(
+            view.view
+                .widget(&cx, ids!(page_account_received))
+                .widget_uid(),
+            view.view.widget(&cx, ids!(page_box)).widget_uid()
+        );
+        assert_ne!(
+            view.view.widget(&cx, ids!(page_account_sent)).widget_uid(),
+            view.view
+                .widget(&cx, ids!(page_account_received))
+                .widget_uid()
+        );
+        view.gift_client.online = false;
+        view.refresh_account_gifts(&mut cx, false);
+        assert!(view.received_gift_rows.is_empty());
+        assert!(!view.view.widget(&cx, ids!(received_gift_0)).visible());
     }
 
     #[test]
