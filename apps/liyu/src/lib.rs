@@ -48,9 +48,6 @@ script_mod! {
         draw_bg.color: liyu.bg
         flow: Right
 
-        // Tab 切换淡入: 用应用底色从不透明到透明扫过页面区。
-        draw_fade +: { color: liyu.bg draw_depth: 6.0 }
-
         // ---- 左侧 208px 侧栏（平板 / 桌面）----
         sidebar := RoundedView {
             width: 208 height: Fill
@@ -446,6 +443,8 @@ script_mod! {
 
                         // ================= 我 =================
                         page_me := View {
+ // Keep account edits inside their own draw list, separate from app navigation.
+ new_batch: true
  visible: false width: Fill height: Fill flow: Right spacing: 16.0
  me_list := LiyuScrollY { width: 200 height: Fill flow: Down spacing: 12.0
  account_identity := LiyuCard { width: Fill height: Fit flow: Down spacing: 8.0 align: Align{x: 0.5, y: 0.0}
@@ -2701,10 +2700,6 @@ type Msg = &'static str;
 pub struct LiyuView {
     #[deref]
     view: View,
-    /// Tab 切换淡入用的底色覆盖层（alpha 随时间衰减）。
-    #[redraw]
-    #[live]
-    draw_fade: DrawColor,
     #[rust]
     state: LiyuState,
     #[rust]
@@ -2963,23 +2958,26 @@ pub struct LiyuView {
     /// 避免 refresh_avatar 反复同步请求卡界面。
     #[rust]
     avatar_server_cache: Option<(String, Vec<u8>)>,
+    /// Reuse the decoded GPU texture until the actual preview bytes change.
     #[rust]
-    fade_start: Option<f64>,
-    #[rust]
-    fade_alpha: f32,
-    #[rust]
-    next_frame: NextFrame,
+    avatar_texture_bytes: Option<Vec<u8>>,
 }
 
 impl LiyuView {
     // ---- 小工具 ----
 
     fn set_text(&mut self, cx: &mut Cx, path: &[LiveId], text: &str) {
-        self.view.widget(cx, path).set_text(cx, text);
+        let widget = self.view.widget(cx, path);
+        if widget.text() != text {
+            widget.set_text(cx, text);
+        }
     }
 
     fn show(&mut self, cx: &mut Cx, path: &[LiveId], on: bool) {
-        self.view.widget(cx, path).set_visible(cx, on);
+        let widget = self.view.widget(cx, path);
+        if widget.visible() != on {
+            widget.set_visible(cx, on);
+        }
     }
 
     fn input_text(&mut self, cx: &mut Cx, path: &[LiveId]) -> String {
@@ -3082,7 +3080,10 @@ impl LiyuView {
     /// 让一组芯片 / 分段互斥选中（CheckBox 本身可以再点关掉，这里强制单选）。
     fn set_chip_group(&mut self, cx: &mut Cx, chips: &[LiveId], active: usize) {
         for (j, id) in chips.iter().enumerate() {
-            self.view.check_box(cx, &[*id]).set_active(cx, j == active, Animate::Yes);
+            let chip = self.view.check_box(cx, &[*id]);
+            if chip.active(cx) != (j == active) {
+                chip.set_active(cx, j == active, Animate::Yes);
+            }
         }
     }
 
@@ -3138,13 +3139,6 @@ impl LiyuView {
         }
     }
 
-    fn start_fade(&mut self, cx: &mut Cx) {
-        self.fade_start = None;
-        self.fade_alpha = 1.0;
-        self.next_frame = cx.new_next_frame();
-        self.redraw(cx);
-    }
-
     // ---- 导航 ----
 
     fn set_tab(&mut self, cx: &mut Cx, i: usize) {
@@ -3155,7 +3149,6 @@ impl LiyuView {
             self.toast(cx, "有未保存的修改，请保存或取消"); return;
         }
         if self.account_edit.is_some() { self.cancel_account_edit(cx); }
-        let changed = self.tab != i || self.overlay.is_some();
         // 切 Tab 即离开所有覆盖页；送礼草稿随之丢掉（它本来就不落盘）。
         self.overlay = None;
         self.back_stack.clear();
@@ -3195,9 +3188,6 @@ impl LiyuView {
             },
         }
         self.update_page_visibility(cx);
-        if changed || !self.initialized {
-            self.start_fade(cx);
-        }
     }
 
     fn open_overlay(&mut self, cx: &mut Cx, o: Overlay) {
@@ -3210,7 +3200,6 @@ impl LiyuView {
         // 覆盖页每次都从顶上看起：上一次滚到哪儿和这一次无关。
         self.scroll_top(cx, o);
         self.update_page_visibility(cx);
-        self.start_fade(cx);
     }
 
     /// 进一张覆盖页并记下来路：从 Tab 上进来的清空来路栈、记住 Tab；
@@ -3235,7 +3224,6 @@ impl LiyuView {
                 self.overlay = Some(o);
                 self.refresh_overlay(cx, o);
                 self.update_page_visibility(cx);
-                self.start_fade(cx);
             }
             None => self.set_tab(cx, self.send_from),
         }
@@ -3459,14 +3447,22 @@ impl LiyuView {
         }
     }
 
-    /// 数据变了之后把所有「列表类」页面都重铺一遍（它们都很小，不值得做增量）。
+    /// Hidden lists refresh when entered by set_tab; only update the visible tab now.
     fn after_data_change(&mut self, cx: &mut Cx) {
-        self.refresh_gift(cx);
-        self.refresh_box(cx);
-        self.refresh_pacts(cx);
-        self.refresh_contacts(cx);
-        self.refresh_me(cx);
-        self.refresh_wallet(cx);
+        if self.overlay.is_none()
+            || matches!(self.overlay, Some(Overlay::Profile | Overlay::Settings))
+        {
+            match self.tab {
+                0 => self.refresh_gift(cx),
+                1 => self.refresh_box(cx),
+                2 => self.refresh_pacts(cx),
+                3 => self.refresh_contacts(cx),
+                _ => self.refresh_me(cx),
+            }
+        }
+        if self.overlay == Some(Overlay::Wallet) {
+            self.refresh_wallet(cx);
+        }
     }
 
     // ---- 主题 ----
@@ -3495,6 +3491,8 @@ impl LiyuView {
     fn after_restyle(&mut self, cx: &mut Cx) {
         self.pal = Pal::read(cx);
         self.shaping = None;
+        // Reapply may reset image widgets, so restore their cached content too.
+        self.avatar_texture_bytes = None;
         self.refresh_all(cx);
         self.redraw(cx);
     }
@@ -3515,7 +3513,6 @@ impl LiyuView {
         self.state.save();
         self.update_page_visibility(cx);
         self.reshape(cx);
-        self.start_fade(cx);
         // 引导开着时通知是压住的；关掉马上查一次，不用等下一轮 60 秒轮询。
         self.poll_notices(cx);
     }
@@ -5173,9 +5170,6 @@ impl LiyuView {
             &self.profile.display_name.clone(),
         );
         self.set_text(cx, ids!(account_name), &self.profile.display_name.clone());
-        self.view
-            .image(cx, ids!(account_avatar))
-            .set_texture(cx, self.avatar_tex.clone());
     }
 
     fn account_has_unsaved_changes(&mut self, cx: &mut Cx) -> bool {
@@ -5237,8 +5231,7 @@ impl LiyuView {
         self.set_text(cx, ids!(pf_phone_code), "");
         self.set_text(cx, ids!(pf_email_code), "");
         self.refresh_profile(cx);
-        self.refresh_account_nav(cx);
-        self.redraw(cx);
+        self.view.widget(cx, ids!(page_me)).redraw(cx);
     }
 
     fn refresh_wallet(&mut self, cx: &mut Cx) {
@@ -5438,9 +5431,12 @@ impl LiyuView {
 
     /// 刷新资料页头像区：预览图、状态文案、按钮可用性。
     fn refresh_avatar(&mut self, cx: &mut Cx) {
-        let has_server_avatar = !self.profile.avatar_url.is_empty()
-            && !profile_client::avatar_pending(&self.profile);
-        let default_avatar = self.profile.avatar_url.starts_with("/api/v1/media/default-avatars/");
+        let has_server_avatar =
+            !self.profile.avatar_url.is_empty() && !profile_client::avatar_pending(&self.profile);
+        let default_avatar = self
+            .profile
+            .avatar_url
+            .starts_with("/api/v1/media/default-avatars/");
         // 已上传头像按 URL 缓存:URL 变化才同步 GET(带 2MiB 上限),避免反复刷新卡界面/无界内存。
         if has_server_avatar {
             let stale = self
@@ -5448,8 +5444,9 @@ impl LiyuView {
                 .as_ref()
                 .map_or(true, |(u, _)| *u != self.profile.avatar_url);
             if stale {
-                self.avatar_server_cache = profile_client::fetch_avatar_bytes(&self.profile.avatar_url)
-                    .map(|b| (self.profile.avatar_url.clone(), b));
+                self.avatar_server_cache =
+                    profile_client::fetch_avatar_bytes(&self.profile.avatar_url)
+                        .map(|b| (self.profile.avatar_url.clone(), b));
             }
         } else {
             self.avatar_server_cache = None;
@@ -5458,18 +5455,29 @@ impl LiyuView {
         let editing = self.avatar_session.is_some();
 
         // 预览图：编辑/待上传用本地字节；已上传头像服务端是标识不是可解码字节，先显占位。
-        if let Some((bytes, _)) = self.avatar_preview_bytes() {
-            self.avatar_tex = self.avatar_texture(cx, &bytes);
-        } else {
-            self.avatar_tex = None;
+        let bytes = self.avatar_preview_bytes().map(|(bytes, _)| bytes);
+        if self.avatar_texture_bytes != bytes {
+            self.avatar_tex = bytes
+                .as_ref()
+                .and_then(|bytes| self.avatar_texture(cx, bytes));
+            self.avatar_texture_bytes = bytes;
+            // Both views share the same texture; ordinary navigation never re-decodes it.
+            self.view
+                .image(cx, ids!(pf_avatar_thumb))
+                .set_texture(cx, self.avatar_tex.clone());
+            self.view
+                .image(cx, ids!(account_avatar))
+                .set_texture(cx, self.avatar_tex.clone());
         }
-        let img = self.view.image(cx, ids!(pf_avatar_thumb));
-        img.set_texture(cx, self.avatar_tex.clone());
 
         let status = if self.avatar_busy {
             "上传中…".to_string()
         } else if editing {
-            let (w, h) = self.avatar_session.as_ref().map(|s| s.dimensions()).unwrap_or((0, 0));
+            let (w, h) = self
+                .avatar_session
+                .as_ref()
+                .map(|s| s.dimensions())
+                .unwrap_or((0, 0));
             format!("编辑中 · {w}×{h} · 确认后上传")
         } else if pending {
             "未同步 · 头像已保存在本机，联网后点「重试上传」".to_string()
@@ -5482,7 +5490,11 @@ impl LiyuView {
         };
         self.set_text(cx, ids!(pf_avatar_status), &status);
         self.show(cx, ids!(pf_avatar_edit), editing);
-        self.show(cx, ids!(pf_avatar_delete), (has_server_avatar && !default_avatar) || pending);
+        self.show(
+            cx,
+            ids!(pf_avatar_delete),
+            (has_server_avatar && !default_avatar) || pending,
+        );
         // 重试上传按钮文案：pending 时把「确认上传」变成重试入口（编辑会话为空也能点）。
         if pending && !editing {
             self.set_text(cx, ids!(pf_avatar_load), "重试上传");
@@ -6486,8 +6498,9 @@ impl LiyuView {
                 if self.account_edit.is_some() { self.cancel_account_edit(cx); }
                 self.account_nav.get_or_insert_with(account_nav::AccountNavModel::new).select(*cat);
                 match i {
-                    0..=2 => self.open_profile(cx),
-                    3..=5 => self.open_settings(cx),
+                    0..=2 if self.overlay != Some(Overlay::Profile) => self.open_profile(cx),
+                    3..=5 if self.overlay != Some(Overlay::Settings) => self.open_settings(cx),
+                    0..=5 => {},
                     _ => { self.overlay = None; self.update_page_visibility(cx); }
                 }
                 self.refresh_account_nav(cx);
@@ -6507,8 +6520,7 @@ impl LiyuView {
                     self.set_text(cx, ids!(pf_addr_text), "");
                 }
                 self.refresh_account_nav(cx);
-                self.start_fade(cx);
-                self.redraw(cx);
+                self.view.widget(cx, ids!(page_me)).redraw(cx);
             }
         }
         if self.clicked(cx, ids!(account_cancel), actions) { self.cancel_account_edit(cx); }
@@ -6537,8 +6549,7 @@ impl LiyuView {
                 self.toast(cx,"已保存");
             }
             self.refresh_profile(cx);
-            self.refresh_account_nav(cx);
-            self.redraw(cx);
+            self.view.widget(cx, ids!(page_me)).redraw(cx);
         }
 
         if self.overlay == Some(Overlay::Cart) {
@@ -6593,12 +6604,7 @@ impl Widget for LiyuView {
         if full.size.x > 1.0 && full.size.y > 1.0 {
             self.update_responsive(cx, full.size);
         }
-        let ret = self.view.draw_walk(cx, scope, walk);
-        if self.fade_alpha > 0.001 && full.size.y > 0.0 {
-            self.draw_fade.color.w = self.fade_alpha;
-            self.draw_fade.draw_abs(cx, full);
-        }
-        ret
+        self.view.draw_walk(cx, scope, walk)
     }
 
     fn handle_event(&mut self, cx: &mut Cx, event: &Event, scope: &mut Scope) {
@@ -6646,33 +6652,6 @@ impl Widget for LiyuView {
                 g.window_closed(&account, &d.draft_id, now_ms);
                 self.draft_pending = None;
             }
-        }
-        // 切页淡入：150ms 内 alpha 从 1 衰减到 0。
-        if let Some(nf) = self.next_frame.is_event(event) {
-            const FADE_SECS: f64 = 0.15;
-            match self.fade_start {
-                None => {
-                    self.fade_start = Some(nf.time);
-                    self.next_frame = cx.new_next_frame();
-                }
-                Some(t0) => {
-                    let t = (nf.time - t0) / FADE_SECS;
-                    if t >= 1.0 {
-                        self.fade_alpha = 0.0;
-                        self.fade_start = None;
-                    } else {
-                        self.fade_alpha = (1.0 - t) as f32;
-                        self.next_frame = cx.new_next_frame();
-                    }
-                }
-            }
-            // Narrow account pages slide in using the existing transition clock.
-            if let Some(mut v)=self.view.view(cx,ids!(account_detail)).borrow_mut() {
-                let shift=if self.tab==4 && self.last_size.x<820.0 {24.0*self.fade_alpha as f64} else {0.0};
-                v.walk.margin.left=shift;
-                v.walk.margin.right=-shift;
-            }
-            self.redraw(cx);
         }
         if self.notice_poll.is_event(event).is_some() {
             self.poll_notices(cx);
@@ -6914,6 +6893,168 @@ mod layout_tests {
             view.go_back(&mut cx);
             assert!(view.account_nav.as_ref().unwrap().depth() == 1);
         }
+    }
+
+    #[test]
+    fn account_edit_actions_preserve_input_and_chrome_at_all_sizes() {
+        let mut cx = Cx::new(Box::new(|_, _| {}));
+        let root = cx.with_vm(|vm| {
+            makepad_widgets::script_mod(vm);
+            LIYU_MODULE.register(vm);
+            let value = script_eval!(vm, { use mod.widgets.* LiyuView {} });
+            WidgetRef::script_from_value(vm, value)
+        });
+        let mut view = root.borrow_mut::<LiyuView>().unwrap();
+        view.tab = 4;
+        view.auth_gate = false;
+        view.profile.display_name = "原来的名字".into();
+        for (width, height) in [
+            (412.0, 892.0),
+            (820.0, 700.0),
+            (1000.0, 700.0),
+            (1280.0, 800.0),
+        ] {
+            view.last_size = size(width, height);
+            view.shaping = Some(shaping_for(view.last_size));
+            view.account_nav = Some(account_nav::AccountNavModel::new());
+            for (id, field, category, input) in [
+                (
+                    live_id!(pf_name_edit),
+                    0,
+                    account_nav::AccountCategory::Profile,
+                    live_id!(pf_name),
+                ),
+                (
+                    live_id!(pf_phone_edit),
+                    1,
+                    account_nav::AccountCategory::AccountContact,
+                    live_id!(pf_phone),
+                ),
+                (
+                    live_id!(pf_email_edit),
+                    2,
+                    account_nav::AccountCategory::AccountContact,
+                    live_id!(pf_email),
+                ),
+                (
+                    live_id!(pf_addr_new),
+                    3,
+                    account_nav::AccountCategory::ShippingAddress,
+                    live_id!(pf_addr_text),
+                ),
+                (
+                    live_id!(nk_edit),
+                    4,
+                    account_nav::AccountCategory::General,
+                    live_id!(nk_input),
+                ),
+            ] {
+                view.account_nav.as_mut().unwrap().select(category);
+                view.overlay = Some(if field == 4 {
+                    Overlay::Settings
+                } else {
+                    Overlay::Profile
+                });
+                view.update_page_visibility(&mut cx);
+                let sidebar_visible = view.view.widget(&cx, ids!(sidebar)).visible();
+                let topbar_visible = view.view.widget(&cx, ids!(topbar)).visible();
+                let uid = view.view.widget(&cx, &[id]).widget_uid();
+                let actions = cx.capture_actions(|cx| {
+                    cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
+                });
+                view.handle_actions(&mut cx, &actions);
+                assert_eq!(view.account_edit, Some(field));
+                assert!(view.view.widget(&cx, ids!(account_edit_bar)).visible());
+                view.set_text(&mut cx, &[input], "未保存的输入");
+                let text_input = view.view.text_input(&cx, &[input]);
+                text_input.set_cursor(
+                    &mut cx,
+                    makepad_widgets::text::selection::Cursor {
+                        index: 3,
+                        prefer_next_row: false,
+                    },
+                    false,
+                );
+                let before = text_input.selection();
+                // Repeat a refresh and identical text assignment: neither clears the draft nor moves the cursor.
+                view.refresh_account_nav(&mut cx);
+                view.set_text(&mut cx, &[input], "未保存的输入");
+                assert_eq!(view.input_text(&mut cx, &[input]), "未保存的输入");
+                assert_eq!(text_input.selection().cursor.index, before.cursor.index);
+                assert_eq!(
+                    view.view.widget(&cx, ids!(sidebar)).visible(),
+                    sidebar_visible
+                );
+                assert_eq!(
+                    view.view.widget(&cx, ids!(topbar)).visible(),
+                    topbar_visible
+                );
+                let uid = view.view.widget(&cx, ids!(account_cancel)).widget_uid();
+                let actions = cx.capture_actions(|cx| {
+                    cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
+                });
+                view.handle_actions(&mut cx, &actions);
+                assert_eq!(view.account_edit, None);
+                assert_eq!(view.profile.display_name, "原来的名字");
+                assert_eq!(
+                    view.view
+                        .view(&cx, ids!(account_detail))
+                        .borrow()
+                        .unwrap()
+                        .walk
+                        .margin
+                        .left,
+                    0.0
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn hidden_lists_refresh_on_entry_instead_of_every_data_change() {
+        let mut cx = Cx::new(Box::new(|_, _| {}));
+        let root = cx.with_vm(|vm| {
+            makepad_widgets::script_mod(vm);
+            LIYU_MODULE.register(vm);
+            let value = script_eval!(vm, { use mod.widgets.* LiyuView {} });
+            WidgetRef::script_from_value(vm, value)
+        });
+        let mut view = root.borrow_mut::<LiyuView>().unwrap();
+        view.auth_gate = false;
+        view.tab = 0;
+        view.set_text(&mut cx, ids!(me_bal_v), "hidden sentinel");
+        view.after_data_change(&mut cx);
+        assert_eq!(view.input_text(&mut cx, ids!(me_bal_v)), "hidden sentinel");
+        view.set_tab(&mut cx, 4);
+        assert_eq!(
+            view.input_text(&mut cx, ids!(me_bal_v)),
+            yuan(view.state.balance())
+        );
+    }
+
+    #[test]
+    fn unchanged_avatar_reuses_texture_and_changed_bytes_replace_it() {
+        let mut cx = Cx::new(Box::new(|_, _| {}));
+        let root = cx.with_vm(|vm| {
+            makepad_widgets::script_mod(vm);
+            LIYU_MODULE.register(vm);
+            let value = script_eval!(vm, { use mod.widgets.* LiyuView {} });
+            WidgetRef::script_from_value(vm, value)
+        });
+        let mut view = root.borrow_mut::<LiyuView>().unwrap();
+        view.avatar_pending_bytes = Some(PRODUCT_PNGS[0].to_vec());
+        view.refresh_avatar(&mut cx);
+        let first = view.avatar_tex.clone();
+        assert!(first.is_some());
+        view.refresh_avatar(&mut cx);
+        assert_eq!(view.avatar_tex, first);
+        view.avatar_pending_bytes = Some(PRODUCT_PNGS[1].to_vec());
+        view.refresh_avatar(&mut cx);
+        assert_ne!(view.avatar_tex, first);
+        view.avatar_pending_bytes = None;
+        view.refresh_avatar(&mut cx);
+        assert!(view.avatar_tex.is_none());
+        assert!(view.avatar_texture_bytes.is_none());
     }
 
     #[test]

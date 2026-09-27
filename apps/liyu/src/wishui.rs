@@ -331,7 +331,6 @@ impl LiyuView {
                 self.refresh_checkout(cx);
                 self.refresh_topbar(cx);
                 self.scroll_top(cx, Overlay::Checkout);
-                self.start_fade(cx);
             }
             Err(e) => {
                 self.co_err = Some(e);
