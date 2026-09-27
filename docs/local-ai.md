@@ -66,6 +66,25 @@ Replace the path with an existing compatible model on another disk if needed. Th
 
 ## Open and verify
 
+With `just` installed, run `just dev` from the OctoSense repository root.
+It sets `OCTOSENSE_HOME` and `MAKEPAD_AI_CHAT_MODEL` to the weights path above,
+then starts the desktop in release mode with `--assistant`. Existing environment
+overrides are respected; missing weights stop the command with a setup hint.
+The command does not download models or change your saved provider choice.
+
+For a Mac with 24 GB unified memory, the tested 9B UD-Q4_K_XL model is a
+practical starting point: its roughly 6 GB weights leave room for context,
+the desktop, and other apps. Actual speed and memory use depend on context
+length and other running workloads.
+
+The assistant's provider settings are stored separately in
+`~/.makepad/aichat/settings`. To select local inference, use:
+
+```ini
+provider=local
+local_only=true
+```
+
 Restart OctoSense with `cargo run` and press **F10**. The provider should show **Local · Qwen3.5 9B · local only**. Send a short prompt to check inference; the first answer loads the model. A separate model server or cloud API key is not required for this setup.
 
 The inherited local provider can first look for a resident model service or a Makepad fleet node on the LAN, then load the file on this machine. A brief “listening for the fleet” status is expected. The `local only` setting excludes cloud providers; it does not disable LAN discovery.
