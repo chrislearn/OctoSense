@@ -68,8 +68,15 @@ Replace the path with an existing compatible model on another disk if needed. Th
 
 With `just` installed, run `just dev` from the OctoSense repository root.
 It sets `OCTOSENSE_HOME` and `MAKEPAD_AI_CHAT_MODEL` to the weights path above,
-then starts the desktop in release mode with `--assistant`. Existing environment
-overrides are respected; missing weights stop the command with a setup hint.
+then starts the desktop in release mode with `app-appcard` enabled, opens AppCard
+as an in-process module, and opens the desktop assistant with `--assistant`.
+The assistant receives the running module's `appcard.ask` tool; ask it for a
+live weather card, or enter the request in AppCard's own composer.
+AppCard uses its own Octos backend and model profile; the assistant's local
+Qwen settings do not configure that backend. Configure the AppCard backend
+before expecting card generation to complete.
+Existing environment overrides are respected; missing weights stop the command
+with a setup hint.
 The command does not download models or change your saved provider choice.
 
 For a Mac with 24 GB unified memory, the tested 9B UD-Q4_K_XL model is a

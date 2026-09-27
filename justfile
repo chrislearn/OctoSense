@@ -1,4 +1,4 @@
-# Start the desktop with its local AI assistant (release mode for inference).
+# Start the desktop with its local AI assistant and AppCard module.
 dev:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -9,4 +9,4 @@ dev:
         exit 1
     fi
     printf 'Assistant model: %s\n' "$MAKEPAD_AI_CHAT_MODEL"
-    exec cargo run --release --locked -- --assistant
+    exec cargo run --release --locked --features app-appcard -- --module appcard --assistant --test-action launch-appcard
