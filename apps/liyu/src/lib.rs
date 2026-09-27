@@ -448,9 +448,9 @@ script_mod! {
                         page_me := View {
  visible: false width: Fill height: Fill flow: Right spacing: 16.0
  me_list := LiyuScrollY { width: 200 height: Fill flow: Down spacing: 12.0
- account_identity := LiyuCard { width: Fill height: Fit flow: Down spacing: 8.0
+ account_identity := LiyuCard { width: Fill height: Fit flow: Down spacing: 8.0 align: Align{x: 0.5, y: 0.0}
  account_avatar := LiyuThumb { width: 56 height: 56 }
- account_name := LiyuH2 { text: "" }
+ account_name := Label { width: Fill height: Fit align: Align{x: 0.5, y: 0.5} text: "" draw_text +: { color: liyu.ink wrap: None max_lines: 1 text_overflow: Ellipsis text_style +: { font_size: 13.0 } } }
  }
  account_categories := LiyuCard { width: Fill height: Fit flow: Down spacing: 2.0
  acc_mcat0 := mod.widgets.AccountCategoryRow { text: "个人资料" }
@@ -461,11 +461,11 @@ script_mod! {
  acc_mcat5 := mod.widgets.AccountCategoryRow { text: "数据管理" }
  acc_mcat6 := mod.widgets.AccountCategoryRow { text: "关于" }
  }
- account_shortcuts := LiyuCard { width: Fill height: Fit flow: Down spacing: 8.0
- account_wallet := LiyuBtnSm { width: Fill text: "钱包与流水" }
- account_cart := LiyuBtnSm { width: Fill text: "购物车与订单" }
- account_wishes := LiyuBtnSm { width: Fill text: "我的心愿单" }
- account_drafts := LiyuBtnSm { width: Fill text: "送礼草稿" }
+ account_shortcuts := LiyuCard { width: Fill height: Fit flow: Down spacing: 2.0
+ account_wallet := mod.widgets.AccountCategoryRow { width: Fill text: "钱包与流水" }
+ account_cart := mod.widgets.AccountCategoryRow { width: Fill text: "购物车与订单" }
+ account_wishes := mod.widgets.AccountCategoryRow { width: Fill text: "我的心愿单" }
+ account_drafts := mod.widgets.AccountCategoryRow { width: Fill text: "送礼草稿" }
  }
  }
  account_detail := View { width: Fill height: Fill flow: Down spacing: 12.0
@@ -743,8 +743,8 @@ script_mod! {
  }
  account_error := LiyuBad { text: "" }
  account_edit_bar := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0
- account_cancel := LiyuBtnSm { width: Fit text: "取消" }
- account_save := LiyuBtnPrimary { width: Fit text: "保存" }
+ account_cancel := LiyuBtn { width: 80 height: 32 padding: Inset{left: 8.0, right: 8.0, top: 4.0, bottom: 4.0} draw_text +: { text_style +: { font_size: 13.0 } } text: "取消" }
+ account_save := LiyuBtnPrimary { width: 80 height: 32 padding: Inset{left: 8.0, right: 8.0, top: 4.0, bottom: 4.0} draw_text +: { text_style +: { font_size: 13.0 } } text: "保存" }
  }
  }
  }
@@ -3141,12 +3141,13 @@ impl LiyuView {
     // ---- 导航 ----
 
     fn set_tab(&mut self, cx: &mut Cx, i: usize) {
-        if self.account_edit.is_some() || self.avatar_session.is_some() {
+        if self.account_has_unsaved_changes(cx) {
             for root in [live_id!(sidebar),live_id!(tabbar)] {
                 for (j,id) in TABS.iter().enumerate() {self.view.check_box(cx,&[root,*id]).set_active(cx,j==self.tab,Animate::Yes);}
             }
             self.toast(cx, "有未保存的修改，请保存或取消"); return;
         }
+        if self.account_edit.is_some() { self.cancel_account_edit(cx); }
         let changed = self.tab != i || self.overlay.is_some();
         // 切 Tab 即离开所有覆盖页；送礼草稿随之丢掉（它本来就不落盘）。
         self.overlay = None;
@@ -3193,9 +3194,10 @@ impl LiyuView {
     }
 
     fn open_overlay(&mut self, cx: &mut Cx, o: Overlay) {
-        if self.account_edit.is_some() || self.avatar_session.is_some() {
+        if self.account_has_unsaved_changes(cx) {
             self.toast(cx,"有未保存的修改，请保存或取消"); return;
         }
+        if self.account_edit.is_some() { self.cancel_account_edit(cx); }
         self.overlay = Some(o);
         self.import_menu = false;
         // 覆盖页每次都从顶上看起：上一次滚到哪儿和这一次无关。
@@ -3276,8 +3278,11 @@ impl LiyuView {
     /// 顶栏「返回」：礼卡、拆礼、送出详情、钱包、设置有固定的来处；
     /// 送礼、商品、结算和心愿单这几张按来路栈一层层退回去。
     fn go_back(&mut self, cx: &mut Cx) {
-        if self.tab == 4 && (self.account_edit.is_some() || self.avatar_session.is_some()) {
+        if self.tab == 4 && self.account_has_unsaved_changes(cx) {
             self.toast(cx, "有未保存的修改，请保存或点击取消"); return;
+        }
+        if self.tab == 4 && self.account_edit.is_some() {
+            self.cancel_account_edit(cx); return;
         }
         if self.tab == 4 && self.account_nav.as_ref().and_then(|n| n.selected()).is_some() && matches!(self.overlay,None|Some(Overlay::Profile|Overlay::Settings)) {
             self.account_nav.as_mut().unwrap().pop_discarding();
@@ -5166,6 +5171,49 @@ impl LiyuView {
             .set_texture(cx, self.avatar_tex.clone());
     }
 
+    fn account_has_unsaved_changes(&mut self, cx: &mut Cx) -> bool {
+        if self.avatar_session.is_some() {
+            return true;
+        }
+        match self.account_edit {
+            Some(0) => self.input_text(cx, ids!(pf_name)) != self.profile.display_name,
+            Some(1) => {
+                self.input_text(cx, ids!(pf_phone)) != self.profile.phone
+                    || !self.input_text(cx, ids!(pf_phone_code)).is_empty()
+            }
+            Some(2) => {
+                self.input_text(cx, ids!(pf_email)) != self.profile.email
+                    || !self.input_text(cx, ids!(pf_email_code)).is_empty()
+            }
+            Some(3) => {
+                let original = self
+                    .profile
+                    .addresses
+                    .iter()
+                    .find(|a| Some(a.id) == self.profile_edit_address)
+                    .cloned();
+                let name = original.as_ref().map_or("", |a| a.recipient_name.as_str());
+                let phone = original.as_ref().map_or("", |a| a.phone.as_str());
+                let address = original.as_ref().map_or("", |a| a.address.as_str());
+                self.input_text(cx, ids!(pf_addr_name)) != name
+                    || self.input_text(cx, ids!(pf_addr_phone)) != phone
+                    || self.input_text(cx, ids!(pf_addr_text)) != address
+            }
+            Some(4) => self.input_text(cx, ids!(nk_input)) != self.state.settings.nickname,
+            _ => false,
+        }
+    }
+
+    fn account_shortcut_clicked(&mut self, cx: &mut Cx, id: LiveId, actions: &Actions) -> bool {
+        let changed = self.view.check_box(cx, &[id]).changed(actions).is_some();
+        if changed {
+            self.view
+                .check_box(cx, &[id])
+                .set_active(cx, false, Animate::Yes);
+        }
+        changed
+    }
+
     fn cancel_account_edit(&mut self, cx: &mut Cx) {
         self.account_edit = None;
         if let Some(nav) = self.account_nav.as_mut() {
@@ -5179,6 +5227,8 @@ impl LiyuView {
         self.set_text(cx, ids!(pf_name), &self.profile.display_name.clone());
         self.set_text(cx, ids!(pf_phone), &self.profile.phone.clone());
         self.set_text(cx, ids!(pf_email), &self.profile.email.clone());
+        self.set_text(cx, ids!(pf_phone_code), "");
+        self.set_text(cx, ids!(pf_email_code), "");
         self.refresh_profile(cx);
         self.refresh_account_nav(cx);
         self.redraw(cx);
@@ -6130,7 +6180,7 @@ impl LiyuView {
         }
 
         if self.clicked(cx, ids!(account_intro), actions) { self.open_intro(cx,0); }
-        if self.clicked(cx, ids!(account_drafts), actions) {
+        if self.account_shortcut_clicked(cx, live_id!(account_drafts), actions) {
             if let Some(nav)=self.account_nav.as_mut() { nav.pop_discarding(); }
             self.overlay=None;
             // Show the account overview, including the pending draft, on phones too.
@@ -6142,7 +6192,7 @@ impl LiyuView {
         // ---- 我 ----
         if self.clicked(cx, &[live_id!(row_wallet), live_id!(st_hit)], actions)
             || self.clicked(cx, ids!(me_wallet), actions)
-            || self.clicked(cx, ids!(account_wallet), actions)
+            || self.account_shortcut_clicked(cx, live_id!(account_wallet), actions)
         {
             self.refresh_wallet(cx);
             self.open_overlay(cx, Overlay::Wallet);
@@ -6153,7 +6203,7 @@ impl LiyuView {
         if self.clicked(cx, &[live_id!(row_profile), live_id!(st_hit)], actions) {
             self.open_profile(cx);
         }
-        if self.clicked(cx, &[live_id!(row_cart), live_id!(st_hit)], actions) || self.clicked(cx, ids!(account_cart), actions) {
+        if self.clicked(cx, &[live_id!(row_cart), live_id!(st_hit)], actions) || self.account_shortcut_clicked(cx, live_id!(account_cart), actions) {
             self.open_cart(cx, None);
         }
         if self.clicked(cx, ids!(pd_cart), actions) && self.overlay == Some(Overlay::Product) {
@@ -6162,7 +6212,7 @@ impl LiyuView {
         if self.clicked(cx, &[live_id!(row_wish), live_id!(st_hit)], actions)
             || self.clicked(cx, &[live_id!(row_mywish), live_id!(st_hit)], actions)
             || self.clicked(cx, ids!(ag3_go), actions)
-            || self.clicked(cx, ids!(account_wishes), actions)
+            || self.account_shortcut_clicked(cx, live_id!(account_wishes), actions)
         {
             self.open_wishes(cx);
         }
@@ -6411,11 +6461,12 @@ impl LiyuView {
 
         for (i, cat) in account_nav::AccountCategory::ALL.iter().enumerate() {
             if self.toggled(cx, &[account_ui::LIST_CATEGORY_IDS[i]], actions) {
-                if self.account_edit.is_some() || self.avatar_session.is_some() {
+                if self.account_has_unsaved_changes(cx) {
                     self.toast(cx, "有未保存的修改，请保存或取消");
                     self.refresh_account_nav(cx);
                     continue;
                 }
+                if self.account_edit.is_some() { self.cancel_account_edit(cx); }
                 self.account_nav.get_or_insert_with(account_nav::AccountNavModel::new).select(*cat);
                 match i {
                     0..=2 => self.open_profile(cx),
@@ -6833,6 +6884,16 @@ mod layout_tests {
             assert_eq!(view.profile.display_name, "原来的名字");
             assert_eq!(view.input_text(&mut cx, ids!(pf_name)), "原来的名字");
             assert!(!view.view.widget(&cx, ids!(account_edit_bar)).visible());
+            // Opening the editor alone is not a change: Back closes it normally.
+            view.account_edit = Some(0);
+            view.account_nav
+                .as_mut()
+                .unwrap()
+                .begin_edit("0", "原来的名字");
+            assert!(!view.account_has_unsaved_changes(&mut cx));
+            view.go_back(&mut cx);
+            assert_eq!(view.account_edit, None);
+            assert_eq!(view.account_nav.as_ref().unwrap().depth(), 2);
             view.go_back(&mut cx);
             assert!(view.account_nav.as_ref().unwrap().depth() == 1);
         }
