@@ -128,7 +128,7 @@ impl LiyuView {
         let server_note = self.pd_remote.as_ref().map(|p| {
             format!("服务器目录 · {} · {} · {}{}\n{}", p.name, p.brand, yuan(p.price_cents),
                 if p.available { "" } else { " · 暂不可购买" }, p.description)
-        }).unwrap_or_else(|| "离线演示商品 · 使用本地图片和商品资料".into());
+        }).unwrap_or_else(|| "商品信息加载失败，请检查服务器连接后重试".into());
         self.set_text(cx, ids!(pd_server_note), &server_note);
         self.set_text(cx, ids!(pd_desc), it.desc);
         let form = if it.physical { "实物 · 包邮到家" } else { "电子券 · 券码直接进礼盒" };

@@ -1,4 +1,4 @@
-//! Small account-profile client. A local copy keeps the demo usable offline.
+//! Account-profile client with local cached data and server-backed authentication.
 //!
 //! 会话(token)持久化在 `$MAKEPAD_HOME/liyu/session.json` —— 与资料 JSON 分开,
 //! 密码永远不落盘。401 / token 失效时只标记过期、回到认证界面,绝不静默重登。
@@ -6,16 +6,14 @@ use serde_json::{json, Value};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
-/// 账号怎么用上的:真实登录(有 token)、离线演示、还是没选过(首次启动)。
+/// 账号怎么用上的:真实登录(有 token)、还是未登录。
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub enum AuthMode {
-    /// 启动后还没登录也没选演示。
+    /// 启动后还没登录。
     #[default]
     None,
     /// 服务器登录成功,持有 token。
     Account,
-    /// 用户明确点了「离线演示」。
-    Demo,
 }
 
 #[derive(Default)]
@@ -45,9 +43,9 @@ pub fn mode() -> AuthMode {
     auth().lock().map(|s| s.mode).unwrap_or_default()
 }
 
-/// 已经有过一次明确的身份选择(登录或离线演示):false = 首次启动该显示认证界面。
+/// 有账号会话才允许进入应用。
 pub fn has_choice() -> bool {
-    auth().lock().map(|s| s.mode != AuthMode::None).unwrap_or(false)
+    auth().lock().map(|s| s.mode == AuthMode::Account && s.token.is_some()).unwrap_or(false)
 }
 
 /// 真实账号会话还有效(有 token 且没被 401 否掉)。
@@ -72,9 +70,8 @@ pub fn take_expired() -> bool {
 
 /// 测试服务器(契约文档:演示密码与验证码固定 123456)才显示测试提示。
 pub fn is_test_server() -> bool {
-    std::env::var("LIYU_API_URL")
-        .map(|u| u.contains("test") || u.contains("localhost") || u.contains("127.0.0.1"))
-        .unwrap_or(false)
+    let u = api_url();
+    u.contains("test") || u.contains("localhost") || u.contains("127.0.0.1")
 }
 
 // ---- 会话持久化:独立的 session.json,不混进资料 JSON ----
@@ -96,7 +93,7 @@ fn session_save() {
             return;
         }
     }
-    // 演示 / 登出:本机不留凭据。
+    // 登出:本机不留凭据。
     let _ = std::fs::remove_file(path);
 }
 
@@ -248,19 +245,45 @@ fn from_json(value: &Value, online: bool) -> Profile {
     }
 }
 
+fn api_url() -> String {
+    std::env::var("LIYU_API_URL")
+        .unwrap_or_else(|_| "http://127.0.0.1:8787".into())
+        .trim_end_matches('/')
+        .to_string()
+}
+
 fn agent() -> ureq::Agent {
     ureq::AgentBuilder::new()
         .timeout(Duration::from_millis(600))
         .build()
 }
 
+/// Check the service before restoring the app; a cached token is not connectivity.
+pub fn check_server() -> Result<(), &'static str> {
+    check_server_at(&api_url())
+}
+
+fn check_server_at(url: &str) -> Result<(), &'static str> {
+    if !(url.starts_with("http://") || url.starts_with("https://")) {
+        return Err("礼遇服务器地址无效，请检查 LIYU_API_URL");
+    }
+    let response = agent().get(&format!("{url}/health")).call().map_err(|error| {
+        match error {
+            ureq::Error::Transport(_) => "无法连接礼遇服务器，请确认服务器已启动并检查网络，然后重试",
+            ureq::Error::Status(_, _) => "礼遇服务器暂不可用，请稍后重试",
+        }
+    })?;
+    let value: Value = response.into_json().map_err(|_| "礼遇服务器健康检查响应无效")?;
+    if value.get("status").and_then(Value::as_str) != Some("ok") {
+        return Err("礼遇服务器健康检查未通过，请稍后重试");
+    }
+    Ok(())
+}
+
 /// 取一个可用会话。不会再去用固定密码重登:没有 token 就没有会话,
 /// 让界面回到认证入口,而不是装作还在线。
 fn api() -> Option<(String, String)> {
-    let url = std::env::var("LIYU_API_URL")
-        .ok()?
-        .trim_end_matches('/')
-        .to_string();
+    let url = api_url();
     if !(url.starts_with("http://") || url.starts_with("https://")) {
         return None;
     }
@@ -298,12 +321,7 @@ pub fn sign_in(
     } else if register && code.is_empty() {
         return Err("请输入验证码");
     }
-    let Some(url) = std::env::var("LIYU_API_URL")
-        .ok()
-        .map(|s| s.trim_end_matches('/').to_string())
-    else {
-        return Err("离线时不能注册或登录，请连接服务器");
-    };
+    let url = api_url();
     if !(url.starts_with("http://") || url.starts_with("https://")) {
         return Err("服务器地址无效");
     }
@@ -315,9 +333,11 @@ pub fn sign_in(
         .send_json(body)
     {
         Ok(reply) => reply.into_json::<Value>().map_err(|_| "服务器响应无效")?,
-        Err(ureq::Error::Transport(_)) => return Err("服务器暂时连不上，仍可使用离线演示"),
+        Err(ureq::Error::Transport(_)) => return Err("无法连接礼遇服务器，请检查网络后重试"),
         Err(ureq::Error::Status(409, _)) => return Err("账号已存在，请直接登录"),
-        Err(ureq::Error::Status(_, _)) => return Err("账号或密码不正确"),
+        Err(ureq::Error::Status(401, _)) => return Err("账号或密码不正确"),
+        Err(ureq::Error::Status(400, _)) => return Err("注册信息无效，请检查账号、密码和验证码"),
+        Err(ureq::Error::Status(_, _)) => return Err("服务器暂时无法处理请求，请稍后重试"),
     };
     let token = response
         .get("token")
@@ -333,19 +353,6 @@ pub fn sign_in(
     // token 落盘,重启可恢复;密码只在这次请求里用过,不保存。
     session_save();
     Ok(())
-}
-
-/// 进入离线演示:本机身份,不发请求、不保存凭据。与真实账号严格区隔。
-pub fn use_demo() {
-    if let Ok(mut state) = auth().lock() {
-        state.identifier = "demo@liyu.test".into();
-        state.token = None;
-        state.mode = AuthMode::Demo;
-        state.expired = false;
-    }
-    // 演示不持有凭据:任何遗留的 session.json 都不该在演示名下生效。
-    let Some(path) = session_path() else { return };
-    let _ = std::fs::remove_file(path);
 }
 
 /// 401 / token 失效:只标记过期并丢弃内存里的 token。绝不在这里重登 ——
@@ -527,7 +534,9 @@ pub fn delete_avatar(profile: &mut Profile) -> Result<(), &'static str> {
     }
     if synced {
         // 服务端已确认删除:清掉任何持久删除意图,回到默认占位。
-        profile.avatar_url.clear();
+        profile.avatar_url = get("me/profile")
+            .and_then(|value| value.get("avatar_url").and_then(Value::as_str).map(str::to_owned))
+            .unwrap_or_default();
         profile.online = true;
         let _ = std::fs::remove_file(avatar_delete_pending_path().unwrap_or_default());
         local_write(profile);
@@ -807,6 +816,37 @@ pub fn delete_address(profile: &mut Profile, id: i64) -> Result<(), &'static str
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn startup_health_check_requires_a_healthy_server() {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+
+        for (status, body, healthy) in [
+            ("200 OK", r#"{"status":"ok"}"#, true),
+            ("503 Service Unavailable", r#"{"error":"database unavailable"}"#, false),
+            ("200 OK", r#"{"status":"failed"}"#, false),
+            ("200 OK", "invalid JSON", false),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let url = format!("http://{}", listener.local_addr().unwrap());
+            let server = std::thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+                let mut request = [0; 4096];
+                let count = stream.read(&mut request).unwrap();
+                assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /health "));
+                write!(stream, "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+            });
+            assert_eq!(check_server_at(&url).is_ok(), healthy);
+            server.join().unwrap();
+        }
+        assert!(check_server_at("invalid://server").is_err());
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        drop(listener);
+        assert_eq!(check_server_at(&url), Err("无法连接礼遇服务器，请确认服务器已启动并检查网络，然后重试"));
+    }
 
     #[test]
     fn avatar_content_type_is_validated_before_any_network() {

@@ -1912,7 +1912,7 @@ script_mod! {
                         // ================= 认证闸（首次启动 / 登出 / 401 后的独立界面）=================
                         //
                         // 未认证时盖住整个应用：不是覆盖页、不在 Tab 里，登录 / 注册互切，
-                        // 断网时给「离线演示」入口。过了这一关才可能看到开场三屏或主界面。
+                        // 登录成功后进入应用。过了这一关才可能看到开场三屏或主界面。
                         page_auth := LiyuScrollY {
                             visible: false
                             width: Fill height: Fill
@@ -1925,7 +1925,9 @@ script_mod! {
                                 padding: 24.0
                                 spacing: 12.0
                                 au_title := LiyuH1 { text: "欢迎来到礼遇" }
-                                au_sub := LiyuMuted { text: "猜得到的心意。登录或注册后继续；没网也能先逛逛。" }
+                                au_sub := LiyuMuted { text: "猜得到的心意。登录或注册后继续。" }
+                                au_server_err := LiyuBad { visible: false text: "" }
+                                au_retry := LiyuBtn { visible: false width: Fit text: "重试连接" }
                                 au_identifier := LiyuInput { empty_text: "邮箱或手机号作为账号标识" }
                                 au_password := LiyuInput { empty_text: "密码" is_password: true }
                                 au_code_wrap := View {
@@ -1942,8 +1944,6 @@ script_mod! {
                                     au_submit := LiyuBtnPrimary { width: Fit text: "登录" }
                                     au_switch := LiyuLink { text: "没有账号？去注册" }
                                 }
-                                au_demo := LiyuBtn { width: Fit text: "先逛逛 · 离线演示" }
-                                au_demo_note := LiyuMuted { text: "离线演示与真实账号的数据完全分开，只保存在本机，不会上传。" }
                                 au_test_note := LiyuMuted { visible: false text: "测试服务器：密码与注册验证码均固定为 123456，不发送短信或邮件。" }
                             }
                         }
@@ -2835,9 +2835,11 @@ pub struct LiyuView {
     // ---- 开场三屏 / 通知 / toast ----
     #[rust]
     intro: Option<usize>,
-    /// 认证闸:未登录也没选离线演示时 true,整应用被 page_auth 盖住。
+    /// 认证闸:未登录时 true,整应用被 page_auth 盖住。
     #[rust]
     auth_gate: bool,
+    #[rust]
+    server_error: Option<Msg>,
     /// 认证界面处于注册模式(验证码字段可见,按钮文案互换)。
     #[rust]
     auth_register: bool,
@@ -2925,6 +2927,78 @@ impl LiyuView {
     fn tint_bg(&mut self, cx: &mut Cx, path: &[LiveId], c: Vec4f) {
         let mut w = self.view.widget(cx, path);
         script_apply_eval!(cx, w, { draw_bg +: { color: #(c) } });
+    }
+
+    /// Keyboard navigation belongs to the app, so it works in both hosting modes.
+    fn handle_keyboard_navigation(&mut self, cx: &mut Cx, event: &Event) -> bool {
+        let Event::KeyDown(key) = event else { return false };
+        if key.modifiers.control || key.modifiers.logo || key.modifiers.alt {
+            return false;
+        }
+        fn collect(widget: WidgetRef, parents: Vec<Area>, out: &mut Vec<(WidgetRef, Vec<Area>)>, cx: &Cx) {
+            if !widget.visible() { return; }
+            let area = widget.area();
+            let focusable = widget.borrow::<TextInput>().is_some()
+                || widget.borrow::<Button>().is_some_and(|button| button.enabled())
+                || widget.borrow::<CheckBox>().is_some();
+            if focusable && !area.is_empty() && area.is_valid(cx) {
+                out.push((widget.clone(), parents.clone()));
+            }
+            let mut next = parents;
+            if !area.is_empty() { next.push(area); }
+            let mut children = Vec::new();
+            widget.children(&mut |_, child| children.push(child));
+            for child in children { collect(child, next.clone(), out, cx); }
+        }
+        let mut stops = Vec::new();
+        if self.auth_gate || self.intro.is_some() {
+            let path = if self.auth_gate { ids!(page_auth) } else { ids!(page_intro) };
+            collect(self.view.widget(cx, path), Vec::new(), &mut stops, cx);
+        } else {
+            let mut children = Vec::new();
+            self.view.children(&mut |_, child| children.push(child));
+            for child in children { collect(child, Vec::new(), &mut stops, cx); }
+        }
+        let focused = stops.iter().position(|(widget, _)| widget.key_focus(cx));
+        if key.key_code == KeyCode::Tab {
+            if stops.is_empty() { return true; }
+            let index = focus_index(focused, stops.len(), key.modifiers.shift);
+            let (widget, parents) = &stops[index];
+            if let Some(mut input) = widget.borrow_mut::<TextInput>() {
+                input.take_key_focus(cx);
+            } else {
+                widget.set_key_focus(cx);
+            }
+            let mut from = widget.area();
+            for parent in parents.iter().rev() {
+                cx.send_trigger(*parent, Trigger { id: live_id!(scroll_focus_nav), from });
+                from = *parent;
+            }
+            widget.redraw(cx);
+            return true;
+        }
+        if self.auth_gate && key.is_repeat && matches!(key.key_code, KeyCode::ReturnKey | KeyCode::NumpadEnter) {
+            return true;
+        }
+        if matches!(key.key_code, KeyCode::ReturnKey | KeyCode::NumpadEnter | KeyCode::Space) && !key.is_repeat {
+            if let Some(index) = focused {
+                let widget = &stops[index].0;
+                let actions = cx.capture_actions(|cx| {
+                    if widget.borrow::<Button>().is_some() {
+                        cx.widget_action(widget.widget_uid(), ButtonAction::Clicked(key.modifiers));
+                    } else if let Some(mut check) = widget.borrow_mut::<CheckBox>() {
+                        let active = !check.active(cx);
+                        check.set_active(cx, active, Animate::Yes);
+                        cx.widget_action(widget.widget_uid(), CheckBoxAction::Change(active));
+                    }
+                });
+                if !actions.is_empty() {
+                    self.handle_actions(cx, &actions);
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     fn clicked(&mut self, cx: &mut Cx, path: &[LiveId], actions: &Actions) -> bool {
@@ -3185,6 +3259,9 @@ impl LiyuView {
         let menu = self.import_menu && !gate && !intro && self.overlay.is_none() && self.tab == 3;
         self.show(cx, ids!(ct_menu_layer), menu);
         self.refresh_topbar(cx);
+        // Authentication and onboarding hide the chrome without resizing the
+        // surface. Restore navigation when those states change at the same size.
+        self.reshape(cx);
         self.redraw(cx);
     }
 
@@ -3242,6 +3319,11 @@ impl LiyuView {
     }
 
     fn refresh_all(&mut self, cx: &mut Cx) {
+        if self.auth_gate {
+            self.refresh_auth(cx);
+            self.update_page_visibility(cx);
+            return;
+        }
         self.set_tab_keep_overlay(cx);
         self.refresh_gift(cx);
         self.refresh_box(cx);
@@ -3591,13 +3673,13 @@ impl LiyuView {
     /// （只开草稿、待本人在界面确认，不发送/不扣款/不改服务端）。
     pub fn ai_answer(&mut self, cx: &mut Cx, call: &ServiceCall) -> ToolResult {
         if call.tool.as_str() == "prepare_gift_draft" {
-            // 写工具必须先有真实身份:首次未选择登录/注册/离线演示(AuthMode::None)时拒绝,
+            // 写工具必须先有真实身份:首次未选择登录/注册(AuthMode::None)时拒绝,
             // 不允许匿名调用方在本机开送礼草稿。守卫放在调用侧(身份上下文所在),
             // 不侵入 ai_draft.rs 的纯状态机逻辑。
             if profile_client::mode() == profile_client::AuthMode::None {
                 return ToolResult::refused(
                     &call.call_id,
-                    "还没有选择身份：请先登录、注册或进入离线演示，再来准备送礼草稿",
+                    "还没有选择身份：请先登录、注册，再来准备送礼草稿",
                 );
             }
             let now_ms = std::time::SystemTime::now()
@@ -3977,7 +4059,7 @@ impl LiyuView {
         self.set_text(cx, ids!(bx_mode), if self.gift_client.online {
             "服务器礼盒 · 按收礼人/送礼人权限显示"
         } else {
-            "离线演示礼盒 · 仅本机模拟数据"
+            "礼盒加载失败，请检查服务器连接"
         });
         if self.gift_client.online {
             self.set_chip_group(cx, &BOX_SEGS, self.box_sent as usize);
@@ -4014,59 +4096,10 @@ impl LiyuView {
             self.set_text(cx, ids!(ab1_b), &format!("服务器收到 {} 份\n服务器送出 {} 份", self.gift_client.inbox.len(), self.gift_client.outbox.len()));
             return;
         }
-        let today = today_days();
-        self.set_chip_group(cx, &BOX_SEGS, self.box_sent as usize);
-        let gifts: Vec<Gift> = if self.box_sent {
-            self.state.sent().into_iter().cloned().collect()
-        } else {
-            self.state.received(today).into_iter().cloned().collect()
-        };
-        self.box_rows = gifts.iter().map(|g| g.id).collect();
-        for (j, row) in BOX_ROWS.iter().enumerate() {
-            let Some(g) = gifts.get(j) else {
-                self.show(cx, &[*row], false);
-                continue;
-            };
-            self.show(cx, &[*row], true);
-            // 收到的还没揭晓：只给问号，拆开之前不剧透。
-            let mystery = !g.is_sent() && g.revealed_on == 0;
-            let pic = if mystery { None } else { Some(final_index(g)) };
-            self.set_img(cx, &[*row, live_id!(bx_img)], pic);
-            let (title, sub) = if g.is_sent() {
-                (
-                    format!("{} · 送给{}", g.catalog().name, spaced(&g.shown_recipient())),
-                    format!("{} · {}", g.unlock().label(), rel_day(g.sent_on, today)),
-                )
-            } else {
-                (
-                    g.title(),
-                    format!("来自{} · {}", spaced(&g.shown_sender()), rel_day(g.sent_on, today)),
-                )
-            };
-            self.set_text(cx, &[*row, live_id!(bx_title)], &title);
-            self.set_text(cx, &[*row, live_id!(bx_sub)], &sub);
-            self.set_text(cx, &[*row, live_id!(bx_state)], &g.status_text(today));
-            let tc = self.tone_color(g.tone());
-            self.tint_text(cx, &[*row, live_id!(bx_state)], tc);
-        }
-        let (text, action) = if self.box_sent {
-            ("还没有送出过礼物", "去挑一份")
-        } else {
-            ("还没有收到礼物", "")
-        };
-        self.apply_list_state(cx, ids!(bx_empty), text, action, gifts.len());
-        let more = gifts.len().saturating_sub(BOX_ROWS.len());
-        self.show(cx, ids!(bx_more), more > 0);
-        self.set_text(cx, ids!(bx_more), &format!("还有 {more} 份较早的没有显示"));
-        // 右列一览
-        let recv = self.state.received(today).len();
-        let pending = self.state.pending_received(today);
-        let sent = self.state.sent().len();
-        self.set_text(
-            cx,
-            ids!(ab1_b),
-            &format!("收到 {recv} 份，{pending} 份等你处理\n送出 {sent} 份"),
-        );
+        self.box_rows.clear();
+        for row in BOX_ROWS { self.show(cx, &[row], false); }
+        self.show(cx, ids!(bx_more), false);
+        self.apply_list_state(cx, ids!(bx_empty), "礼盒加载失败", "请检查服务器连接后重试", 0);
     }
 
     fn open_online_gift(&mut self, cx: &mut Cx, id: i64, sent_role: bool) {
@@ -4926,6 +4959,11 @@ impl LiyuView {
     /// 刷新认证界面：登录 / 注册互切的字段与文案、测试服务器提示。
     fn refresh_auth(&mut self, cx: &mut Cx) {
         let reg = self.auth_register;
+        self.show(cx, ids!(au_server_err), self.server_error.is_some());
+        self.show(cx, ids!(au_retry), self.server_error.is_some());
+        if let Some(error) = self.server_error {
+            self.set_text(cx, ids!(au_server_err), error);
+        }
         self.show(cx, ids!(au_code_wrap), reg);
         self.set_text(cx, ids!(au_submit), if reg { "注册并登录" } else { "登录" });
         self.set_text(
@@ -4946,9 +4984,10 @@ impl LiyuView {
         self.refresh_auth(cx);
     }
 
-    /// 登录 / 注册 / 进入演示之后：重置按账号隔离的客户端缓存，关闸进应用。
-    fn after_account_switch(&mut self, cx: &mut Cx, online: bool) {
+    /// 登录 / 注册之后：重置按账号隔离的客户端缓存，关闸进应用。
+    fn after_account_switch(&mut self, cx: &mut Cx) {
         self.auth_gate = false;
+        self.server_error = None;
         self.profile_err = None;
         self.commerce = Commerce::default();
         self.gift_client = GiftClient::default();
@@ -4963,11 +5002,7 @@ impl LiyuView {
         }
         self.toast(
             cx,
-            if online {
-                if self.auth_register { "注册并登录成功" } else { "已登录" }
-            } else {
-                "已进入离线演示，数据只在本机"
-            },
+            if self.auth_register { "注册并登录成功" } else { "已登录" },
         );
         self.update_page_visibility(cx);
     }
@@ -5031,6 +5066,7 @@ impl LiyuView {
     fn refresh_avatar(&mut self, cx: &mut Cx) {
         let has_server_avatar = !self.profile.avatar_url.is_empty()
             && !profile_client::avatar_pending(&self.profile);
+        let default_avatar = self.profile.avatar_url.starts_with("/api/v1/media/default-avatars/");
         // 已上传头像按 URL 缓存:URL 变化才同步 GET(带 2MiB 上限),避免反复刷新卡界面/无界内存。
         if has_server_avatar {
             let stale = self
@@ -5063,6 +5099,8 @@ impl LiyuView {
             format!("编辑中 · {w}×{h} · 确认后上传")
         } else if pending {
             "未同步 · 头像已保存在本机，联网后点「重试上传」".to_string()
+        } else if default_avatar {
+            "默认头像 · 根据账号固定生成".to_string()
         } else if has_server_avatar {
             "头像已同步到服务器".to_string()
         } else {
@@ -5070,12 +5108,12 @@ impl LiyuView {
         };
         self.set_text(cx, ids!(pf_avatar_status), &status);
         self.show(cx, ids!(pf_avatar_edit), editing);
-        self.show(cx, ids!(pf_avatar_delete), has_server_avatar || pending);
+        self.show(cx, ids!(pf_avatar_delete), (has_server_avatar && !default_avatar) || pending);
         // 重试上传按钮文案：pending 时把「确认上传」变成重试入口（编辑会话为空也能点）。
         if pending && !editing {
             self.set_text(cx, ids!(pf_avatar_load), "重试上传");
         } else {
-            self.set_text(cx, ids!(pf_avatar_load), "载入");
+            self.set_text(cx, ids!(pf_avatar_load), "选择图片…");
         }
     }
 
@@ -5204,7 +5242,7 @@ impl LiyuView {
         let status = if self.profile.online {
             format!("已连接礼遇服务器 · 当前账号 {}", profile_client::active_identifier())
         } else {
-            format!("离线演示模式 · 当前账号 {} · 修改保存在本机", profile_client::active_identifier())
+            format!("服务器连接失败 · 当前账号 {}", profile_client::active_identifier())
         };
         self.set_text(cx, ids!(pf_status), &status);
         let summary = if self.profile.addresses.is_empty() {
@@ -5241,7 +5279,7 @@ impl LiyuView {
         let status = if self.commerce.online {
             "已连接服务器 · 订单按服务器价格结算"
         } else {
-            "离线演示模式 · 本地模拟订单，不会上传到服务器"
+            "服务器连接失败，请重试"
         };
         self.set_text(cx, ids!(ca_status), status);
         self.show(cx, ids!(ca_pick), self.cart_draft_product.is_some());
@@ -5266,7 +5304,7 @@ impl LiyuView {
         let rows = self.commerce.items.iter().take(CART_ITEM_ROWS.len()).map(|x| {
             let friend = self.commerce.friends.iter().find(|f| f.id == x.recipient_id)
                 .map(|f| f.display_name.as_str()).unwrap_or("好友");
-            format!("{} · 送给 {} · {}{}", x.name, friend, yuan(x.price_cents), if x.id < 0 { " · 本地演示" } else { "" })
+            format!("{} · 送给 {} · {}", x.name, friend, yuan(x.price_cents))
         }).collect::<Vec<_>>();
         self.show(cx, ids!(ca_empty), self.commerce.items.is_empty());
         for (i, row) in CART_ITEM_ROWS.iter().enumerate() {
@@ -5281,10 +5319,10 @@ impl LiyuView {
         self.show(cx, ids!(ca_checkout), !self.commerce.items.is_empty());
         self.show(cx, ids!(ca_order), self.commerce.order.is_some());
         if let Some(order) = self.commerce.order.clone() {
-            let label = if order.offline { "本地模拟订单" } else { "服务器测试订单" };
+            let label = "服务器测试订单";
             let state = match order.status.as_str() {
-                "pending" | "pending_demo" => "待测试支付",
-                "paid_test" | "paid_demo" => "已完成测试支付",
+                "pending" => "待测试支付",
+                "paid_test" => "已完成测试支付",
                 _ => "状态待刷新",
             };
             self.set_text(cx, ids!(ca_order_text), &format!("{} #{} · {} · {}", label, order.id.abs(), yuan(order.total_cents), state));
@@ -5330,25 +5368,37 @@ impl LiyuView {
 
         // ---- 认证闸：全屏时只处理自己的几个按钮，别的一律不响应 ----
         if self.auth_gate {
+            if self.clicked(cx, ids!(au_retry), actions) {
+                self.server_error = profile_client::check_server().err();
+                if self.server_error.is_none() {
+                    self.profile_err = None;
+                    if profile_client::has_choice() {
+                        self.after_account_switch(cx);
+                    } else {
+                        self.refresh_auth(cx);
+                    }
+                } else {
+                    self.refresh_auth(cx);
+                }
+                return;
+            }
             if self.clicked(cx, ids!(au_switch), actions) {
                 self.auth_register = !self.auth_register;
                 self.refresh_auth(cx);
             }
             let submit = self.clicked(cx, ids!(au_submit), actions)
-                || self.view.text_input(cx, ids!(au_password)).returned(actions).is_some();
+                || self.view.text_input(cx, ids!(au_identifier)).returned(actions).is_some()
+                || self.view.text_input(cx, ids!(au_password)).returned(actions).is_some()
+                || (self.auth_register && self.view.text_input(cx, ids!(au_code)).returned(actions).is_some());
             if submit {
                 let identifier = self.input_text(cx, ids!(au_identifier));
                 let password = self.input_text(cx, ids!(au_password));
                 let code = self.input_text(cx, ids!(au_code_wrap.au_code));
                 let register = self.auth_register;
                 match profile_client::sign_in(&identifier, &password, &code, register) {
-                    Ok(()) => self.after_account_switch(cx, true),
+                    Ok(()) => self.after_account_switch(cx),
                     Err(e) => self.show_auth_error(cx, e),
                 }
-            }
-            if self.clicked(cx, ids!(au_demo), actions) {
-                profile_client::use_demo();
-                self.after_account_switch(cx, false);
             }
             return;
         }
@@ -6088,16 +6138,26 @@ impl Widget for LiyuView {
     }
 
     fn handle_event(&mut self, cx: &mut Cx, event: &Event, scope: &mut Scope) {
-        self.view.handle_event(cx, event, scope);
+        if self.handle_keyboard_navigation(cx, event) {
+            return;
+        }
+        // Consume child actions here, including when hosted inside an isolated module.
+        let actions = cx.capture_actions(|cx| self.view.handle_event(cx, event, scope));
+        if !actions.is_empty() {
+            self.handle_actions(cx, &actions);
+        }
         if !self.initialized {
             // 演示便利：状态目录缺 contacts.vcf 时补一份示例，让导入按钮开箱可点。
             LiyuState::ensure_sample_vcard();
             self.pal = Pal::read(cx);
             self.state.sweep(today_days());
-            // 先恢复本机会话:上次登录过就直接回账号;没有凭据、也没选过演示 → 认证闸。
+            // 先恢复本机会话:上次登录过就直接回账号;没有凭据 → 认证闸。
             profile_client::restore_session();
-            self.auth_gate = !profile_client::has_choice();
-            self.profile = profile_client::load(&self.state.settings.nickname);
+            self.server_error = profile_client::check_server().err();
+            self.auth_gate = self.server_error.is_some() || !profile_client::has_choice();
+            if self.server_error.is_none() {
+                self.profile = profile_client::load(&self.state.settings.nickname);
+            }
             self.refresh_all(cx);
             self.set_tab(cx, 0);
             if !self.auth_gate && !self.state.settings.onboarded {
@@ -6163,6 +6223,15 @@ impl Widget for LiyuView {
 
 // ---------------------------------------------------------------------------
 // 小函数
+
+fn focus_index(current: Option<usize>, count: usize, backwards: bool) -> usize {
+    match current {
+        Some(index) if backwards => (index + count - 1) % count,
+        Some(index) => (index + 1) % count,
+        None if backwards => count - 1,
+        None => 0,
+    }
+}
 // ---------------------------------------------------------------------------
 
 /// 把一条 id 路径接上一个子 id（makepad 的查找是「往下找同名后代」）。
@@ -6271,10 +6340,49 @@ impl ServiceExecutor for LiyuExecutor {
 
 #[cfg(test)]
 mod layout_tests {
+    #[test]
+    fn keyboard_focus_starts_and_wraps_in_both_directions() {
+        assert_eq!(super::focus_index(None, 5, false), 0);
+        assert_eq!(super::focus_index(None, 5, true), 4);
+        assert_eq!(super::focus_index(Some(4), 5, false), 0);
+        assert_eq!(super::focus_index(Some(0), 5, true), 4);
+        assert_eq!(super::focus_index(Some(0), 1, true), 0);
+    }
+
     use super::*;
 
     fn size(x: f64, y: f64) -> Vec2d {
         Vec2d { x, y }
+    }
+
+    #[test]
+    fn navigation_returns_after_authentication_without_a_resize() {
+        let mut cx = Cx::new(Box::new(|_, _| {}));
+        let root = cx.with_vm(|vm| {
+            makepad_widgets::script_mod(vm);
+            LIYU_MODULE.register(vm);
+            let value = script_eval!(vm, {
+                use mod.widgets.*
+                LiyuView {}
+            });
+            WidgetRef::script_from_value(vm, value)
+        });
+        let mut view = root.borrow_mut::<LiyuView>().unwrap();
+        for width in [412.0, 1000.0, 1280.0] {
+            view.last_size = size(width, 700.0);
+            view.shaping = Some(shaping_for(view.last_size));
+            view.auth_gate = true;
+            view.update_page_visibility(&mut cx);
+            assert!(!view.view.widget(&cx, ids!(sidebar)).visible());
+            assert!(!view.view.widget(&cx, ids!(tabbar)).visible());
+
+            view.auth_gate = false;
+            view.overlay = Some(Overlay::Send);
+            view.update_page_visibility(&mut cx);
+            assert_eq!(view.view.widget(&cx, ids!(sidebar)).visible(), width >= PHONE_MAX);
+            assert_eq!(view.view.widget(&cx, ids!(tabbar)).visible(), width < PHONE_MAX);
+            assert!(view.view.widget(&cx, ids!(topbar)).visible());
+        }
     }
 
     #[test]

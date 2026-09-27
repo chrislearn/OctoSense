@@ -181,7 +181,7 @@ script_mod! {
             color: liyu.blue
             color_hover: liyu.blue_hi
             color_down: liyu.blue_lo
-            color_focus: liyu.blue
+            color_focus: liyu.blue_hi
             color_disabled: liyu.off_bg
         }
         draw_icon +: { preserve_viewbox: true color: liyu.on_blue }
@@ -522,7 +522,7 @@ script_mod! {
             color: #0000
             color_hover: #0000
             color_down: #0000
-            color_focus: #0000
+            color_focus: liyu.hl
         }
         draw_text +: {
             color: liyu.blue

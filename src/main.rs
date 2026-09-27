@@ -314,6 +314,8 @@ pub struct App {
     next_id: ClientId,
     #[rust]
     tick: Timer,
+    #[rust]
+    hosted_file_dialog: Option<(ClientId, u64)>,
     /// Bar height + left padding last applied from the OS window buttons.
     #[rust]
     bar_metrics: Option<BarMetrics>,
@@ -2386,6 +2388,20 @@ impl App {
             AppToStudio::SetClipboard(text) => {
                 cx.copy_to_clipboard(&text);
             }
+            AppToStudio::SelectFileDialog { id, title, extensions, multiple } => {
+                if self.hosted_file_dialog.is_some() {
+                    if let Some(sender) = self.state_mut().clients.get(&client).and_then(|slot| slot.sender.as_ref()) {
+                        send_to_app(sender, vec![StudioToApp::FileDialogResult { id, paths: Vec::new() }]);
+                    }
+                    return;
+                }
+                self.hosted_file_dialog = Some((client, id));
+                cx.open_select_file_dialog(makepad_platform::file_dialogs::FileDialog::new()
+                    .set_id(live_id!(hosted_file_dialog))
+                    .set_multiple(multiple)
+                    .set_title(title)
+                    .add_filter("文件".into(), extensions));
+            }
             AppToStudio::Custom(json) => {
                 if let Some(back) = makepad_platform::ime::HostedBack::parse(&json) {
                     if back.handled == Some(false) && self.state_mut().phone.client == Some(client) {
@@ -4054,6 +4070,22 @@ impl MatchEvent for App {
     }
 
     fn handle_actions(&mut self, cx: &mut Cx, actions: &Actions) {
+        for action in actions {
+            if let Some(result) = action.downcast_ref::<makepad_platform::file_dialogs::FileDialogAction>() {
+                if result.id() == live_id!(hosted_file_dialog) {
+                    if let Some((client, id)) = self.hosted_file_dialog.take() {
+                        let paths = match result {
+                            makepad_platform::file_dialogs::FileDialogAction::FileSelected { paths, .. } =>
+                                paths.iter().map(|path| path.to_string_lossy().into_owned()).collect(),
+                            _ => Vec::new(),
+                        };
+                        if let Some(sender) = self.state_mut().clients.get(&client).and_then(|slot| slot.sender.as_ref()) {
+                            send_to_app(sender, vec![StudioToApp::FileDialogResult { id, paths }]);
+                        }
+                    }
+                }
+            }
+        }
         if self.gallery {
             let gallery = self.ui.widget(cx, ids!(shell_gallery));
             {
