@@ -37,6 +37,7 @@ use share::ShareStyle;
 use theme::{Pal, ThemeMode};
 
 script_mod! {
+    #(account_ui::script_mod(vm))
     use mod.prelude.liyu.*
     use mod.widgets.*
 
@@ -444,11 +445,39 @@ script_mod! {
                         }
 
                         // ================= 我 =================
-                        page_me := LiyuScrollY {
-                            visible: false
-                            width: Fill height: Fill
-                            flow: Down
-                            spacing: 14.0
+                        page_me := View {
+ visible: false width: Fill height: Fill flow: Right spacing: 16.0
+ me_list := LiyuScrollY { width: 200 height: Fill flow: Down spacing: 12.0
+ account_identity := LiyuCard { width: Fill height: Fit flow: Down spacing: 8.0
+ account_avatar := LiyuThumb { width: 56 height: 56 }
+ account_name := LiyuH2 { text: "" }
+ }
+ account_categories := LiyuCard { width: Fill height: Fit flow: Down spacing: 2.0
+ acc_mcat0 := mod.widgets.AccountCategoryRow { text: "个人资料" }
+ acc_mcat1 := mod.widgets.AccountCategoryRow { text: "账号与联系方式" }
+ acc_mcat2 := mod.widgets.AccountCategoryRow { text: "收货地址" }
+ acc_mcat3 := mod.widgets.AccountCategoryRow { text: "通用" }
+ acc_mcat4 := mod.widgets.AccountCategoryRow { text: "通知" }
+ acc_mcat5 := mod.widgets.AccountCategoryRow { text: "数据管理" }
+ acc_mcat6 := mod.widgets.AccountCategoryRow { text: "关于" }
+ }
+ account_shortcuts := LiyuCard { width: Fill height: Fit flow: Down spacing: 8.0
+ account_wallet := LiyuBtnSm { width: Fill text: "钱包与流水" }
+ account_cart := LiyuBtnSm { width: Fill text: "购物车与订单" }
+ account_wishes := LiyuBtnSm { width: Fill text: "我的心愿单" }
+ account_drafts := LiyuBtnSm { width: Fill text: "送礼草稿" }
+ }
+ }
+ account_detail := View { width: Fill height: Fill flow: Down spacing: 12.0
+ account_header := View { width: Fill height: Fit flow: Right spacing: 8.0
+ acc_back := LiyuBtnSm { width: Fit text: "‹ 返回" }
+ acc_title := LiyuH2 { width: Fill text: "我" }
+ }
+ account_landing := LiyuScrollY { width: Fill height: Fill flow: Down spacing: 14.0
+ me_identity := LiyuCard { width: Fill height: Fit flow: Down spacing: 8.0
+ me_identity_name := LiyuH2 { text: "" }
+ me_identity_note := LiyuMuted { text: "账号与设置" }
+ }
                             me_bal := LiyuCard {
                                 width: Fill height: Fit
                                 flow: Down
@@ -511,6 +540,7 @@ script_mod! {
                                 }
                             }
                             me_rows := LiyuCard {
+                                visible: true
                                 width: Fill height: Fit
                                 flow: Down
                                 padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 6.0}
@@ -522,7 +552,203 @@ script_mod! {
                                 row_settings := LiyuSetRow { }
                                 row_about := LiyuSetRow { }
                             }
+ }
+                        page_profile := LiyuScrollY {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 14.0
+                            pf_status := LiyuBadgeBlue { text: "" }
+                            pf_signout_row := View {
+                                width: Fill height: Fit
+                                flow: Right
+                                align: Align{x: 0.0, y: 0.5}
+                                spacing: 8.0
+                                pf_signout_note := LiyuMuted { width: Fill text: "登出会清除本机凭据并回到登录界面" }
+                                pf_signout := LiyuBtn { width: Fit text: "登出" }
+                            }
+                            pf_name_head := LiyuGroupHead { text: "基本资料" }
+                            pf_name_card := LiyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 14.0
+                                spacing: 10.0
+                                pf_name_note := LiyuMuted { text: "显示名" }
+                                pf_name_summary := View { width: Fill height: Fit flow: Right spacing: 8.0
+ pf_name_value := LiyuMuted { width: Fill text: "" } pf_name_edit := LiyuBtnSm { width: Fit text: "修改" } }
+ pf_name_editor := View { visible: false width: Fill height: Fit pf_name := LiyuInput { empty_text: "你的名字"  } }
+                                pf_avatar_note := LiyuMuted { text: "头像（本地图片，JPEG / PNG / WebP）" }
+                                pf_avatar_row := View {
+                                    width: Fill height: Fit
+                                    flow: Right
+                                    align: Align{x: 0.0, y: 0.5}
+                                    spacing: 10.0
+                                    pf_avatar_thumb := LiyuThumb { width: 64 height: 64 }
+                                    pf_avatar_col := View {
+                                        width: Fill height: Fit
+                                        flow: Down
+                                        spacing: 6.0
+                                        pf_avatar_status := LiyuMuted { text: "还没有头像，显示默认占位图" }
+                                        pf_avatar_pick_row := View {
+                                            width: Fill height: Fit
+                                            flow: Right
+                                            spacing: 8.0
+                                            pf_avatar_load := LiyuBtn { width: Fit text: "选择图片…" }
+                                        }
+                                    }
+                                }
+                                pf_avatar_edit := View {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    spacing: 8.0
+                                    pf_avatar_edit_note := LiyuMuted { text: "已载入原图：选裁切位置（九宫格循环）、旋转，确认后上传。" }
+                                    pf_avatar_edit_row := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 8.0
+                                        spacing: 8.0
+                                        pf_avatar_anchor := LiyuBtnSm { width: Fit text: "裁切位置：居中" }
+                                        pf_avatar_rotate := LiyuBtnSm { width: Fit text: "旋转 90°" }
+                                        pf_avatar_confirm := LiyuBtnPrimary { width: Fit text: "确认上传" }
+                                        pf_avatar_cancel := LiyuBtnSm { width: Fit text: "取消" }
+                                    }
+                                }
+                                pf_avatar_delete := LiyuBtnSm { visible: false width: Fit text: "删除头像，恢复默认" }
+                                pf_save := LiyuBtnPrimary { visible: false width: Fit text: "保存" }
+                            }
+                            pf_contact_head := LiyuGroupHead { text: "联系方式" }
+                            pf_contact_card := LiyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 14.0
+                                spacing: 10.0
+                                pf_contact_note := LiyuMuted { text: "测试阶段不发短信或邮件，验证码统一填 123456。" }
+                                pf_phone_summary := View { width: Fill height: Fit flow: Right spacing: 8.0 pf_phone_value := LiyuMuted { width: Fill text: "" } pf_phone_edit := LiyuBtnSm { width: Fit text: "修改手机号" } }
+ pf_phone_editor := View { visible: false width: Fill height: Fit pf_phone := LiyuInput { empty_text: "手机号（11 位）"  } }
+                                pf_phone_code_editor := View { visible: false width: Fill height: Fit pf_phone_code := LiyuInput { empty_text: "验证码 123456"  } }
+                                pf_phone_save := LiyuBtnPrimary { visible: false width: Fit text: "确认绑定" }
+                                pf_email_summary := View { width: Fill height: Fit flow: Right spacing: 8.0 pf_email_value := LiyuMuted { width: Fill text: "" } pf_email_edit := LiyuBtnSm { width: Fit text: "修改邮箱" } }
+ pf_email_editor := View { visible: false width: Fill height: Fit pf_email := LiyuInput { empty_text: "邮箱"  } }
+                                pf_email_code_editor := View { visible: false width: Fill height: Fit pf_email_code := LiyuInput { empty_text: "验证码 123456"  } }
+                                pf_email_save := LiyuBtnPrimary { visible: false width: Fit text: "确认绑定" }
+                            }
+                            pf_address_head := LiyuGroupHead { text: "收货地址" }
+                            pf_address_card := LiyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 14.0
+                                spacing: 10.0
+                                pf_address_list := LiyuMuted { text: "还没有保存地址" }
+                                pf_a0 := LiyuCard2 { visible: false flow: Down spacing: 6.0 pf_a0_text := LiyuMuted { text: "" } pf_a0_actions := View { width: Fill height: Fit flow: Right spacing: 8.0 pf_a0_edit := LiyuBtnSm { width: Fit text: "编辑" } pf_a0_del := LiyuBtnSm { width: Fit text: "删除" } } }
+                                pf_a1 := LiyuCard2 { visible: false flow: Down spacing: 6.0 pf_a1_text := LiyuMuted { text: "" } pf_a1_actions := View { width: Fill height: Fit flow: Right spacing: 8.0 pf_a1_edit := LiyuBtnSm { width: Fit text: "编辑" } pf_a1_del := LiyuBtnSm { width: Fit text: "删除" } } }
+                                pf_a2 := LiyuCard2 { visible: false flow: Down spacing: 6.0 pf_a2_text := LiyuMuted { text: "" } pf_a2_actions := View { width: Fill height: Fit flow: Right spacing: 8.0 pf_a2_edit := LiyuBtnSm { width: Fit text: "编辑" } pf_a2_del := LiyuBtnSm { width: Fit text: "删除" } } }
+                                pf_a3 := LiyuCard2 { visible: false flow: Down spacing: 6.0 pf_a3_text := LiyuMuted { text: "" } pf_a3_actions := View { width: Fill height: Fit flow: Right spacing: 8.0 pf_a3_edit := LiyuBtnSm { width: Fit text: "编辑" } pf_a3_del := LiyuBtnSm { width: Fit text: "删除" } } }
+                                pf_a4 := LiyuCard2 { visible: false flow: Down spacing: 6.0 pf_a4_text := LiyuMuted { text: "" } pf_a4_actions := View { width: Fill height: Fit flow: Right spacing: 8.0 pf_a4_edit := LiyuBtnSm { width: Fit text: "编辑" } pf_a4_del := LiyuBtnSm { width: Fit text: "删除" } } }
+                                pf_a5 := LiyuCard2 { visible: false flow: Down spacing: 6.0 pf_a5_text := LiyuMuted { text: "" } pf_a5_actions := View { width: Fill height: Fit flow: Right spacing: 8.0 pf_a5_edit := LiyuBtnSm { width: Fit text: "编辑" } pf_a5_del := LiyuBtnSm { width: Fit text: "删除" } } }
+                                pf_addr_name_editor := View { visible: false width: Fill height: Fit pf_addr_name := LiyuInput { empty_text: "收件人"  } }
+                                pf_addr_phone_editor := View { visible: false width: Fill height: Fit pf_addr_phone := LiyuInput { empty_text: "收件手机号"  } }
+                                pf_addr_text_editor := View { visible: false width: Fill height: Fit pf_addr_text := LiyuInput { empty_text: "详细地址"  } }
+                                pf_addr_new := LiyuBtnSm { width: Fit text: "添加地址" }
+ pf_addr_add := LiyuBtnPrimary { visible: false width: Fit text: "保存" }
+                                pf_addr_cancel := LiyuBtnSm { visible: false width: Fit text: "取消" }
+                            }
+                            pf_err := LiyuBad { visible: false text: "" }
                         }
+                        page_settings := LiyuScrollY {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 14.0
+
+                            ap_head := LiyuGroupHead { text: "外观" }
+                            ap_card := LiyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 14.0
+                                spacing: 10.0
+                                ap_seg := LiyuSegTrack {
+                                    ap_dark := LiyuSeg { text: "深色" }
+                                    ap_light := LiyuSeg { text: "浅色" }
+                                }
+                                ap_note := LiyuMuted { text: "只改这台设备上的礼遇，不动系统设置。" }
+                            }
+
+                            nk_head := LiyuGroupHead { text: "我的称呼" }
+                            nk_card := LiyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 14.0
+                                spacing: 10.0
+                                nk_note := LiyuMuted { text: "「猜我是谁」时 TA 要猜的名字。可以用「/」写多个，比如「阿岚/岚岚」，猜中任何一个都算对。" }
+                                nk_row := View {
+                                    width: Fill height: Fit
+                                    flow: Right
+                                    align: Align{x: 0.0, y: 0.5}
+                                    spacing: 8.0
+                                    nk_value := LiyuMuted { width: Fill text: "" }
+ nk_edit := LiyuBtnSm { width: Fit text: "修改" }
+ nk_input_editor := View { visible: false width: Fill height: Fit nk_input := LiyuInput { empty_text: "你的称呼"  } }
+                                    nk_save := LiyuBtn { visible: false width: Fit text: "保存" }
+                                }
+                                nk_err := LiyuBad { visible: false text: "" }
+                            }
+
+                            ntf_head := LiyuGroupHead { text: "通知" }
+                            ntf_card := LiyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 8.0}
+                                spacing: 0.0
+                                row_ntf_gift := LiyuSwitchRow { }
+                                row_ntf_pact := LiyuSwitchRow { }
+                                row_ntf_wish := LiyuSwitchRow { }
+                                ntf_note := LiyuMuted {
+                                    margin: Inset{left: 12.0, right: 12.0, top: 6.0}
+                                    text: "不做「TA 刚打开了你的礼卡」这类实时提醒 —— 悬念留给对方。"
+                                }
+                            }
+
+                            data_head := LiyuGroupHead { text: "数据" }
+                            data_card := LiyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 8.0}
+                                spacing: 0.0
+                                row_export := LiyuSetRow { }
+                                row_reset := LiyuSetRow { }
+                                reset_confirm := View {
+                                    visible: false
+                                    width: Fill height: Fit
+                                    flow: Down
+                                    margin: Inset{left: 12.0, right: 12.0, top: 4.0}
+                                    spacing: 8.0
+                                    rc_text := LiyuBad { text: "会清掉本机的礼物、契约、流水和熟人，换回演示数据；深浅、称呼以外的设置也会复原。" }
+                                    rc_row := View {
+                                        width: Fill height: Fit
+                                        flow: Right{wrap: true}
+                                        wrap_spacing: 8.0
+                                        spacing: 8.0
+                                        rc_cancel := LiyuBtn { width: Fit text: "再想想" }
+                                        rc_ok := LiyuBtnDanger { width: Fit text: "确认恢复" }
+                                    }
+                                }
+                            }
+                        }
+ account_about := LiyuCard { visible: false width: Fill height: Fit flow: Down spacing: 12.0
+ LiyuH2 { text: "礼遇 LiYu" }
+ LiyuMuted { text: "猜得到的心意。" }
+ LiyuMuted { text: "版本 0.1.0" }
+ account_intro := LiyuBtnSm { width: Fit text: "使用介绍" }
+ }
+ account_error := LiyuBad { text: "" }
+ account_edit_bar := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0
+ account_cancel := LiyuBtnSm { width: Fit text: "取消" }
+ account_save := LiyuBtnPrimary { width: Fit text: "保存" }
+ }
+ }
+ }
+
 
                         // ================= 送礼页（覆盖页）=================
                         //
@@ -1098,183 +1324,10 @@ script_mod! {
                         }
 
                         // ================= 设置（覆盖页）=================
-                        page_settings := LiyuScrollY {
-                            visible: false
-                            width: Fill height: Fill
-                            flow: Down
-                            spacing: 14.0
 
-                            ap_head := LiyuGroupHead { text: "外观" }
-                            ap_card := LiyuCard {
-                                width: Fill height: Fit
-                                flow: Down
-                                padding: 14.0
-                                spacing: 10.0
-                                ap_seg := LiyuSegTrack {
-                                    ap_dark := LiyuSeg { text: "深色" }
-                                    ap_light := LiyuSeg { text: "浅色" }
-                                }
-                                ap_note := LiyuMuted { text: "只改这台设备上的礼遇，不动系统设置。" }
-                            }
-
-                            nk_head := LiyuGroupHead { text: "我的称呼" }
-                            nk_card := LiyuCard {
-                                width: Fill height: Fit
-                                flow: Down
-                                padding: 14.0
-                                spacing: 10.0
-                                nk_note := LiyuMuted { text: "「猜我是谁」时 TA 要猜的名字。可以用「/」写多个，比如「阿岚/岚岚」，猜中任何一个都算对。" }
-                                nk_row := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    spacing: 8.0
-                                    nk_input := LiyuInput { empty_text: "你的称呼" }
-                                    nk_save := LiyuBtn { width: Fit text: "保存" }
-                                }
-                                nk_err := LiyuBad { visible: false text: "" }
-                            }
-
-                            ntf_head := LiyuGroupHead { text: "通知" }
-                            ntf_card := LiyuCard {
-                                width: Fill height: Fit
-                                flow: Down
-                                padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 8.0}
-                                spacing: 0.0
-                                row_ntf_gift := LiyuSwitchRow { }
-                                row_ntf_pact := LiyuSwitchRow { }
-                                row_ntf_wish := LiyuSwitchRow { }
-                                ntf_note := LiyuMuted {
-                                    margin: Inset{left: 12.0, right: 12.0, top: 6.0}
-                                    text: "不做「TA 刚打开了你的礼卡」这类实时提醒 —— 悬念留给对方。"
-                                }
-                            }
-
-                            data_head := LiyuGroupHead { text: "数据" }
-                            data_card := LiyuCard {
-                                width: Fill height: Fit
-                                flow: Down
-                                padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 8.0}
-                                spacing: 0.0
-                                row_export := LiyuSetRow { }
-                                row_reset := LiyuSetRow { }
-                                reset_confirm := View {
-                                    visible: false
-                                    width: Fill height: Fit
-                                    flow: Down
-                                    margin: Inset{left: 12.0, right: 12.0, top: 4.0}
-                                    spacing: 8.0
-                                    rc_text := LiyuBad { text: "会清掉本机的礼物、契约、流水和熟人，换回演示数据；深浅、称呼以外的设置也会复原。" }
-                                    rc_row := View {
-                                        width: Fill height: Fit
-                                        flow: Right{wrap: true}
-                                        wrap_spacing: 8.0
-                                        spacing: 8.0
-                                        rc_cancel := LiyuBtn { width: Fit text: "再想想" }
-                                        rc_ok := LiyuBtnDanger { width: Fit text: "确认恢复" }
-                                    }
-                                }
-                            }
-                        }
 
                         // ================= 账户资料（覆盖页）=================
-                        page_profile := LiyuScrollY {
-                            visible: false
-                            width: Fill height: Fill
-                            flow: Down
-                            spacing: 14.0
-                            pf_status := LiyuBadgeBlue { text: "" }
-                            pf_signout_row := View {
-                                width: Fill height: Fit
-                                flow: Right
-                                align: Align{x: 0.0, y: 0.5}
-                                spacing: 8.0
-                                pf_signout_note := LiyuMuted { width: Fill text: "登出会清除本机凭据并回到登录界面" }
-                                pf_signout := LiyuBtn { width: Fit text: "登出" }
-                            }
-                            pf_name_head := LiyuGroupHead { text: "基本资料" }
-                            pf_name_card := LiyuCard {
-                                width: Fill height: Fit
-                                flow: Down
-                                padding: 14.0
-                                spacing: 10.0
-                                pf_name_note := LiyuMuted { text: "显示名" }
-                                pf_name := LiyuInput { empty_text: "你的名字" }
-                                pf_avatar_note := LiyuMuted { text: "头像（本地图片，JPEG / PNG / WebP）" }
-                                pf_avatar_row := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    spacing: 10.0
-                                    pf_avatar_thumb := LiyuThumb { width: 64 height: 64 }
-                                    pf_avatar_col := View {
-                                        width: Fill height: Fit
-                                        flow: Down
-                                        spacing: 6.0
-                                        pf_avatar_status := LiyuMuted { text: "还没有头像，显示默认占位图" }
-                                        pf_avatar_pick_row := View {
-                                            width: Fill height: Fit
-                                            flow: Right
-                                            spacing: 8.0
-                                            pf_avatar_load := LiyuBtn { width: Fit text: "选择图片…" }
-                                        }
-                                    }
-                                }
-                                pf_avatar_edit := View {
-                                    visible: false
-                                    width: Fill height: Fit
-                                    flow: Down
-                                    spacing: 8.0
-                                    pf_avatar_edit_note := LiyuMuted { text: "已载入原图：选裁切位置（九宫格循环）、旋转，确认后上传。" }
-                                    pf_avatar_edit_row := View {
-                                        width: Fill height: Fit
-                                        flow: Right{wrap: true}
-                                        wrap_spacing: 8.0
-                                        spacing: 8.0
-                                        pf_avatar_anchor := LiyuBtnSm { width: Fit text: "裁切位置：居中" }
-                                        pf_avatar_rotate := LiyuBtnSm { width: Fit text: "旋转 90°" }
-                                        pf_avatar_confirm := LiyuBtnPrimary { width: Fit text: "确认上传" }
-                                        pf_avatar_cancel := LiyuBtnSm { width: Fit text: "取消" }
-                                    }
-                                }
-                                pf_avatar_delete := LiyuBtnSm { visible: false width: Fit text: "删除头像，恢复默认" }
-                                pf_save := LiyuBtnPrimary { width: Fit text: "保存资料" }
-                            }
-                            pf_contact_head := LiyuGroupHead { text: "联系方式" }
-                            pf_contact_card := LiyuCard {
-                                width: Fill height: Fit
-                                flow: Down
-                                padding: 14.0
-                                spacing: 10.0
-                                pf_contact_note := LiyuMuted { text: "测试阶段不发短信或邮件，验证码统一填 123456。" }
-                                pf_phone := LiyuInput { empty_text: "手机号（11 位）" }
-                                pf_phone_code := LiyuInput { empty_text: "验证码 123456" }
-                                pf_phone_save := LiyuBtn { width: Fit text: "绑定 / 修改手机号" }
-                                pf_email := LiyuInput { empty_text: "邮箱" }
-                                pf_email_code := LiyuInput { empty_text: "验证码 123456" }
-                                pf_email_save := LiyuBtn { width: Fit text: "绑定 / 修改邮箱" }
-                            }
-                            pf_address_head := LiyuGroupHead { text: "收货地址" }
-                            pf_address_card := LiyuCard {
-                                width: Fill height: Fit
-                                flow: Down
-                                padding: 14.0
-                                spacing: 10.0
-                                pf_address_list := LiyuMuted { text: "还没有保存地址" }
-                                pf_a0 := LiyuCard2 { visible: false flow: Down spacing: 6.0 pf_a0_text := LiyuMuted { text: "" } pf_a0_actions := View { width: Fill height: Fit flow: Right spacing: 8.0 pf_a0_edit := LiyuBtnSm { width: Fit text: "编辑" } pf_a0_del := LiyuBtnSm { width: Fit text: "删除" } } }
-                                pf_a1 := LiyuCard2 { visible: false flow: Down spacing: 6.0 pf_a1_text := LiyuMuted { text: "" } pf_a1_actions := View { width: Fill height: Fit flow: Right spacing: 8.0 pf_a1_edit := LiyuBtnSm { width: Fit text: "编辑" } pf_a1_del := LiyuBtnSm { width: Fit text: "删除" } } }
-                                pf_a2 := LiyuCard2 { visible: false flow: Down spacing: 6.0 pf_a2_text := LiyuMuted { text: "" } pf_a2_actions := View { width: Fill height: Fit flow: Right spacing: 8.0 pf_a2_edit := LiyuBtnSm { width: Fit text: "编辑" } pf_a2_del := LiyuBtnSm { width: Fit text: "删除" } } }
-                                pf_a3 := LiyuCard2 { visible: false flow: Down spacing: 6.0 pf_a3_text := LiyuMuted { text: "" } pf_a3_actions := View { width: Fill height: Fit flow: Right spacing: 8.0 pf_a3_edit := LiyuBtnSm { width: Fit text: "编辑" } pf_a3_del := LiyuBtnSm { width: Fit text: "删除" } } }
-                                pf_a4 := LiyuCard2 { visible: false flow: Down spacing: 6.0 pf_a4_text := LiyuMuted { text: "" } pf_a4_actions := View { width: Fill height: Fit flow: Right spacing: 8.0 pf_a4_edit := LiyuBtnSm { width: Fit text: "编辑" } pf_a4_del := LiyuBtnSm { width: Fit text: "删除" } } }
-                                pf_a5 := LiyuCard2 { visible: false flow: Down spacing: 6.0 pf_a5_text := LiyuMuted { text: "" } pf_a5_actions := View { width: Fill height: Fit flow: Right spacing: 8.0 pf_a5_edit := LiyuBtnSm { width: Fit text: "编辑" } pf_a5_del := LiyuBtnSm { width: Fit text: "删除" } } }
-                                pf_addr_name := LiyuInput { empty_text: "收件人" }
-                                pf_addr_phone := LiyuInput { empty_text: "收件手机号" }
-                                pf_addr_text := LiyuInput { empty_text: "详细地址" }
-                                pf_addr_add := LiyuBtn { width: Fit text: "添加地址" }
-                                pf_addr_cancel := LiyuBtnSm { visible: false width: Fit text: "取消编辑" }
-                            }
-                            pf_err := LiyuBad { visible: false text: "" }
-                        }
+
 
                         // ================= 购物车与测试订单 =================
                         page_cart := LiyuScrollY {
@@ -2865,6 +2918,11 @@ pub struct LiyuView {
     /// 页面正文能用的宽度（去掉侧栏、右列和左右留白）。商品宫格按它排列数。
     #[rust]
     content_w: f64,
+    /// #7 账号/设置分层导航状态机(L1/L2/L3 层级、编辑草稿、desktop/mobile 布局)。
+    #[rust]
+    account_nav: Option<account_nav::AccountNavModel>,
+    #[rust]
+    account_edit: Option<u8>,
     /// 心愿单详情的进度条：已认领的比例。
     #[rust]
     wish_frac: f64,
@@ -2934,6 +2992,9 @@ impl LiyuView {
     /// Keyboard navigation belongs to the app, so it works in both hosting modes.
     fn handle_keyboard_navigation(&mut self, cx: &mut Cx, event: &Event) -> bool {
         let Event::KeyDown(key) = event else { return false };
+        if key.key_code == KeyCode::Escape && self.tab == 4 {
+            self.go_back(cx); return true;
+        }
         if key.modifiers.control || key.modifiers.logo || key.modifiers.alt {
             return false;
         }
@@ -3080,6 +3141,12 @@ impl LiyuView {
     // ---- 导航 ----
 
     fn set_tab(&mut self, cx: &mut Cx, i: usize) {
+        if self.account_edit.is_some() || self.avatar_session.is_some() {
+            for root in [live_id!(sidebar),live_id!(tabbar)] {
+                for (j,id) in TABS.iter().enumerate() {self.view.check_box(cx,&[root,*id]).set_active(cx,j==self.tab,Animate::Yes);}
+            }
+            self.toast(cx, "有未保存的修改，请保存或取消"); return;
+        }
         let changed = self.tab != i || self.overlay.is_some();
         // 切 Tab 即离开所有覆盖页；送礼草稿随之丢掉（它本来就不落盘）。
         self.overlay = None;
@@ -3110,7 +3177,14 @@ impl LiyuView {
             1 => self.refresh_box(cx),
             2 => self.refresh_pacts(cx),
             3 => self.refresh_contacts(cx),
-            _ => self.refresh_me(cx),
+            _ => {
+                self.refresh_me(cx);
+                match self.account_nav.as_ref().and_then(|n| if n.depth()>1 {n.selected()} else {None}) {
+                    Some(account_nav::AccountCategory::Profile | account_nav::AccountCategory::AccountContact | account_nav::AccountCategory::ShippingAddress) => self.open_profile(cx),
+                    Some(account_nav::AccountCategory::General | account_nav::AccountCategory::Notifications | account_nav::AccountCategory::DataManagement) => self.open_settings(cx),
+                    _ => {}
+                }
+            },
         }
         self.update_page_visibility(cx);
         if changed || !self.initialized {
@@ -3119,6 +3193,9 @@ impl LiyuView {
     }
 
     fn open_overlay(&mut self, cx: &mut Cx, o: Overlay) {
+        if self.account_edit.is_some() || self.avatar_session.is_some() {
+            self.toast(cx,"有未保存的修改，请保存或取消"); return;
+        }
         self.overlay = Some(o);
         self.import_menu = false;
         // 覆盖页每次都从顶上看起：上一次滚到哪儿和这一次无关。
@@ -3199,6 +3276,14 @@ impl LiyuView {
     /// 顶栏「返回」：礼卡、拆礼、送出详情、钱包、设置有固定的来处；
     /// 送礼、商品、结算和心愿单这几张按来路栈一层层退回去。
     fn go_back(&mut self, cx: &mut Cx) {
+        if self.tab == 4 && (self.account_edit.is_some() || self.avatar_session.is_some()) {
+            self.toast(cx, "有未保存的修改，请保存或点击取消"); return;
+        }
+        if self.tab == 4 && self.account_nav.as_ref().and_then(|n| n.selected()).is_some() && matches!(self.overlay,None|Some(Overlay::Profile|Overlay::Settings)) {
+            self.account_nav.as_mut().unwrap().pop_discarding();
+            self.overlay = None;
+            self.update_page_visibility(cx); return;
+        }
         match self.overlay {
             Some(
                 Overlay::Send
@@ -3240,7 +3325,7 @@ impl LiyuView {
         // 认证闸优先:gate 时隐藏所有主页面与 overlay,只留 page_auth 全屏,
         // 避免认证卡片盖在挑礼首页上被底部裁掉(默认小窗口登录/注册按钮不可见)。
         for (j, id) in PAGES.iter().enumerate() {
-            self.show(cx, &[*id], !gate && !intro && self.overlay.is_none() && j == self.tab);
+            self.show(cx, &[*id], !gate && !intro && j == self.tab && (self.overlay.is_none() || (j == 4 && matches!(self.overlay, Some(Overlay::Profile | Overlay::Settings)))));
         }
         let ov = if intro || gate { None } else { self.overlay };
         self.show(cx, ids!(page_send), ov == Some(Overlay::Send));
@@ -3250,6 +3335,7 @@ impl LiyuView {
         self.show(cx, ids!(page_wallet), ov == Some(Overlay::Wallet));
         self.show(cx, ids!(page_settings), ov == Some(Overlay::Settings));
         self.show(cx, ids!(page_profile), ov == Some(Overlay::Profile));
+        self.refresh_account_nav(cx);
         self.show(cx, ids!(page_cart), ov == Some(Overlay::Cart));
         self.show(cx, ids!(page_online_gift), ov == Some(Overlay::OnlineGift));
         self.show(cx, ids!(page_product), ov == Some(Overlay::Product));
@@ -3313,7 +3399,7 @@ impl LiyuView {
         };
         self.set_text(cx, ids!(tb_title), &title);
         let overlay = self.overlay.is_some();
-        self.show(cx, ids!(tb_back), overlay);
+        self.show(cx, ids!(tb_back), overlay && !matches!(self.overlay,Some(Overlay::Profile|Overlay::Settings)));
         self.show(cx, ids!(tb_action), !overlay && self.tab <= 1);
         let wish_seg = self.tab == 0 && self.gift_wish_seg;
         self.set_text(cx, ids!(tb_action), if wish_seg { "发布心愿单" } else { "发起神秘送礼" });
@@ -3551,7 +3637,7 @@ impl LiyuView {
         self.show(cx, ids!(sidebar), !phone && !intro);
         self.show(cx, ids!(topbar), !intro);
         self.show(cx, ids!(tabbar), phone && !intro);
-        self.show(cx, ids!(aside), s.aside && !intro);
+        self.show(cx, ids!(aside), s.aside && !intro && self.tab != 4);
         if let Some(mut top) = self.view.view(cx, ids!(tb_bar)).borrow_mut() {
             top.layout.padding = if phone {
                 Inset { left: 18.0, right: 12.0, top: 0.0, bottom: 0.0 }
@@ -3603,9 +3689,10 @@ impl LiyuView {
         // 正文宽度：窗口减去侧栏、右列和页面自己的左右留白；再留 6px 给滚动条和取整，
         // 宁可每张卡窄一点，也别被挤掉一列。
         let nav_w = if phone || intro { 0.0 } else { SIDEBAR_W };
-        let aside_w = if s.aside && !intro { ASIDE_COL + side } else { 0.0 };
+        let aside_w = if s.aside && !intro && self.tab != 4 { ASIDE_COL + side } else { 0.0 };
         self.content_w = (self.last_size.x - nav_w - aside_w - 2.0 * side - 6.0).max(240.0);
         self.layout_tiles(cx);
+        self.refresh_account_nav(cx);
         // 商品详情：宽屏左图右信息，手机图在上、占满一行（最多 360）。
         if let Some(mut top) = self.view.view(cx, ids!(pd_top)).borrow_mut() {
             top.layout.flow = if phone {
@@ -4858,6 +4945,9 @@ impl LiyuView {
         self.set_row(cx, ids!(row_cart), "购物车", "挑礼页选商品，给已确认的好友下单", &format!("{} 件", self.commerce.items.len()));
         self.set_row(cx, ids!(row_settings), "设置", "深浅、称呼、通知、数据", &nick);
         self.set_row(cx, ids!(row_about), "关于礼遇", "重看开场三屏", "");
+        // ---- #7 账号/设置分层导航:desktop 左分类+右详情 / mobile 列表分屏 ----
+        self.refresh_avatar(cx);
+        self.refresh_account_nav(cx);
         // AI 草稿闸:有待本人确认的草稿就显示确认条(商品/寄语/确认/取消)。
         let draft = self.draft_pending.clone();
         let show_draft = draft.as_ref().is_some_and(|d| d.status == ai_draft::DraftStatus::AwaitingConfirm);
@@ -4869,6 +4959,229 @@ impl LiyuView {
             let note = if d.note.is_empty() { "（无寄语）".to_string() } else { format!("寄语:{}", d.note) };
             self.set_text(cx, ids!(me_draft_note), &note);
         }
+    }
+
+    fn refresh_account_nav(&mut self, cx: &mut Cx) {
+        use account_nav::AccountCategory as C;
+        let desktop = self.last_size.x >= 820.0;
+        let nav = self
+            .account_nav
+            .get_or_insert_with(account_nav::AccountNavModel::new);
+        nav.set_layout(if desktop {
+            account_nav::LayoutMode::Desktop
+        } else {
+            account_nav::LayoutMode::Mobile
+        });
+        let category = if nav.depth() > 1 {
+            nav.selected()
+        } else {
+            None
+        };
+        let detail = category.is_some();
+        self.show(cx, ids!(me_list), desktop || !detail);
+        self.show(cx, ids!(account_detail), desktop || detail);
+        if let Some(mut v) = self.view.view(cx, ids!(me_list)).borrow_mut() {
+            v.walk.width = if desktop {
+                Size::Fixed(200.0)
+            } else {
+                Size::fill()
+            };
+        }
+        self.show(cx, ids!(account_landing), !detail);
+        self.show(cx, ids!(account_about), category == Some(C::About));
+        self.show(cx, ids!(acc_back), !desktop || self.account_edit.is_some());
+        self.set_text(cx, ids!(acc_title), category.map_or("我", C::label));
+        for (i, cat) in C::ALL.iter().enumerate() {
+            self.set_text(cx, &[account_ui::LIST_CATEGORY_IDS[i]], cat.label());
+        }
+        if let Some(cat) = category {
+            self.set_chip_group(cx, &account_ui::LIST_CATEGORY_IDS, cat as usize);
+        }
+        let editing = self.account_edit;
+        if let Some(field) = editing {
+            self.set_text(
+                cx,
+                ids!(acc_title),
+                match field {
+                    0 => "修改显示名",
+                    1 => "绑定手机号",
+                    2 => "绑定邮箱",
+                    3 => "编辑收货地址",
+                    _ => "修改称呼",
+                },
+            );
+        }
+        self.show(cx, ids!(pf_status), editing.is_none());
+        self.show(cx, ids!(pf_contact_note), editing.is_none());
+        self.show(
+            cx,
+            ids!(pf_signout_row),
+            category == Some(C::AccountContact) && editing.is_none(),
+        );
+        self.show(
+            cx,
+            ids!(ap_head),
+            category == Some(C::General) && editing.is_none(),
+        );
+        self.show(
+            cx,
+            ids!(ap_card),
+            category == Some(C::General) && editing.is_none(),
+        );
+        if let Some(mut v) = self.view.view(cx, ids!(account_detail)).borrow_mut() {
+            v.walk.width = if desktop {
+                Size::Fixed((self.content_w - 216.0).clamp(280.0, 720.0))
+            } else {
+                Size::fill()
+            };
+        }
+        let error = self.profile_err.or(self.nick_err);
+        self.show(cx, ids!(account_error), error.is_some());
+        if let Some(error) = error {
+            self.set_text(cx, ids!(account_error), error);
+        }
+        self.show(cx, ids!(account_edit_bar), editing.is_some());
+        for (id, cat) in [
+            (live_id!(pf_name_head), C::Profile),
+            (live_id!(pf_name_card), C::Profile),
+            (live_id!(pf_contact_head), C::AccountContact),
+            (live_id!(pf_contact_card), C::AccountContact),
+            (live_id!(pf_signout_row), C::AccountContact),
+            (live_id!(pf_address_head), C::ShippingAddress),
+            (live_id!(pf_address_card), C::ShippingAddress),
+            (live_id!(ap_head), C::General),
+            (live_id!(ap_card), C::General),
+            (live_id!(nk_head), C::General),
+            (live_id!(nk_card), C::General),
+            (live_id!(ntf_head), C::Notifications),
+            (live_id!(ntf_card), C::Notifications),
+            (live_id!(data_head), C::DataManagement),
+            (live_id!(data_card), C::DataManagement),
+        ] {
+            self.show(cx, &[id], category == Some(cat));
+        }
+        self.show(
+            cx,
+            ids!(pf_signout_row),
+            category == Some(C::AccountContact) && editing.is_none(),
+        );
+        self.show(
+            cx,
+            ids!(ap_head),
+            category == Some(C::General) && editing.is_none(),
+        );
+        self.show(
+            cx,
+            ids!(ap_card),
+            category == Some(C::General) && editing.is_none(),
+        );
+        self.show(cx, ids!(pf_address_list), editing != Some(3));
+        for (i, id) in PROFILE_ADDRESS_ROWS.iter().enumerate() {
+            self.show(
+                cx,
+                &[*id],
+                editing != Some(3) && i < self.profile.addresses.len(),
+            );
+        }
+        if editing == Some(0) {
+            self.show(cx, ids!(pf_avatar_delete), false);
+            self.show(cx, ids!(pf_avatar_edit), false);
+        }
+        self.show(cx, ids!(pf_name_summary), editing != Some(0));
+        self.show(cx, ids!(pf_avatar_note), editing != Some(0));
+        self.show(cx, ids!(pf_avatar_row), editing != Some(0));
+        self.show(cx, ids!(nk_input_editor), editing == Some(4));
+        self.show(cx, ids!(nk_value), editing != Some(4));
+        self.show(cx, ids!(nk_edit), editing != Some(4));
+        self.show(cx, ids!(nk_save), false);
+        self.set_text(cx, ids!(nk_value), &self.state.settings.nickname.clone());
+        self.show(cx, ids!(account_drafts), self.draft_pending.is_some());
+        self.show(cx, ids!(pf_name_editor), editing == Some(0));
+        for (id, field) in [
+            (live_id!(pf_phone_editor), 1),
+            (live_id!(pf_phone_code_editor), 1),
+            (live_id!(pf_email_editor), 2),
+            (live_id!(pf_email_code_editor), 2),
+            (live_id!(pf_addr_name_editor), 3),
+            (live_id!(pf_addr_phone_editor), 3),
+            (live_id!(pf_addr_text_editor), 3),
+        ] {
+            self.show(cx, &[id], editing == Some(field));
+        }
+        self.show(cx, ids!(pf_phone_summary), editing.is_none());
+        self.show(cx, ids!(pf_email_summary), editing.is_none());
+        self.show(cx, ids!(pf_addr_new), editing != Some(3));
+        // The fixed action bar is the only save/cancel area for text editors.
+        for id in [
+            live_id!(pf_save),
+            live_id!(pf_phone_save),
+            live_id!(pf_email_save),
+            live_id!(pf_addr_add),
+            live_id!(pf_addr_cancel),
+        ] {
+            self.show(cx, &[id], false);
+        }
+        self.set_text(
+            cx,
+            ids!(account_save),
+            if matches!(editing, Some(1 | 2)) {
+                "确认绑定"
+            } else {
+                "保存"
+            },
+        );
+        self.set_text(cx, ids!(pf_name_value), &self.profile.display_name.clone());
+        self.set_text(
+            cx,
+            ids!(pf_phone_value),
+            &format!(
+                "手机号：{}",
+                if self.profile.phone.is_empty() {
+                    "未绑定"
+                } else {
+                    &self.profile.phone
+                }
+            ),
+        );
+        self.set_text(
+            cx,
+            ids!(pf_email_value),
+            &format!(
+                "邮箱：{}",
+                if self.profile.email.is_empty() {
+                    "未绑定"
+                } else {
+                    &self.profile.email
+                }
+            ),
+        );
+        self.set_text(
+            cx,
+            ids!(me_identity_name),
+            &self.profile.display_name.clone(),
+        );
+        self.set_text(cx, ids!(account_name), &self.profile.display_name.clone());
+        self.view
+            .image(cx, ids!(account_avatar))
+            .set_texture(cx, self.avatar_tex.clone());
+    }
+
+    fn cancel_account_edit(&mut self, cx: &mut Cx) {
+        self.account_edit = None;
+        if let Some(nav) = self.account_nav.as_mut() {
+            nav.cancel_edit();
+        }
+        self.set_text(cx, ids!(nk_input), &self.state.settings.nickname.clone());
+        self.profile_edit_address = None;
+        self.profile_err = None;
+        self.nick_err = None;
+        self.avatar_session = None;
+        self.set_text(cx, ids!(pf_name), &self.profile.display_name.clone());
+        self.set_text(cx, ids!(pf_phone), &self.profile.phone.clone());
+        self.set_text(cx, ids!(pf_email), &self.profile.email.clone());
+        self.refresh_profile(cx);
+        self.refresh_account_nav(cx);
+        self.redraw(cx);
     }
 
     fn refresh_wallet(&mut self, cx: &mut Cx) {
@@ -4901,6 +5214,7 @@ impl LiyuView {
     }
 
     fn open_settings(&mut self, cx: &mut Cx) {
+        if self.account_nav.as_ref().and_then(|n| n.selected()).is_none() { self.account_nav.get_or_insert_with(account_nav::AccountNavModel::new).select(account_nav::AccountCategory::General); }
         self.reset_armed = false;
         self.export_note = None;
         self.nick_err = None;
@@ -5207,6 +5521,7 @@ impl LiyuView {
     }
 
     fn open_profile(&mut self, cx: &mut Cx) {
+        if self.account_nav.as_ref().and_then(|n| n.selected()).is_none() { self.account_nav.get_or_insert_with(account_nav::AccountNavModel::new).select(account_nav::AccountCategory::Profile); }
         self.profile = profile_client::load(&self.state.settings.nickname);
         self.profile_err = None;
         self.profile_edit_address = None;
@@ -5267,7 +5582,8 @@ impl LiyuView {
         self.set_text(cx, ids!(pf_addr_add), if self.profile_edit_address.is_some() { "保存地址修改" } else { "添加地址" });
         self.show(cx, ids!(pf_addr_cancel), self.profile_edit_address.is_some());
         self.refresh_avatar(cx);
-        self.show(cx, ids!(pf_err), self.profile_err.is_some());
+        self.refresh_account_nav(cx);
+        self.show(cx, ids!(pf_err), false);
         if let Some(err) = self.profile_err { self.set_text(cx, ids!(pf_err), err); }
     }
 
@@ -5813,9 +6129,20 @@ impl LiyuView {
             }
         }
 
+        if self.clicked(cx, ids!(account_intro), actions) { self.open_intro(cx,0); }
+        if self.clicked(cx, ids!(account_drafts), actions) {
+            if let Some(nav)=self.account_nav.as_mut() { nav.pop_discarding(); }
+            self.overlay=None;
+            // Show the account overview, including the pending draft, on phones too.
+            self.update_page_visibility(cx);
+            self.show(cx, ids!(me_list), false);
+            self.show(cx, ids!(account_detail), true);
+            self.show(cx, ids!(acc_back), true);
+        }
         // ---- 我 ----
         if self.clicked(cx, &[live_id!(row_wallet), live_id!(st_hit)], actions)
             || self.clicked(cx, ids!(me_wallet), actions)
+            || self.clicked(cx, ids!(account_wallet), actions)
         {
             self.refresh_wallet(cx);
             self.open_overlay(cx, Overlay::Wallet);
@@ -5826,7 +6153,7 @@ impl LiyuView {
         if self.clicked(cx, &[live_id!(row_profile), live_id!(st_hit)], actions) {
             self.open_profile(cx);
         }
-        if self.clicked(cx, &[live_id!(row_cart), live_id!(st_hit)], actions) {
+        if self.clicked(cx, &[live_id!(row_cart), live_id!(st_hit)], actions) || self.clicked(cx, ids!(account_cart), actions) {
             self.open_cart(cx, None);
         }
         if self.clicked(cx, ids!(pd_cart), actions) && self.overlay == Some(Overlay::Product) {
@@ -5835,6 +6162,7 @@ impl LiyuView {
         if self.clicked(cx, &[live_id!(row_wish), live_id!(st_hit)], actions)
             || self.clicked(cx, &[live_id!(row_mywish), live_id!(st_hit)], actions)
             || self.clicked(cx, ids!(ag3_go), actions)
+            || self.clicked(cx, ids!(account_wishes), actions)
         {
             self.open_wishes(cx);
         }
@@ -5860,7 +6188,7 @@ impl LiyuView {
                 }
             }
             let nick_enter = self.view.text_input(cx, ids!(nk_input)).returned(actions).is_some();
-            if self.clicked(cx, ids!(nk_save), actions) || nick_enter {
+            if (self.clicked(cx, ids!(nk_save), actions) || nick_enter) && self.account_edit != Some(4) {
                 let name = self.input_text(cx, ids!(nk_input));
                 match self.state.set_nickname(&name) {
                     Ok(()) => {
@@ -5936,6 +6264,7 @@ impl LiyuView {
                 let Some(address) = self.profile.addresses.get(i).cloned() else { continue };
                 if self.clicked(cx, &[*row_id, PROFILE_ADDRESS_ACTIONS[i], PROFILE_ADDRESS_EDIT[i]], actions) {
                     self.profile_edit_address = Some(address.id);
+                    self.account_edit = Some(3);
                     self.set_text(cx, ids!(pf_addr_name), &address.recipient_name);
                     self.set_text(cx, ids!(pf_addr_phone), &address.phone);
                     self.set_text(cx, ids!(pf_addr_text), &address.address);
@@ -6080,6 +6409,70 @@ impl LiyuView {
             }
         }
 
+        for (i, cat) in account_nav::AccountCategory::ALL.iter().enumerate() {
+            if self.toggled(cx, &[account_ui::LIST_CATEGORY_IDS[i]], actions) {
+                if self.account_edit.is_some() || self.avatar_session.is_some() {
+                    self.toast(cx, "有未保存的修改，请保存或取消");
+                    self.refresh_account_nav(cx);
+                    continue;
+                }
+                self.account_nav.get_or_insert_with(account_nav::AccountNavModel::new).select(*cat);
+                match i {
+                    0..=2 => self.open_profile(cx),
+                    3..=5 => self.open_settings(cx),
+                    _ => { self.overlay = None; self.update_page_visibility(cx); }
+                }
+                self.refresh_account_nav(cx);
+            }
+        }
+        if self.clicked(cx, ids!(acc_back), actions) { self.go_back(cx); }
+        for (id, field) in [(live_id!(pf_name_edit),0),(live_id!(pf_phone_edit),1),(live_id!(pf_email_edit),2),(live_id!(pf_addr_new),3),(live_id!(nk_edit),4)] {
+            if self.clicked(cx, &[id], actions) {
+                self.account_edit = Some(field);
+                let initial = match field {0=>self.profile.display_name.clone(),1=>self.profile.phone.clone(),2=>self.profile.email.clone(),4=>self.state.settings.nickname.clone(),_=>String::new()};
+                self.account_nav.as_mut().unwrap().begin_edit(field.to_string(), initial);
+                self.profile_err = None;
+                if field == 3 {
+                    self.profile_edit_address = None;
+                    self.set_text(cx, ids!(pf_addr_name), "");
+                    self.set_text(cx, ids!(pf_addr_phone), "");
+                    self.set_text(cx, ids!(pf_addr_text), "");
+                }
+                self.refresh_account_nav(cx);
+                self.start_fade(cx);
+                self.redraw(cx);
+            }
+        }
+        if self.clicked(cx, ids!(account_cancel), actions) { self.cancel_account_edit(cx); }
+        let account_enter = match self.account_edit {
+            Some(0)=>self.view.text_input(cx,ids!(pf_name)).returned(actions).is_some(),
+            Some(1)=>self.view.text_input(cx,ids!(pf_phone_code)).returned(actions).is_some(),
+            Some(2)=>self.view.text_input(cx,ids!(pf_email_code)).returned(actions).is_some(),
+            Some(3)=>self.view.text_input(cx,ids!(pf_addr_text)).returned(actions).is_some(),
+            Some(4)=>self.view.text_input(cx,ids!(nk_input)).returned(actions).is_some(),
+            _=>false,
+        };
+        if self.clicked(cx, ids!(account_save), actions) || account_enter {
+            let err = match self.account_edit {
+                Some(0) => { let value=self.input_text(cx,ids!(pf_name)); let avatar=self.profile.avatar_url.clone(); profile_client::save_profile(&mut self.profile,&value,&avatar).err() },
+                Some(field @ (1|2)) => { let value=self.input_text(cx, if field==1 {ids!(pf_phone)} else {ids!(pf_email)}); let code=self.input_text(cx, if field==1 {ids!(pf_phone_code)} else {ids!(pf_email_code)}); profile_client::bind_contact(&mut self.profile,field==1,&value,&code).err() },
+                Some(4) => { let value=self.input_text(cx,ids!(nk_input)); let e=self.state.set_nickname(&value).err(); if e.is_none() {self.state.save();} e },
+                Some(3) => { let name=self.input_text(cx,ids!(pf_addr_name)); let phone=self.input_text(cx,ids!(pf_addr_phone)); let address=self.input_text(cx,ids!(pf_addr_text)); if let Some(id)=self.profile_edit_address {profile_client::update_address(&mut self.profile,id,&name,&phone,&address).err()} else {profile_client::add_address(&mut self.profile,&name,&phone,&address).err()} },
+                _ => None,
+            };
+            self.profile_err = err;
+            if err.is_none() {
+                let value=match self.account_edit {Some(0)=>self.profile.display_name.clone(),Some(1)=>self.profile.phone.clone(),Some(2)=>self.profile.email.clone(),Some(4)=>self.state.settings.nickname.clone(),_=>String::new()};
+                self.account_edit=None;
+                if let Some(nav)=self.account_nav.as_mut() {nav.update_draft(value);nav.commit_edit();}
+                self.profile_edit_address=None;
+                self.toast(cx,"已保存");
+            }
+            self.refresh_profile(cx);
+            self.refresh_account_nav(cx);
+            self.redraw(cx);
+        }
+
         if self.overlay == Some(Overlay::Cart) {
             for (i, chip) in CART_FRIEND_CHIPS.iter().enumerate() {
                 if self.toggled(cx, &[*chip], actions) && i < self.commerce.friends.len() {
@@ -6204,6 +6597,12 @@ impl Widget for LiyuView {
                         self.next_frame = cx.new_next_frame();
                     }
                 }
+            }
+            // Narrow account pages slide in using the existing transition clock.
+            if let Some(mut v)=self.view.view(cx,ids!(account_detail)).borrow_mut() {
+                let shift=if self.tab==4 && self.last_size.x<820.0 {24.0*self.fade_alpha as f64} else {0.0};
+                v.walk.margin.left=shift;
+                v.walk.margin.right=-shift;
             }
             self.redraw(cx);
         }
@@ -6357,6 +6756,86 @@ mod layout_tests {
 
     fn size(x: f64, y: f64) -> Vec2d {
         Vec2d { x, y }
+    }
+
+    #[test]
+    fn account_categories_render_and_edit_cancel_preserves_values_at_all_sizes() {
+        let mut cx = Cx::new(Box::new(|_, _| {}));
+        let root = cx.with_vm(|vm| {
+            makepad_widgets::script_mod(vm);
+            LIYU_MODULE.register(vm);
+            let value = script_eval!(vm, { use mod.widgets.* LiyuView {} });
+            WidgetRef::script_from_value(vm, value)
+        });
+        let mut view = root.borrow_mut::<LiyuView>().unwrap();
+        view.tab = 4;
+        view.auth_gate = false;
+        view.profile.display_name = "原来的名字".into();
+        for (width, height) in [
+            (412.0, 892.0),
+            (820.0, 700.0),
+            (1000.0, 700.0),
+            (1280.0, 800.0),
+        ] {
+            view.last_size = size(width, height);
+            view.shaping = Some(shaping_for(view.last_size));
+            view.account_nav = Some(account_nav::AccountNavModel::new());
+            view.overlay = None;
+            view.update_page_visibility(&mut cx);
+            assert!(view.view.widget(&cx, ids!(me_list)).visible());
+            for cat in account_nav::AccountCategory::ALL {
+                view.account_nav.as_mut().unwrap().select(cat);
+                view.overlay = match cat {
+                    account_nav::AccountCategory::Profile
+                    | account_nav::AccountCategory::AccountContact
+                    | account_nav::AccountCategory::ShippingAddress => Some(Overlay::Profile),
+                    account_nav::AccountCategory::About => None,
+                    _ => Some(Overlay::Settings),
+                };
+                view.update_page_visibility(&mut cx);
+                assert!(view.view.widget(&cx, ids!(page_me)).visible());
+                assert!(view.view.widget(&cx, ids!(account_detail)).visible());
+                assert_eq!(
+                    view.view.widget(&cx, ids!(me_list)).visible(),
+                    width >= 820.0
+                );
+                assert_eq!(
+                    view.view.widget(&cx, ids!(pf_name_card)).visible(),
+                    cat == account_nav::AccountCategory::Profile
+                );
+                assert_eq!(
+                    view.view.widget(&cx, ids!(pf_contact_card)).visible(),
+                    cat == account_nav::AccountCategory::AccountContact
+                );
+                assert_eq!(
+                    view.view.widget(&cx, ids!(pf_address_card)).visible(),
+                    cat == account_nav::AccountCategory::ShippingAddress
+                );
+                assert_eq!(
+                    view.view.widget(&cx, ids!(ntf_card)).visible(),
+                    cat == account_nav::AccountCategory::Notifications
+                );
+            }
+            view.account_nav
+                .as_mut()
+                .unwrap()
+                .select(account_nav::AccountCategory::Profile);
+            view.overlay = Some(Overlay::Profile);
+            view.account_edit = Some(0);
+            view.set_text(&mut cx, ids!(pf_name), "尚未保存");
+            view.refresh_account_nav(&mut cx);
+            assert!(view.view.widget(&cx, ids!(account_edit_bar)).visible());
+            assert!(view.view.widget(&cx, ids!(pf_name_editor)).visible());
+            assert!(!view.view.widget(&cx, ids!(pf_name_summary)).visible());
+            view.go_back(&mut cx);
+            assert_eq!(view.account_edit, Some(0));
+            view.cancel_account_edit(&mut cx);
+            assert_eq!(view.profile.display_name, "原来的名字");
+            assert_eq!(view.input_text(&mut cx, ids!(pf_name)), "原来的名字");
+            assert!(!view.view.widget(&cx, ids!(account_edit_bar)).visible());
+            view.go_back(&mut cx);
+            assert!(view.account_nav.as_ref().unwrap().depth() == 1);
+        }
     }
 
     #[test]
