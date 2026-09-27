@@ -72,9 +72,18 @@ then starts the desktop in release mode with `app-appcard` enabled, opens AppCar
 as an in-process module, and opens the desktop assistant with `--assistant`.
 The assistant receives the running module's `appcard.ask` tool; ask it for a
 live weather card, or enter the request in AppCard's own composer.
-AppCard uses its own Octos backend and model profile; the assistant's local
-Qwen settings do not configure that backend. Configure the AppCard backend
-before expecting card generation to complete.
+AppCard connects to the installed `octos` executable over stdio. On each launch,
+`tools/prepare-appcard-core.py` prepares its private `_main` profile under
+`$OCTOSENSE_HOME/appcard/core`, reusing the model selection and credentials from
+`~/.octos/profiles/octos.json`. AppCard uses that profile's model; the desktop
+assistant continues to use local Qwen. No octos-web or HTTP server is needed.
+The source profile and existing Octos runtime databases are left untouched;
+inner-agent plugins, hooks and permissions are not inherited.
+
+Set `OCTOSENSE_APPCARD_SOURCE_HOME` or `OCTOSENSE_APPCARD_PROFILE` to select another
+source. `OCTOS_APP_CORE_BIN` overrides the executable. Set `OCTOS_APP_CORE_DIR`
+to an already configured private directory to skip preparation; it must contain
+`config.json` and the `_main` profile expected by the pinned AppCard runtime.
 Existing environment overrides are respected; missing weights stop the command
 with a setup hint.
 The command does not download models or change your saved provider choice.
