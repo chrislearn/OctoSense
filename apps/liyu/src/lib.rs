@@ -13,6 +13,7 @@ use makepad_app_module::{
     makepad_ai_services::wire::{ServiceCall, ServiceManifest, ToolOutcome, ToolResult},
 };
 
+pub mod contacts;
 pub mod ai;
 mod avatar;
 pub mod ai_draft;
@@ -442,8 +443,18 @@ script_mod! {
                                     flow: Right
                                     align: Align{x: 0.0, y: 0.5}
                                     spacing: 8.0
-                                    ca_input := LiyuInput { empty_text: "写一个称呼，比如「老陈」" }
+                                    ca_input := LiyuInput { empty_text: "称呼，比如「老陈」" }
                                     ca_btn := LiyuBtn { width: Fit text: "添加" }
+                                }
+                                ct_phone := LiyuInput { empty_text: "手机号，多个用分号分隔；国际号码带国家码" }
+                                ct_email := LiyuInput { empty_text: "邮箱，多个用分号分隔" }
+                                ct_cancel_edit := LiyuBtnSm { visible: false width: Fit text: "取消修改" }
+                                ct_paging := View { width: Fill height: Fit flow: Right spacing: 8.0 ct_prev := LiyuBtnSm { width: Fit text: "上一页" } ct_next := LiyuBtnSm { width: Fit text: "下一页" } }
+                                ct_hint := LiyuMuted { text: "联系人只属于你的地址簿，导入不会创建平台好友关系。" }
+                                ct_preview := View { visible: false width: Fill height: Fit flow: Down spacing: 8.0
+                                    ct_preview_text := LiyuMuted { width: Fill text: "" }
+                                    ct_import_confirm := LiyuBtnPrimary { width: Fit text: "确认导入（相同联系方式合并）" }
+                                    ct_import_cancel := LiyuBtnSm { width: Fit text: "取消导入" }
                                 }
                                 ca_err := LiyuBad { visible: false text: "" }
                                 ct_rows := View {
@@ -634,14 +645,14 @@ script_mod! {
                                 flow: Down
                                 padding: 14.0
                                 spacing: 10.0
-                                pf_contact_note := LiyuMuted { text: "测试阶段不发短信或邮件，验证码统一填 123456。" }
+                                pf_contact_note := LiyuMuted { text: "验证绑定手机号或邮箱后，该联系方式收到的待领取礼物会自动归入你的礼盒。" }
                                 pf_phone_summary := View { width: Fill height: Fit flow: Right spacing: 8.0 pf_phone_value := LiyuMuted { width: Fill text: "" } pf_phone_edit := LiyuBtnSm { width: Fit text: "修改手机号" } }
- pf_phone_editor := View { visible: false width: Fill height: Fit pf_phone := LiyuInput { empty_text: "手机号（11 位）"  } }
-                                pf_phone_code_editor := View { visible: false width: Fill height: Fit pf_phone_code := LiyuInput { empty_text: "验证码 123456"  } }
+ pf_phone_editor := View { visible: false width: Fill height: Fit pf_phone := LiyuInput { empty_text: "手机号（国际号码带国家码）"  } }
+                                pf_phone_code_editor := View { visible: false width: Fill height: Fit flow: Down spacing: 8.0 pf_phone_request := LiyuBtnSm { width: Fit text: "获取验证码" } pf_phone_code := LiyuInput { empty_text: "验证码" } }
                                 pf_phone_save := LiyuBtnPrimary { visible: false width: Fit text: "确认绑定" }
                                 pf_email_summary := View { width: Fill height: Fit flow: Right spacing: 8.0 pf_email_value := LiyuMuted { width: Fill text: "" } pf_email_edit := LiyuBtnSm { width: Fit text: "修改邮箱" } }
  pf_email_editor := View { visible: false width: Fill height: Fit pf_email := LiyuInput { empty_text: "邮箱"  } }
-                                pf_email_code_editor := View { visible: false width: Fill height: Fit pf_email_code := LiyuInput { empty_text: "验证码 123456"  } }
+                                pf_email_code_editor := View { visible: false width: Fill height: Fit flow: Down spacing: 8.0 pf_email_request := LiyuBtnSm { width: Fit text: "获取验证码" } pf_email_code := LiyuInput { empty_text: "验证码" } }
                                 pf_email_save := LiyuBtnPrimary { visible: false width: Fit text: "确认绑定" }
                             }
                             pf_address_head := LiyuGroupHead { text: "收货地址" }
@@ -1100,7 +1111,7 @@ script_mod! {
                                     spacing: 8.0
                                     oa_ship_l := LiyuMuted { text: "收件信息只给这一单用，也留在本机方便下次预填。" }
                                     oa_name := LiyuInput { empty_text: "收件人" }
-                                    oa_phone := LiyuInput { empty_text: "手机号（11 位）" }
+                                    oa_phone := LiyuInput { empty_text: "手机号（国际号码带国家码）" }
                                     oa_addr := LiyuInput { empty_text: "收件地址" }
                                 }
                                 oa_ev := LiyuMuted { visible: false text: "这是电子券，收下后立即发放券码。" }
@@ -1159,7 +1170,7 @@ script_mod! {
                                     spacing: 8.0
                                     ow_ship_l := LiyuMuted { text: "换成了实物，填一下收件信息：" }
                                     ow_name := LiyuInput { empty_text: "收件人" }
-                                    ow_phone := LiyuInput { empty_text: "手机号（11 位）" }
+                                    ow_phone := LiyuInput { empty_text: "手机号（国际号码带国家码）" }
                                     ow_addr := LiyuInput { empty_text: "收件地址" }
                                 }
                                 ow_calc := LiyuMuted { text: "" }
@@ -1393,7 +1404,9 @@ script_mod! {
                             ca_pick := LiyuCard {
                                 width: Fill height: Fit flow: Down padding: 14.0 spacing: 10.0
                                 ca_pick_title := LiyuH3 { text: "选一件商品加入购物车" }
-                                ca_friends_note := LiyuMuted { text: "选择已确认的好友作为收礼人" }
+                                ca_friends_note := LiyuMuted { text: "输入手机号或邮箱即可送礼，无需对方先注册或加好友。" }
+                                ca_recipient_label := LiyuInput { empty_text: "收礼人称呼（可选）" }
+                                ca_recipient_value := LiyuInput { empty_text: "收件手机号或邮箱（国际号码带国家码）" }
                                 ca_friends := View {
                                     width: Fill height: Fit flow: Right{wrap: true} wrap_spacing: 8.0 spacing: 8.0
                                     ca_f0 := LiyuChip { text: "" }
@@ -1401,6 +1414,7 @@ script_mod! {
                                     ca_f2 := LiyuChip { text: "" }
                                     ca_f3 := LiyuChip { text: "" }
                                 }
+                                ca_choice_paging := View { width: Fill height: Fit flow: Right spacing: 8.0 ca_choice_prev := LiyuBtnSm { width: Fit text: "上一组联系人" } ca_choice_next := LiyuBtnSm { width: Fit text: "下一组联系人" } }
                                 ca_add := LiyuBtn { width: Fit text: "加入购物车" }
                             }
                             ca_items_head := LiyuGroupHead { text: "购物车商品" }
@@ -2045,6 +2059,8 @@ script_mod! {
                                 au_code_wrap := View {
                                     visible: false
                                     width: Fill height: Fit
+                                    flow: Down spacing: 8.0
+                                    au_request_code := LiyuBtnSm { width: Fit text: "获取验证码" }
                                     au_code := LiyuInput { empty_text: "注册验证码" }
                                 }
                                 au_err := LiyuBad { visible: false text: "" }
@@ -2056,7 +2072,7 @@ script_mod! {
                                     au_submit := LiyuBtnPrimary { width: Fit text: "登录" }
                                     au_switch := LiyuLink { text: "没有账号？去注册" }
                                 }
-                                au_test_note := LiyuMuted { visible: false text: "测试服务器：密码与注册验证码均固定为 123456，不发送短信或邮件。" }
+                                au_test_note := LiyuMuted { visible: false text: "当前为测试通道，获取验证码后会显示测试验证码。" }
                             }
                         }
 
@@ -2846,6 +2862,20 @@ pub struct LiyuView {
     cart_draft_product: Option<u16>,
     #[rust]
     cart_friend_idx: usize,
+    #[rust]
+    pending_contacts: Option<contacts::Import>,
+    #[rust]
+    editing_contact: Option<usize>,
+    #[rust]
+    contact_page: usize,
+    #[rust]
+    cart_contact_page: usize,
+    #[rust]
+    contact_import_receiver: Option<std::sync::mpsc::Receiver<Result<contacts::Import, Msg>>>,
+    #[rust]
+    contact_import_poll: Timer,
+    #[rust]
+    online_notice: Option<commerce_client::Notification>,
     #[rust]
     cart_error: Option<Msg>,
     #[rust]
@@ -3715,20 +3745,23 @@ impl LiyuView {
         if self.auth_gate || self.notice.is_some() || self.intro.is_some() {
             return;
         }
-        let due = self.state.due_notices(today_days());
-        let Some(n) = due.into_iter().find(|n| !self.notice_sent.contains(&n.kind)) else {
+        if self.online_notice.is_some() {
             return;
-        };
-        self.notice_sent.push(n.kind);
-        self.set_text(cx, ids!(nt_title), n.kind.title());
-        self.set_text(cx, ids!(nt_text), &n.text);
-        self.show(cx, ids!(notice_layer), true);
-        self.notice = Some(n);
-        self.redraw(cx);
+        }
+        if let Ok(rows) = commerce_client::unread_notifications() {
+            if let Some(n) = rows.into_iter().next() {
+                self.set_text(cx, ids!(nt_title), &n.title);
+                self.set_text(cx, ids!(nt_text), &n.body);
+                self.show(cx, ids!(notice_layer), true);
+                self.online_notice = Some(n);
+                self.redraw(cx);
+            }
+        }
     }
 
     fn close_notice(&mut self, cx: &mut Cx) {
         self.notice = None;
+        self.online_notice = None;
         self.show(cx, ids!(notice_layer), false);
         self.redraw(cx);
     }
@@ -4330,7 +4363,7 @@ impl LiyuView {
                 self.gift_client.outbox.iter().map(|g| {
                     let title = CATALOG.get(g.product_id as usize).map(|p| p.name).unwrap_or("商品");
                     (g.id, Some(g.product_id), format!("{} · 送给 {}", title, g.recipient_name),
-                     "服务器送出礼物".to_string(), format!("{} · 物流签收 {} · TA 确认 {}", g.state,
+                     "服务器送出礼物".to_string(), format!("{} · {} · 物流签收 {} · TA 确认 {}", g.state,g.delivery_text(),
                         if g.carrier_delivered { "是" } else { "否" }, if g.recipient_confirmed { "是" } else { "否" }))
                 }).collect::<Vec<_>>()
             } else {
@@ -4416,7 +4449,7 @@ impl LiyuView {
             let Some(g) = self.gift_client.sent_detail.clone() else { return };
             let product = CATALOG.get(g.product_id as usize).map(|p| p.name).unwrap_or("商品");
             self.set_text(cx, ids!(og_title), &format!("{} · 送给 {}", product, g.recipient_name));
-            self.set_text(cx, ids!(og_summary), &format!("原订单金额 {} · 礼物状态 {}。收礼人的换购、折现和地址不会显示在这里。", yuan(g.price_cents), g.state));
+            self.set_text(cx, ids!(og_summary), &format!("原订单金额 {} · 礼物状态 {} · {}。收礼人的换购、折现和地址不会显示在这里。", yuan(g.price_cents), g.state, g.delivery_text()));
             self.show(cx, ids!(og_logistics), true);
             self.set_text(cx, ids!(og_logistics_head), "送达状态");
             self.set_text(cx, ids!(og_logistics_text), &format!("物流是否签收：{}\n收礼人是否确认收货：{}",
@@ -5018,40 +5051,96 @@ impl LiyuView {
     // ---- 熟人 ----
 
     fn refresh_contacts(&mut self, cx: &mut Cx) {
-        let contacts: Vec<ContactLocal> = self.state.contacts.clone();
+        let total = self.state.contacts.len();
+        self.contact_page = self
+            .contact_page
+            .min(total.saturating_sub(1) / CONTACT_ROWS.len());
+        let contacts: Vec<ContactLocal> = self
+            .state
+            .contacts
+            .iter()
+            .skip(self.contact_page * CONTACT_ROWS.len())
+            .take(CONTACT_ROWS.len())
+            .cloned()
+            .collect();
+        self.show(cx, ids!(ct_prev), self.contact_page > 0);
+        self.show(
+            cx,
+            ids!(ct_next),
+            (self.contact_page + 1) * CONTACT_ROWS.len() < total,
+        );
         self.contact_rows = contacts.iter().map(|c| c.id).collect();
         let today = today_days();
         let friends = self.state.friend_wishlists(today);
         self.contact_wish = contacts
             .iter()
-            .map(|c| friends.iter().find(|w| w.owner == c.label && w.is_open(today)).map(|w| w.id))
+            .map(|c| {
+                friends
+                    .iter()
+                    .find(|w| w.owner == c.label && w.is_open(today))
+                    .map(|w| w.id)
+            })
             .collect();
-        self.set_text(cx, ids!(ct_head), &format!("我的熟人（{}）", contacts.len()));
+        self.set_text(cx, ids!(ct_head), &format!("我的联系人（{}）", total));
+        self.set_text(
+            cx,
+            ids!(ca_btn),
+            if self.editing_contact.is_some() {
+                "保存"
+            } else {
+                "添加"
+            },
+        );
+        self.show(cx, ids!(ct_cancel_edit), self.editing_contact.is_some());
         for (j, row) in CONTACT_ROWS.iter().enumerate() {
             let Some(c) = contacts.get(j) else {
                 self.show(cx, &[*row], false);
                 continue;
             };
             self.show(cx, &[*row], true);
-            let initial: String = c.label.chars().next().map(|ch| ch.to_string()).unwrap_or_default();
+            let initial: String = c
+                .label
+                .chars()
+                .next()
+                .map(|ch| ch.to_string())
+                .unwrap_or_default();
             self.set_text(cx, &[*row, live_id!(cr_initial)], &initial);
             self.set_text(cx, &[*row, live_id!(cr_name)], &c.label);
             // 有进行中的心愿单就先说心愿单（比送过几份更值得一眼看到），按钮也换成「看心愿单」。
-            let sub = match self.state.wish_hint(&c.label, today) {
-                Some(h) => h,
-                None => {
-                    let (sent, recv) = self.state.gift_counts(&c.label);
-                    format!("送过 {sent} 份 · 收到 {recv} 份")
+            let sub = if !contacts::choices(c).is_empty() {
+                contacts::choices(c)
+                    .iter()
+                    .map(|(_, v)| v.clone())
+                    .collect::<Vec<_>>()
+                    .join(" · ")
+            } else {
+                match self.state.wish_hint(&c.label, today) {
+                    Some(h) => h,
+                    None => {
+                        let (sent, recv) = self.state.gift_counts(&c.label);
+                        format!("送过 {sent} 份 · 收到 {recv} 份")
+                    }
                 }
             };
             self.set_text(cx, &[*row, live_id!(cr_sub)], &sub);
             let has_wish = self.contact_wish.get(j).copied().flatten().is_some();
-            self.set_text(cx, &[*row, live_id!(cr_send)], if has_wish { "看心愿单" } else { "送礼" });
+            let _ = has_wish;
+            self.set_text(cx, &[*row, live_id!(cr_send)], "送礼");
         }
-        self.apply_list_state(cx, ids!(ct_empty), "还没有熟人", "从本机导入", contacts.len());
-        let more = contacts.len().saturating_sub(CONTACT_ROWS.len());
+        self.apply_list_state(
+            cx,
+            ids!(ct_empty),
+            "还没有熟人",
+            "从本机导入",
+            contacts.len(),
+        );
+        let more = total.saturating_sub(CONTACT_ROWS.len());
         self.show(cx, ids!(ct_more), more > 0);
-        self.set_text(cx, ids!(ct_more), &format!("还有 {more} 位没有显示"));
+        self.set_text(
+            cx,
+            ids!(ct_more),
+            &format!("第 {} 页，共 {} 位联系人", self.contact_page + 1, total),
+        );
         self.show(cx, ids!(ca_err), self.add_error.is_some());
         if let Some(e) = self.add_error {
             self.set_text(cx, ids!(ca_err), e.text());
@@ -5060,47 +5149,103 @@ impl LiyuView {
 
     fn add_contact(&mut self, cx: &mut Cx) {
         let label = self.input_text(cx, ids!(ca_input));
-        match self.state.add_contact(&label) {
-            Ok(_) => {
+        let phones = self.input_text(cx, ids!(ct_phone));
+        let emails = self.input_text(cx, ids!(ct_email));
+        match contacts::entry(&label, &phones, &emails) {
+            Ok(mut c) => {
+                if let Some(id) = self.editing_contact.take() {
+                    c.id = id;
+                    if let Some(old) = self.state.contacts.iter_mut().find(|v| v.id == id) {
+                        *old = c;
+                    }
+                } else {
+                    contacts::merge(&mut self.state.contacts, vec![c]);
+                }
+                self.state.save();
                 self.add_error = None;
-                self.set_text(cx, ids!(ca_input), "");
-                self.toast(cx, &format!("加了「{}」", label.trim()));
+                for id in [live_id!(ca_input), live_id!(ct_phone), live_id!(ct_email)] {
+                    self.set_text(cx, &[id], "");
+                }
+                self.toast(cx, "联系人已保存");
             }
-            Err(e) => self.add_error = Some(e),
+            Err(e) => {
+                self.toast(cx, e);
+                return;
+            }
         }
         self.refresh_contacts(cx);
     }
 
-    /// 「从本机导入」：把本机通讯录池里还没加的人一次加成熟人。
+    fn stage_contacts(&mut self, cx: &mut Cx, import: contacts::Import) {
+        let duplicates = import
+            .contacts
+            .iter()
+            .filter(|c| {
+                self.state
+                    .contacts
+                    .iter()
+                    .any(|old| contacts::same_address(old, c))
+            })
+            .count();
+        let names = import
+            .contacts
+            .iter()
+            .take(12)
+            .map(|c| {
+                format!(
+                    "{} · {}",
+                    c.label,
+                    contacts::choices(c)
+                        .iter()
+                        .map(|(_, v)| v.clone())
+                        .collect::<Vec<_>>()
+                        .join(" / ")
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        self.set_text(
+            cx,
+            ids!(ct_preview_text),
+            &format!(
+                "可导入 {} 位；无效 {} 行；已有 {} 位将合并。\n{}{}",
+                import.contacts.len(),
+                import.invalid,
+                duplicates,
+                names,
+                if import.contacts.len() > 12 {
+                    "\n更多联系人将在确认后导入。"
+                } else {
+                    ""
+                }
+            ),
+        );
+        self.pending_contacts = Some(import);
+        self.show(cx, ids!(ct_preview), true);
+        self.redraw(cx);
+    }
+
     fn import_local(&mut self, cx: &mut Cx) {
-        let names = self.state.directory.clone();
-        let added = self.state.adopt_names(names);
-        if added == 0 {
-            self.toast(cx, "本机通讯录里没有新的人");
-        } else {
-            self.toast(cx, &format!("从本机通讯录加了 {added} 位熟人"));
+        if self.contact_import_receiver.is_some() {
+            self.toast(cx, "正在读取系统通讯录，请稍候");
+            return;
         }
-        self.refresh_contacts(cx);
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.contact_import_receiver = Some(rx);
+        std::thread::spawn(move || {
+            let _ = tx.send(contacts::system_contacts());
+        });
+        self.contact_import_poll = cx.start_interval(0.1);
+        self.toast(cx, "正在读取系统通讯录；系统可能请求访问权限");
     }
 
-    /// 「从文件导入」：读 <MAKEPAD_HOME>/liyu/contacts.vcf，名字加成熟人。
     fn import_vcard(&mut self, cx: &mut Cx) {
-        let Some(path) = LiyuState::contacts_vcf() else {
-            self.toast(cx, "未设置 MAKEPAD_HOME，找不到状态目录");
-            return;
-        };
-        let Ok(text) = std::fs::read_to_string(&path) else {
-            let msg = format!("把 .vcf 放到 {} 再点我", path.display());
-            self.toast(cx, &msg);
-            return;
-        };
-        let added = self.state.adopt_names(parse_vcard(&text));
-        if added == 0 {
-            self.toast(cx, "文件里的人都已经在熟人里了");
-        } else {
-            self.toast(cx, &format!("从文件加了 {added} 位熟人"));
-        }
-        self.refresh_contacts(cx);
+        cx.open_select_file_dialog(
+            FileDialog::new()
+                .set_id(live_id!(contact_import))
+                .set_title("导入联系人（vCard / CSV）".into())
+                .add_filter("联系人".into(), vec!["vcf".into(), "csv".into()]),
+        );
     }
 
     // ---- 我 / 钱包 / 设置 ----
@@ -5514,24 +5659,26 @@ impl LiyuView {
             cx,
             ids!(pf_phone_value),
             &format!(
-                "手机号：{}",
+                "手机号：{}{}",
                 if self.profile.phone.is_empty() {
                     "未绑定"
                 } else {
                     &self.profile.phone
-                }
+                },
+                if !self.profile.phone.is_empty() && !self.profile.phone_verified { "（未验证）" } else { "" }
             ),
         );
         self.set_text(
             cx,
             ids!(pf_email_value),
             &format!(
-                "邮箱：{}",
+                "邮箱：{}{}",
                 if self.profile.email.is_empty() {
                     "未绑定"
                 } else {
                     &self.profile.email
-                }
+                },
+                if !self.profile.email.is_empty() && !self.profile.email_verified { "（未验证）" } else { "" }
             ),
         );
         self.set_text(
@@ -5717,6 +5864,23 @@ impl LiyuView {
 
     /// 登录 / 注册之后：重置按账号隔离的客户端缓存，关闸进应用。
     fn after_account_switch(&mut self, cx: &mut Cx) {
+        self.pending_contacts = None;
+        self.editing_contact = None;
+        self.contact_import_receiver = None;
+        cx.stop_timer(self.contact_import_poll);
+        self.contact_import_poll = Timer::empty();
+        self.contact_page = 0;
+        self.cart_contact_page = 0;
+        for field in [
+            live_id!(ca_input),
+            live_id!(ct_phone),
+            live_id!(ct_email),
+            live_id!(ca_recipient_label),
+            live_id!(ca_recipient_value),
+        ] {
+            self.set_text(cx, &[field], "");
+        }
+        self.show(cx, ids!(ct_preview), false);
         self.auth_gate = false;
         self.server_error = None;
         self.profile_err = None;
@@ -5733,7 +5897,11 @@ impl LiyuView {
         }
         self.toast(
             cx,
-            if self.auth_register { "注册并登录成功" } else { "已登录" },
+            if self.auth_register {
+                "注册并登录成功"
+            } else {
+                "已登录"
+            },
         );
         self.update_page_visibility(cx);
     }
@@ -6020,6 +6188,18 @@ impl LiyuView {
         if let Some(err) = self.profile_err { self.set_text(cx, ids!(pf_err), err); }
     }
 
+    fn contact_delivery_choices(&self) -> Vec<(String, String, String)> {
+        self.state
+            .contacts
+            .iter()
+            .flat_map(|c| {
+                contacts::choices(c)
+                    .into_iter()
+                    .map(move |(kind, value)| (c.label.clone(), kind, value))
+            })
+            .collect()
+    }
+
     fn open_cart(&mut self, cx: &mut Cx, product: Option<u16>) {
         self.cart_draft_product = product;
         self.cart_error = self.commerce.refresh().err();
@@ -6036,38 +6216,86 @@ impl LiyuView {
         self.set_text(cx, ids!(ca_status), status);
         self.show(cx, ids!(ca_pick), self.cart_draft_product.is_some());
         if let Some(product) = self.cart_draft_product {
-            self.set_text(cx, ids!(ca_pick_title), &format!("加入购物车：{} · {}", item(product).name, yuan(item(product).price)));
+            self.set_text(
+                cx,
+                ids!(ca_pick_title),
+                &format!(
+                    "加入购物车：{} · {}",
+                    item(product).name,
+                    yuan(item(product).price)
+                ),
+            );
         }
-        let friends = self.commerce.friends.iter().take(CART_FRIEND_CHIPS.len())
-            .map(|f| f.display_name.clone()).collect::<Vec<_>>();
+        let all_choices = self.contact_delivery_choices();
+        self.cart_contact_page = self
+            .cart_contact_page
+            .min(all_choices.len().saturating_sub(1) / CART_FRIEND_CHIPS.len());
+        self.show(cx, ids!(ca_choice_prev), self.cart_contact_page > 0);
+        self.show(
+            cx,
+            ids!(ca_choice_next),
+            (self.cart_contact_page + 1) * CART_FRIEND_CHIPS.len() < all_choices.len(),
+        );
+        let choices = all_choices
+            .into_iter()
+            .skip(self.cart_contact_page * CART_FRIEND_CHIPS.len())
+            .take(CART_FRIEND_CHIPS.len())
+            .collect::<Vec<_>>();
         for (i, chip) in CART_FRIEND_CHIPS.iter().enumerate() {
-            self.show(cx, &[*chip], i < friends.len());
-            if let Some(name) = friends.get(i) { self.set_text(cx, &[*chip], name); }
+            self.show(cx, &[*chip], i < choices.len());
+            if let Some((label, _, value)) = choices.get(i) {
+                self.set_text(cx, &[*chip], &format!("{label} · {value}"));
+            }
         }
-        if !friends.is_empty() {
-            self.cart_friend_idx = self.cart_friend_idx.min(friends.len() - 1);
-            self.set_chip_group(cx, &CART_FRIEND_CHIPS, self.cart_friend_idx);
-        }
-        self.set_text(cx, ids!(ca_friends_note), if friends.is_empty() {
-            "暂无已确认好友，请先在服务器添加并确认好友"
-        } else {
-            "选择已确认的好友作为收礼人"
-        });
-        let rows = self.commerce.items.iter().take(CART_ITEM_ROWS.len()).map(|x| {
-            let friend = self.commerce.friends.iter().find(|f| f.id == x.recipient_id)
-                .map(|f| f.display_name.as_str()).unwrap_or("好友");
-            format!("{} · 送给 {} · {}", x.name, friend, yuan(x.price_cents))
-        }).collect::<Vec<_>>();
+        self.set_text(
+            cx,
+            ids!(ca_friends_note),
+            "选联系人或手填手机号/邮箱；无需先注册或加好友。",
+        );
+        let rows = self
+            .commerce
+            .items
+            .iter()
+            .take(CART_ITEM_ROWS.len())
+            .map(|x| {
+                let who = if !x.recipient_label.is_empty() {
+                    x.recipient_label.clone()
+                } else {
+                    self.commerce
+                        .friends
+                        .iter()
+                        .find(|f| f.id == x.recipient_id)
+                        .map(|f| f.display_name.clone())
+                        .unwrap_or_else(|| "收礼人".into())
+                };
+                format!("{} · 送给 {} · {}", x.name, who, yuan(x.price_cents))
+            })
+            .collect::<Vec<_>>();
         self.show(cx, ids!(ca_empty), self.commerce.items.is_empty());
         for (i, row) in CART_ITEM_ROWS.iter().enumerate() {
             self.show(cx, &[*row], i < rows.len());
             if let Some(value) = rows.get(i) {
                 self.set_text(cx, &[*row, CART_ITEM_TEXT[i]], value);
-                self.set_img(cx, &[*row, CART_ITEM_IMAGE[i]], self.commerce.items.get(i).map(|x| x.product_id));
+                self.set_img(
+                    cx,
+                    &[*row, CART_ITEM_IMAGE[i]],
+                    self.commerce.items.get(i).map(|x| x.product_id),
+                );
             }
         }
-        self.set_text(cx, ids!(ca_total), &format!("合计 {}{}", yuan(self.commerce.total()),
-            if self.commerce.items.len() > CART_ITEM_ROWS.len() { format!(" · 共 {} 件", self.commerce.items.len()) } else { String::new() }));
+        self.set_text(
+            cx,
+            ids!(ca_total),
+            &format!(
+                "合计 {}{}",
+                yuan(self.commerce.total()),
+                if self.commerce.items.len() > CART_ITEM_ROWS.len() {
+                    format!(" · 共 {} 件", self.commerce.items.len())
+                } else {
+                    String::new()
+                }
+            ),
+        );
         self.show(cx, ids!(ca_checkout), !self.commerce.items.is_empty());
         self.show(cx, ids!(ca_order), self.commerce.order.is_some());
         if let Some(order) = self.commerce.order.clone() {
@@ -6077,18 +6305,45 @@ impl LiyuView {
                 "paid_test" => "已完成测试支付",
                 _ => "状态待刷新",
             };
-            self.set_text(cx, ids!(ca_order_text), &format!("{} #{} · {} · {}", label, order.id.abs(), yuan(order.total_cents), state));
-            self.show(cx, ids!(ca_pay), order.status == "pending" || order.status == "pending_demo");
+            self.set_text(
+                cx,
+                ids!(ca_order_text),
+                &format!(
+                    "{} #{} · {} · {}",
+                    label,
+                    order.id.abs(),
+                    yuan(order.total_cents),
+                    state
+                ),
+            );
+            self.show(
+                cx,
+                ids!(ca_pay),
+                order.status == "pending" || order.status == "pending_demo",
+            );
         }
         self.show(cx, ids!(ca_error), self.cart_error.is_some());
-        if let Some(e) = self.cart_error { self.set_text(cx, ids!(ca_error), e); }
+        if let Some(e) = self.cart_error {
+            self.set_text(cx, ids!(ca_error), e);
+        }
     }
 
     // ---- 事件 ----
 
     fn handle_actions(&mut self, cx: &mut Cx, actions: &Actions) {
         let today = today_days();
+        if self.clicked(cx,ids!(ct_prev),actions){self.contact_page=self.contact_page.saturating_sub(1);self.refresh_contacts(cx);}
+        if self.clicked(cx,ids!(ct_next),actions){self.contact_page+=1;self.refresh_contacts(cx);}
+        if self.clicked(cx,ids!(ca_choice_prev),actions){self.cart_contact_page=self.cart_contact_page.saturating_sub(1);self.refresh_cart(cx);}
+        if self.clicked(cx,ids!(ca_choice_next),actions){self.cart_contact_page+=1;self.refresh_cart(cx);}
 
+        for action in actions {if let Some(fda)=action.downcast_ref::<FileDialogAction>(){if fda.id()==live_id!(contact_import){if let Some(path)=fda.path(){match contacts::load_file(path){Ok(import)=>self.stage_contacts(cx,import),Err(e)=>self.toast(cx,e)}}}}}
+        if self.clicked(cx,ids!(ct_import_cancel),actions){self.pending_contacts=None;self.show(cx,ids!(ct_preview),false);}
+        if self.clicked(cx,ids!(ct_import_confirm),actions){if let Some(import)=self.pending_contacts.take(){let added=contacts::merge(&mut self.state.contacts,import.contacts);self.state.save();self.show(cx,ids!(ct_preview),false);self.refresh_contacts(cx);self.toast(cx,&format!("已导入：新增 {added} 位，其余相同联系方式已合并"));}}
+        if self.clicked(cx,ids!(ct_cancel_edit),actions){self.editing_contact=None;for id in [live_id!(ca_input),live_id!(ct_phone),live_id!(ct_email)]{self.set_text(cx,&[id],"");}self.refresh_contacts(cx);}
+        for (button,field,kind) in [(live_id!(pf_phone_request),live_id!(pf_phone),"phone"),(live_id!(pf_email_request),live_id!(pf_email),"email")] {
+            if self.clicked(cx,&[button],actions){let value=self.input_text(cx,&[field]);match profile_client::request_contact_code("bind",kind,&value){Ok(Some(code))=>self.toast(cx,&format!("测试通道验证码：{code}")),Ok(None)=>self.toast(cx,"验证码已加入投递队列，请查收"),Err(e)=>self.toast(cx,e)}}
+        }
         // ---- 头像文件选择对话框结果：选中 → 载入编辑会话；取消 → 不动状态、不上传 ----
         for action in actions {
             if let Some(fda) = action.downcast_ref::<FileDialogAction>() {
@@ -6138,6 +6393,7 @@ impl LiyuView {
                 self.auth_register = !self.auth_register;
                 self.refresh_auth(cx);
             }
+            if self.clicked(cx,ids!(au_request_code),actions){let value=self.input_text(cx,ids!(au_identifier));let kind=if value.contains('@'){"email"}else{"phone"};match profile_client::request_contact_code("register",kind,&value){Ok(Some(code))=>{self.set_text(cx,ids!(au_code),&code);self.set_text(cx,ids!(au_err),&format!("测试通道验证码：{code}"));self.show(cx,ids!(au_err),true);},Ok(None)=>{self.set_text(cx,ids!(au_err),"验证码已加入投递队列，请查收");self.show(cx,ids!(au_err),true);},Err(e)=>self.show_auth_error(cx,e)}}
             let submit = self.clicked(cx, ids!(au_submit), actions)
                 || self.view.text_input(cx, ids!(au_identifier)).returned(actions).is_some()
                 || self.view.text_input(cx, ids!(au_password)).returned(actions).is_some()
@@ -6221,9 +6477,11 @@ impl LiyuView {
 
         // 通知 / toast
         if self.clicked(cx, ids!(nt_close), actions) {
+            if let Some(n)=&self.online_notice {let _=commerce_client::read_notification(n.id);}
             self.close_notice(cx);
         }
         if self.clicked(cx, ids!(nt_go), actions) {
+            if let Some(n)=self.online_notice.clone(){let _=commerce_client::read_notification(n.id);self.close_notice(cx);if let Some(id)=n.gift_id{self.open_received(cx,id);}else{self.toast(cx,&n.body);}}
             if let Some(n) = self.notice.clone() {
                 self.close_notice(cx);
                 match n.kind {
@@ -6561,15 +6819,11 @@ impl LiyuView {
         }
         for (j, row) in CONTACT_ROWS.iter().enumerate() {
             let Some(cid) = self.contact_rows.get(j).copied() else { continue };
-            if self.clicked(cx, &[*row, live_id!(cr_send)], actions) {
-                if let Some(w) = self.contact_wish.get(j).copied().flatten() {
-                    self.open_wish(cx, w);
-                } else {
-                    let label = self.state.contact(cid).map(|c| c.label.clone()).unwrap_or_default();
-                    let first = self.gift_rows.first().copied().unwrap_or(0);
-                    self.open_send(cx, first, label, None);
-                }
-            }
+            if self.clicked(cx,&[*row,live_id!(cr_edit)],actions){if let Some(c)=self.state.contact(cid).cloned(){self.editing_contact=Some(cid);self.set_text(cx,ids!(ca_input),&c.label);self.set_text(cx,ids!(ct_phone),&c.phones.unwrap_or_default().join(";"));self.set_text(cx,ids!(ct_email),&c.emails.unwrap_or_default().join(";"));self.refresh_contacts(cx);}}
+            if self.clicked(cx,&[*row,live_id!(cr_send)],actions){if let Some(c)=self.state.contact(cid).cloned(){
+                self.set_text(cx,ids!(ca_recipient_label),&c.label);self.set_text(cx,ids!(ca_recipient_value),contacts::choices(&c).first().map(|(_,v)|v.as_str()).unwrap_or(""));
+                self.cart_draft_product=None;self.set_tab(cx,0);self.toast(cx,"已选择收礼人，请选商品并点击加入购物车；可更换投递联系方式");
+            }}
             if self.clicked(cx, &[*row, live_id!(cr_del)], actions) {
                 if let Some(snap) = self.state.remove_contact(cid) {
                     self.refresh_contacts(cx);
@@ -6920,23 +7174,12 @@ impl LiyuView {
         }
 
         if self.overlay == Some(Overlay::Cart) {
-            for (i, chip) in CART_FRIEND_CHIPS.iter().enumerate() {
-                if self.toggled(cx, &[*chip], actions) && i < self.commerce.friends.len() {
-                    self.cart_friend_idx = i;
-                    self.set_chip_group(cx, &CART_FRIEND_CHIPS, i);
-                }
-            }
-            if self.clicked(cx, ids!(ca_add), actions) {
-                if let (Some(product), Some(friend)) = (self.cart_draft_product,
-                    self.commerce.friends.get(self.cart_friend_idx).cloned()) {
-                    self.cart_error = self.commerce.add(product, friend.id).err();
-                    if self.cart_error.is_none() {
-                        self.cart_draft_product = None;
-                        self.toast(cx, "已加入购物车");
-                        let _ = self.commerce.refresh();
-                        self.refresh_me(cx);
-                    }
-                } else { self.cart_error = Some("请先选一位熟人"); }
+            let choices=self.contact_delivery_choices().into_iter().skip(self.cart_contact_page*CART_FRIEND_CHIPS.len()).take(CART_FRIEND_CHIPS.len()).collect::<Vec<_>>();
+            for (i,chip) in CART_FRIEND_CHIPS.iter().enumerate(){if self.toggled(cx,&[*chip],actions){if let Some((label,_,value))=choices.get(i){self.cart_friend_idx=i;self.set_text(cx,ids!(ca_recipient_label),label);self.set_text(cx,ids!(ca_recipient_value),value);self.set_chip_group(cx,&CART_FRIEND_CHIPS,i);}}}
+            if self.clicked(cx,ids!(ca_add),actions){
+                let value=self.input_text(cx,ids!(ca_recipient_value));let label=self.input_text(cx,ids!(ca_recipient_label));let kind=if value.contains('@'){"email"}else{"phone"};
+                self.cart_error=if let Some(product)=self.cart_draft_product{self.commerce.add_contact(product,kind,&value,&label).err()}else{Some("请先选择商品")};
+                if self.cart_error.is_none(){self.cart_draft_product=None;self.toast(cx,"已加入购物车");self.refresh_me(cx);}
                 self.refresh_cart(cx);
             }
             for (i, row) in CART_ITEM_ROWS.iter().enumerate() {
@@ -6985,7 +7228,7 @@ impl Widget for LiyuView {
         }
         if !self.initialized {
             // 演示便利：状态目录缺 contacts.vcf 时补一份示例，让导入按钮开箱可点。
-            LiyuState::ensure_sample_vcard();
+            // Real file import never manufactures a contacts file.
             self.pal = Pal::read(cx);
             self.state.sweep(today_days());
             // 先恢复本机会话:上次登录过就直接回账号;没有凭据 → 认证闸。
@@ -7019,6 +7262,10 @@ impl Widget for LiyuView {
                 g.window_closed(&account, &d.draft_id, now_ms);
                 self.draft_pending = None;
             }
+        }
+        if self.contact_import_poll.is_event(event).is_some(){
+            let result=self.contact_import_receiver.as_ref().and_then(|rx|rx.try_recv().ok());
+            if let Some(result)=result{self.contact_import_receiver=None;cx.stop_timer(self.contact_import_poll);self.contact_import_poll=Timer::empty();match result{Ok(import)=>self.stage_contacts(cx,import),Err(e)=>self.toast(cx,e)}}
         }
         if self.notice_poll.is_event(event).is_some() {
             self.poll_notices(cx);
@@ -7724,6 +7971,93 @@ mod layout_tests {
         // 含糊心愿的每个品类在目录里都至少有一件，送礼的人才有得挑。
         for k in WISH_KINDS {
             assert!(!wish_candidates(&WishItem::vague(k, 0, "")).is_empty(), "{k}");
+        }
+    }
+
+    #[test]
+    fn contact_import_edit_and_delivery_selection_use_real_widget_actions() {
+        for width in [412.0, 820.0, 1000.0, 1280.0] {
+            let mut cx = Cx::new(Box::new(|_, _| {}));
+            let root = cx.with_vm(|vm| {
+                makepad_widgets::script_mod(vm);
+                LIYU_MODULE.register(vm);
+                let value = script_eval!(vm, { use mod.widgets.* LiyuView {} });
+                WidgetRef::script_from_value(vm, value)
+            });
+            let mut view = root.borrow_mut::<LiyuView>().unwrap();
+            view.auth_gate = false;
+            view.last_size = size(width, 800.0);
+            view.shaping = Some(shaping_for(view.last_size));
+            view.tab = 3;
+            view.state.contacts.clear();
+            let csv = "name,phone,email\n同名,13800138000,a@example.test\n同名,+14155550123,b@example.test\n无效,xxx,\n";
+            view.stage_contacts(&mut cx, contacts::parse_csv(csv).unwrap());
+            assert!(view.state.contacts.is_empty());
+            assert!(view.view.widget(&cx, ids!(ct_preview)).visible());
+            let uid = view.view.widget(&cx, ids!(ct_import_cancel)).widget_uid();
+            let actions = cx.capture_actions(|cx| {
+                cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
+            });
+            view.handle_actions(&mut cx, &actions);
+            assert!(view.pending_contacts.is_none());
+            assert!(view.state.contacts.is_empty());
+            view.stage_contacts(&mut cx, contacts::parse_csv(csv).unwrap());
+            let uid = view.view.widget(&cx, ids!(ct_import_confirm)).widget_uid();
+            let actions = cx.capture_actions(|cx| {
+                cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
+            });
+            view.handle_actions(&mut cx, &actions);
+            assert_eq!(view.state.contacts.len(), 2);
+            assert_eq!(
+                contacts::choices(&view.state.contacts[0])[0].1,
+                "+8613800138000"
+            );
+            let uid = view.view.widget(&cx, ids!(c0.cr_edit)).widget_uid();
+            let actions = cx.capture_actions(|cx| {
+                cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
+            });
+            view.handle_actions(&mut cx, &actions);
+            view.set_text(&mut cx, ids!(ct_email), "changed@example.test");
+            let uid = view.view.widget(&cx, ids!(ca_btn)).widget_uid();
+            let actions = cx.capture_actions(|cx| {
+                cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
+            });
+            view.handle_actions(&mut cx, &actions);
+            assert_eq!(
+                view.state.contacts[0].emails.as_ref().unwrap(),
+                &vec!["changed@example.test".to_string()]
+            );
+            assert_eq!(view.state.contacts.len(), 2);
+            let uid = view.view.widget(&cx, ids!(c0.cr_send)).widget_uid();
+            let actions = cx.capture_actions(|cx| {
+                cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
+            });
+            view.handle_actions(&mut cx, &actions);
+            assert_eq!(view.tab, 0);
+            assert_eq!(
+                view.input_text(&mut cx, ids!(ca_recipient_value)),
+                "+8613800138000"
+            );
+            view.overlay = Some(Overlay::Cart);
+            view.cart_draft_product = Some(0);
+            view.refresh_cart(&mut cx);
+            let uid = view.view.check_box(&cx, ids!(ca_f1)).widget_uid();
+            let actions =
+                cx.capture_actions(|cx| cx.widget_action(uid, CheckBoxAction::Change(true)));
+            view.handle_actions(&mut cx, &actions);
+            assert_eq!(
+                view.input_text(&mut cx, ids!(ca_recipient_value)),
+                "changed@example.test"
+            );
+            // Invalid addresses are rejected without creating simulated cart lines.
+            view.set_text(&mut cx, ids!(ca_recipient_value), "invalid");
+            let uid = view.view.widget(&cx, ids!(ca_add)).widget_uid();
+            let actions = cx.capture_actions(|cx| {
+                cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
+            });
+            view.handle_actions(&mut cx, &actions);
+            assert!(view.cart_error.is_some());
+            assert!(view.commerce.items.is_empty());
         }
     }
 

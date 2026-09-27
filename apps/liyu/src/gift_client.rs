@@ -23,6 +23,8 @@ pub struct ReceivedGift {
 pub struct SentGift {
     pub id: i64,
     pub recipient_name: String,
+    pub delivery_status: String,
+    pub notification_status: String,
     pub product_id: u16,
     pub price_cents: i64,
     pub state: String,
@@ -130,6 +132,16 @@ fn sent(v: &Value) -> Option<SentGift> {
     Some(SentGift {
         id: v.get("id")?.as_i64()?,
         recipient_name: v.get("recipient")?.get("display_name")?.as_str()?.into(),
+        delivery_status: v
+            .get("delivery_status")
+            .and_then(Value::as_str)
+            .unwrap_or("assigned")
+            .into(),
+        notification_status: v
+            .get("notification_status")
+            .and_then(Value::as_str)
+            .unwrap_or("in_app")
+            .into(),
         product_id: u16::try_from(v.get("product_id")?.as_u64()?).ok()?,
         price_cents: v.get("price_cents")?.as_i64()?,
         state: v.get("state")?.as_str()?.into(),
@@ -290,6 +302,24 @@ impl GiftClient {
                 }
                 Err(err)
             }
+        }
+    }
+}
+
+impl SentGift {
+    pub fn delivery_text(&self) -> &str {
+        if matches!(self.state.as_str(), "withdrawn" | "expired") {
+            return "已撤回或到期退回";
+        }
+        if self.delivery_status != "pending_claim" {
+            return "已归入收礼人的礼盒";
+        }
+        match self.notification_status.as_str() {
+            "sent" => "邀请已投递，等待验证领取",
+            "failed" => "邀请投递失败，等待重试",
+            "sending" => "正在投递邀请",
+            "cancelled" => "邀请已停止投递",
+            _ => "等待邀请投递",
         }
     }
 }

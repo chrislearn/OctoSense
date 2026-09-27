@@ -1424,11 +1424,13 @@ pub fn wish_candidates(w: &WishItem) -> Vec<WishMatch> {
 
 // ---- 熟人 / 设置 / 通知 ----
 
-/// 本机熟人：只有一个称呼。
+/// Personal contacts; optional fields preserve old saved address books.
 #[derive(Clone, Debug, PartialEq, SerJson, DeJson)]
 pub struct ContactLocal {
     pub id: usize,
     pub label: String,
+    pub phones: Option<Vec<String>>,
+    pub emails: Option<Vec<String>>,
 }
 
 #[derive(Clone, Debug, PartialEq, SerJson, DeJson)]
@@ -1652,9 +1654,9 @@ impl LiyuState {
     pub fn demo(today: i64) -> Self {
         let mut s = LiyuState {
             contacts: vec![
-                ContactLocal { id: 0, label: "林舟".into() },
-                ContactLocal { id: 1, label: "陈晓".into() },
-                ContactLocal { id: 2, label: "许宁".into() },
+                ContactLocal { id: 0, label: "林舟".into(), phones: None, emails: None },
+                ContactLocal { id: 1, label: "陈晓".into(), phones: None, emails: None },
+                ContactLocal { id: 2, label: "许宁".into(), phones: None, emails: None },
             ],
             directory: vec!["周子墨".into(), "林小满".into(), "黄一诺".into(), "吴凯文".into()],
             gifts: Vec::new(),
@@ -2886,7 +2888,7 @@ impl LiyuState {
             return Err(AddContactError::Duplicate);
         }
         let id = self.contacts.iter().map(|c| c.id + 1).max().unwrap_or(0);
-        self.contacts.push(ContactLocal { id, label: label.to_string() });
+        self.contacts.push(ContactLocal { id, label: label.to_string(), phones: None, emails: None });
         self.directory.retain(|d| d != label);
         self.save();
         Ok(id)
@@ -2904,7 +2906,7 @@ impl LiyuState {
                 continue;
             }
             let id = self.contacts.iter().map(|c| c.id + 1).max().unwrap_or(0);
-            self.contacts.push(ContactLocal { id, label: name.clone() });
+            self.contacts.push(ContactLocal { id, label: name.clone(), phones: None, emails: None });
             self.directory.retain(|d| *d != name);
             n += 1;
         }

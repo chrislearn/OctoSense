@@ -18,6 +18,7 @@ pub struct CartItem {
     pub id: i64,
     pub product_id: u16,
     pub recipient_id: i64,
+    pub recipient_label: String,
     pub name: String,
     pub price_cents: i64,
 }
@@ -91,7 +92,7 @@ fn json_post(path: &str, body: Value, key: Option<&str>) -> Result<Option<Value>
     match request.send_json(body) {
         Ok(reply) => reply.into_json().map(Some).map_err(|_| "服务器响应无效"),
         Err(ureq::Error::Transport(_)) => Err("无法连接礼遇服务器，请稍后重试"),
-        Err(ureq::Error::Status(403, _)) => Err("只能送给已确认的好友"),
+        Err(ureq::Error::Status(403, _)) => Err("无权执行此操作"),
         Err(ureq::Error::Status(404, _)) => Err("收礼人或订单不存在"),
         Err(ureq::Error::Status(409, _)) => Err("订单状态已改变，请刷新"),
         Err(ureq::Error::Status(_, _)) => Err("服务器未接受操作"),
@@ -123,7 +124,19 @@ fn parse_items(value: &Value) -> Vec<CartItem> {
             Some(CartItem {
                 id: v.get("id")?.as_i64()?,
                 product_id: u16::try_from(v.get("product_id")?.as_u64()?).ok()?,
-                recipient_id: v.get("recipient_id")?.as_i64()?,
+                recipient_id: v.get("recipient_id").and_then(Value::as_i64).unwrap_or(0),
+                recipient_label: v
+                    .get("recipient")
+                    .and_then(|r| r.get("label"))
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                    .or_else(|| {
+                        v.get("recipient")
+                            .and_then(|r| r.get("value"))
+                            .and_then(Value::as_str)
+                    })
+                    .unwrap_or("")
+                    .into(),
                 name: v.get("name")?.as_str()?.into(),
                 price_cents: v.get("price_cents")?.as_i64()?,
             })
@@ -161,8 +174,8 @@ impl Commerce {
         if product_id as usize >= CATALOG.len() {
             return Err("商品不存在");
         }
-        if !self.friends.iter().any(|f| f.id == recipient_id) {
-            return Err("请先选一位熟人");
+        if recipient_id <= 0 {
+            return Err("请指定收礼人");
         }
         let response = json_post(
             "cart/items",
@@ -179,6 +192,7 @@ impl Commerce {
                 id,
                 product_id,
                 recipient_id,
+                recipient_label: String::new(),
                 name: item(product_id).name.into(),
                 price_cents: item(product_id).price,
             });
@@ -186,6 +200,29 @@ impl Commerce {
             return Err("服务器响应无效");
         }
         Ok(())
+    }
+
+    pub fn add_contact(
+        &mut self,
+        product_id: u16,
+        kind: &str,
+        value: &str,
+        label: &str,
+    ) -> Result<(), &'static str> {
+        if product_id as usize >= CATALOG.len() {
+            return Err("商品不存在");
+        }
+        let value = crate::contacts::normalize(kind, value).ok_or("请输入有效收件手机号或邮箱")?;
+        let reply = json_post(
+            "cart/items",
+            json!({"product_id":product_id,"recipient":{"kind":kind,"value":value,"label":label}}),
+            None,
+        )?
+        .ok_or("服务器响应无效")?;
+        if reply["id"].as_i64().is_none() {
+            return Err("服务器响应无效");
+        }
+        self.refresh()
     }
 
     pub fn remove(&mut self, id: i64) -> Result<(), &'static str> {
@@ -256,13 +293,45 @@ impl Commerce {
     }
 }
 
+#[derive(Clone)]
+pub struct Notification {
+    pub id: i64,
+    pub gift_id: Option<u64>,
+    pub title: String,
+    pub body: String,
+}
+pub fn unread_notifications() -> Result<Vec<Notification>, &'static str> {
+    let value = json_get("notifications")?.ok_or("通知响应无效")?;
+    Ok(value
+        .as_array()
+        .ok_or("通知响应无效")?
+        .iter()
+        .filter(|v| v.get("read_at").is_none_or(Value::is_null))
+        .filter_map(|v| {
+            Some(Notification {
+                id: v["id"].as_i64()?,
+                gift_id: v["gift_id"].as_u64(),
+                title: v["title"].as_str()?.into(),
+                body: v["body"].as_str()?.into(),
+            })
+        })
+        .collect())
+}
+pub fn read_notification(id: i64) -> Result<(), &'static str> {
+    json_post(&format!("notifications/{id}/read"), json!({}), None)?.ok_or("通知响应无效")?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
     fn unauthenticated_operations_do_not_create_simulated_data() {
         let mut c = Commerce {
-            friends: vec![Friend { id: 2, display_name: "好友".into() }],
+            friends: vec![Friend {
+                id: 2,
+                display_name: "好友".into(),
+            }],
             ..Default::default()
         };
         assert!(c.add(0, 2).is_err());

@@ -45,7 +45,10 @@ pub fn mode() -> AuthMode {
 
 /// 有账号会话才允许进入应用。
 pub fn has_choice() -> bool {
-    auth().lock().map(|s| s.mode == AuthMode::Account && s.token.is_some()).unwrap_or(false)
+    auth()
+        .lock()
+        .map(|s| s.mode == AuthMode::Account && s.token.is_some())
+        .unwrap_or(false)
 }
 
 /// 真实账号会话还有效(有 token 且没被 401 否掉)。
@@ -69,9 +72,9 @@ pub fn take_expired() -> bool {
 }
 
 /// 测试服务器(契约文档:演示密码与验证码固定 123456)才显示测试提示。
+static TEST_DELIVERY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 pub fn is_test_server() -> bool {
-    let u = api_url();
-    u.contains("test") || u.contains("localhost") || u.contains("127.0.0.1")
+    TEST_DELIVERY.load(std::sync::atomic::Ordering::Relaxed)
 }
 
 // ---- 会话持久化:独立的 session.json,不混进资料 JSON ----
@@ -100,8 +103,12 @@ fn session_save() {
 /// 启动时恢复上次登录的会话。有凭据就回到 Account,没有就是 None(首次启动)。
 pub fn restore_session() {
     let Some(path) = session_path() else { return };
-    let Ok(bytes) = std::fs::read(&path) else { return };
-    let Ok(value) = serde_json::from_slice::<Value>(&bytes) else { return };
+    let Ok(bytes) = std::fs::read(&path) else {
+        return;
+    };
+    let Ok(value) = serde_json::from_slice::<Value>(&bytes) else {
+        return;
+    };
     let Some(identifier) = value.get("identifier").and_then(Value::as_str) else {
         return;
     };
@@ -127,6 +134,9 @@ pub fn logout() {
         state.mode = AuthMode::None;
         state.expired = false;
     }
+    if let Ok(mut c) = challenges().lock() {
+        c.clear();
+    }
     let Some(path) = session_path() else { return };
     let _ = std::fs::remove_file(path);
 }
@@ -136,6 +146,8 @@ pub struct Profile {
     pub display_name: String,
     pub phone: String,
     pub email: String,
+    pub phone_verified: bool,
+    pub email_verified: bool,
     pub avatar_url: String,
     pub addresses: Vec<Address>,
     pub online: bool,
@@ -175,6 +187,7 @@ fn local_write(profile: &Profile) {
     }
     let value = json!({
         "display_name":profile.display_name,"phone":profile.phone,"email":profile.email,
+        "phone_verified":profile.phone_verified,"email_verified":profile.email_verified,
         "avatar_url":profile.avatar_url,"addresses":profile.addresses.iter().map(|a| json!({
             "id":a.id,"recipient_name":a.recipient_name,"phone":a.phone,
             "address":a.address,"is_default":a.is_default
@@ -212,6 +225,8 @@ fn from_json(value: &Value, online: bool) -> Profile {
         display_name: field("display_name"),
         phone: field("phone"),
         email: field("email"),
+        phone_verified: value["phone_verified"].as_bool().unwrap_or(false),
+        email_verified: value["email_verified"].as_bool().unwrap_or(false),
         avatar_url: field("avatar_url"),
         addresses: value
             .get("addresses")
@@ -267,13 +282,18 @@ fn check_server_at(url: &str) -> Result<(), &'static str> {
     if !(url.starts_with("http://") || url.starts_with("https://")) {
         return Err("礼遇服务器地址无效，请检查 LIYU_API_URL");
     }
-    let response = agent().get(&format!("{url}/health")).call().map_err(|error| {
-        match error {
-            ureq::Error::Transport(_) => "无法连接礼遇服务器，请确认服务器已启动并检查网络，然后重试",
+    let response = agent()
+        .get(&format!("{url}/health"))
+        .call()
+        .map_err(|error| match error {
+            ureq::Error::Transport(_) => {
+                "无法连接礼遇服务器，请确认服务器已启动并检查网络，然后重试"
+            }
             ureq::Error::Status(_, _) => "礼遇服务器暂不可用，请稍后重试",
-        }
-    })?;
-    let value: Value = response.into_json().map_err(|_| "礼遇服务器健康检查响应无效")?;
+        })?;
+    let value: Value = response
+        .into_json()
+        .map_err(|_| "礼遇服务器健康检查响应无效")?;
     if value.get("status").and_then(Value::as_str) != Some("ok") {
         return Err("礼遇服务器健康检查未通过，请稍后重试");
     }
@@ -295,7 +315,9 @@ fn api() -> Option<(String, String)> {
     Some((url, token))
 }
 
-pub(crate) fn session() -> Option<(String, String)> { api() }
+pub(crate) fn session() -> Option<(String, String)> {
+    api()
+}
 
 pub fn sign_in(
     identifier: &str,
@@ -303,31 +325,35 @@ pub fn sign_in(
     code: &str,
     register: bool,
 ) -> Result<(), &'static str> {
-    let identifier = identifier.trim().to_lowercase();
+    let identifier = identifier.trim().to_string();
     if identifier.is_empty() || identifier.len() > 254 {
         return Err("请输入账号标识");
     }
     if password.is_empty() || password.len() > 128 {
         return Err("请输入密码");
     }
-    // 固定验证码说明只在测试服务器上提示;真实服务器按服务端校验来。
-    if is_test_server() {
-        if password != "123456" {
-            return Err("测试密码是 123456");
-        }
-        if register && code != "123456" {
-            return Err("测试验证码是 123456");
-        }
-    } else if register && code.is_empty() {
-        return Err("请输入验证码");
-    }
+    let challenge_id = if register {
+        Some(
+            challenge_for(
+                "register",
+                if identifier.contains('@') {
+                    "email"
+                } else {
+                    "phone"
+                },
+                &identifier,
+            )
+            .ok_or("请先获取当前联系方式的验证码")?,
+        )
+    } else {
+        None
+    };
     let url = api_url();
     if !(url.starts_with("http://") || url.starts_with("https://")) {
         return Err("服务器地址无效");
     }
     let path = if register { "register" } else { "login" };
-    let body =
-        json!({"identifier":identifier,"password":password,"code":code,"display_name":identifier});
+    let body = json!({"identifier":identifier,"password":password,"code":code,"challenge_id":challenge_id});
     let response = match agent()
         .post(&format!("{url}/api/v1/auth/{path}"))
         .send_json(body)
@@ -339,13 +365,22 @@ pub fn sign_in(
         Err(ureq::Error::Status(400, _)) => return Err("注册信息无效，请检查账号、密码和验证码"),
         Err(ureq::Error::Status(_, _)) => return Err("服务器暂时无法处理请求，请稍后重试"),
     };
+    TEST_DELIVERY.store(
+        response["test_delivery"].as_bool().unwrap_or(false),
+        std::sync::atomic::Ordering::Relaxed,
+    );
     let token = response
         .get("token")
         .and_then(Value::as_str)
         .ok_or("服务器响应无效")?;
     {
         let mut state = auth().lock().map_err(|_| "登录状态暂不可用")?;
-        state.identifier = identifier;
+        state.identifier = response
+            .get("user")
+            .and_then(|u| u.get("identifier"))
+            .and_then(Value::as_str)
+            .unwrap_or(&identifier)
+            .into();
         state.token = Some(token.into());
         state.mode = AuthMode::Account;
         state.expired = false;
@@ -361,6 +396,9 @@ fn mark_expired() {
     if let Ok(mut state) = auth().lock() {
         state.expired = true;
         state.token = None;
+    }
+    if let Ok(mut c) = challenges().lock() {
+        c.clear();
     }
     let Some(path) = session_path() else { return };
     let _ = std::fs::remove_file(path);
@@ -535,7 +573,12 @@ pub fn delete_avatar(profile: &mut Profile) -> Result<(), &'static str> {
     if synced {
         // 服务端已确认删除:清掉任何持久删除意图,回到默认占位。
         profile.avatar_url = get("me/profile")
-            .and_then(|value| value.get("avatar_url").and_then(Value::as_str).map(str::to_owned))
+            .and_then(|value| {
+                value
+                    .get("avatar_url")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+            })
             .unwrap_or_default();
         profile.online = true;
         let _ = std::fs::remove_file(avatar_delete_pending_path().unwrap_or_default());
@@ -683,23 +726,22 @@ pub fn bind_contact(
     code: &str,
 ) -> Result<(), &'static str> {
     let value = value.trim();
-    if code != "123456" {
-        return Err("测试验证码是 123456");
-    }
-    if phone && !(value.len() == 11 && value.bytes().all(|b| b.is_ascii_digit())) {
-        return Err("手机号须为 11 位数字");
-    }
-    if !phone && !(value.contains('@') && value.len() <= 254) {
-        return Err("邮箱格式不正确");
-    }
+    let kind = if phone { "phone" } else { "email" };
+    crate::contacts::normalize(kind, value).ok_or("联系方式格式不正确")?;
+    let challenge_id = challenge_for("bind", kind, value).ok_or("请先获取当前联系方式的验证码")?;
     let path = if phone { "me/phone" } else { "me/email" };
-    let reply = put(path, json!({"value":value,"code":code}), false)?;
-    if phone {
-        profile.phone = value.into()
-    } else {
-        profile.email = value.into()
-    }
-    profile.online = reply.is_some();
+    let reply = put(
+        path,
+        json!({"value":value,"code":code,"challenge_id":challenge_id}),
+        false,
+    )?;
+    let reply = reply.ok_or("绑定响应无效")?;
+    let updated = from_json(&reply, true);
+    profile.phone = updated.phone;
+    profile.email = updated.email;
+    profile.phone_verified = updated.phone_verified;
+    profile.email_verified = updated.email_verified;
+    profile.online = true;
     local_write(profile);
     Ok(())
 }
@@ -824,7 +866,11 @@ mod tests {
 
         for (status, body, healthy) in [
             ("200 OK", r#"{"status":"ok"}"#, true),
-            ("503 Service Unavailable", r#"{"error":"database unavailable"}"#, false),
+            (
+                "503 Service Unavailable",
+                r#"{"error":"database unavailable"}"#,
+                false,
+            ),
             ("200 OK", r#"{"status":"failed"}"#, false),
             ("200 OK", "invalid JSON", false),
         ] {
@@ -832,7 +878,9 @@ mod tests {
             let url = format!("http://{}", listener.local_addr().unwrap());
             let server = std::thread::spawn(move || {
                 let (mut stream, _) = listener.accept().unwrap();
-                stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
                 let mut request = [0; 4096];
                 let count = stream.read(&mut request).unwrap();
                 assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /health "));
@@ -845,7 +893,10 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
         drop(listener);
-        assert_eq!(check_server_at(&url), Err("无法连接礼遇服务器，请确认服务器已启动并检查网络，然后重试"));
+        assert_eq!(
+            check_server_at(&url),
+            Err("无法连接礼遇服务器，请确认服务器已启动并检查网络，然后重试")
+        );
     }
 
     #[test]
@@ -880,8 +931,14 @@ mod tests {
             Some("/api/v1/media/avatars/0123456789abcdef0123456789abcdef".into())
         );
         // 非契约路径、其它字段名、纯字符串、缺字段、空串、非 32hex 全部拒绝。
-        assert_eq!(parse_avatar_reply(&json!({"avatar_url":"https://cdn/x.png"})), None);
-        assert_eq!(parse_avatar_reply(&json!({"avatar":"id-42","url":"ignored"})), None);
+        assert_eq!(
+            parse_avatar_reply(&json!({"avatar_url":"https://cdn/x.png"})),
+            None
+        );
+        assert_eq!(
+            parse_avatar_reply(&json!({"avatar":"id-42","url":"ignored"})),
+            None
+        );
         assert_eq!(parse_avatar_reply(&json!("plain-id")), None);
         assert_eq!(parse_avatar_reply(&json!({"other":1})), None);
         assert_eq!(parse_avatar_reply(&json!({"avatar_url":""})), None);
@@ -931,4 +988,74 @@ mod tests {
         });
         assert_eq!(next_local_address_id(&profile), -3);
     }
+}
+
+// Verification challenges are in-memory and scoped to the active account and value.
+#[derive(Clone)]
+struct ContactChallenge {
+    purpose: String,
+    kind: String,
+    value: String,
+    owner: String,
+    id: String,
+}
+static CHALLENGES: OnceLock<Mutex<Vec<ContactChallenge>>> = OnceLock::new();
+fn challenges() -> &'static Mutex<Vec<ContactChallenge>> {
+    CHALLENGES.get_or_init(|| Mutex::new(Vec::new()))
+}
+fn challenge_for(purpose: &str, kind: &str, value: &str) -> Option<String> {
+    let value = crate::contacts::normalize(kind, value)?;
+    let owner = if purpose == "bind" {
+        active_identifier()
+    } else {
+        String::new()
+    };
+    challenges()
+        .lock()
+        .ok()?
+        .iter()
+        .find(|c| c.purpose == purpose && c.kind == kind && c.value == value && c.owner == owner)
+        .map(|c| c.id.clone())
+}
+pub fn request_contact_code(
+    purpose: &str,
+    kind: &str,
+    value: &str,
+) -> Result<Option<String>, &'static str> {
+    let value = crate::contacts::normalize(kind, value)
+        .ok_or("请输入有效手机号（国际号码带国家码）或邮箱")?;
+    let mut req = agent().post(&format!("{}/api/v1/auth/challenges", api_url()));
+    let owner = if purpose == "bind" {
+        let (_, token) = session().ok_or("请先登录")?;
+        req = req.set("Authorization", &format!("Bearer {token}"));
+        active_identifier()
+    } else {
+        String::new()
+    };
+    let reply = match req.send_json(json!({"purpose":purpose,"kind":kind,"value":value})) {
+        Ok(reply) => reply.into_json::<Value>().map_err(|_| "验证码响应无效")?,
+        Err(ureq::Error::Status(429, _)) => return Err("请求过于频繁，请稍后重试"),
+        Err(ureq::Error::Status(503, _)) => {
+            return Err("验证码通道尚未配置或暂不可用，请联系运营方")
+        }
+        Err(_) => return Err("验证码请求失败，请检查网络或联系方式"),
+    };
+    TEST_DELIVERY.store(
+        reply["test_code"].as_str().is_some(),
+        std::sync::atomic::Ordering::Relaxed,
+    );
+    let id = reply["challenge_id"]
+        .as_str()
+        .ok_or("验证码响应无效")?
+        .to_string();
+    let mut state = challenges().lock().map_err(|_| "验证码状态不可用")?;
+    state.retain(|c| !(c.purpose == purpose && c.kind == kind && c.owner == owner));
+    state.push(ContactChallenge {
+        purpose: purpose.into(),
+        kind: kind.into(),
+        value,
+        owner,
+        id,
+    });
+    Ok(reply["test_code"].as_str().map(str::to_string))
 }

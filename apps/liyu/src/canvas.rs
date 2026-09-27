@@ -1204,6 +1204,7 @@ script_mod! {
             }
         }
         cr_send := mod.widgets.LiyuBtnSm { width: Fit text: "送礼" }
+        cr_edit := mod.widgets.LiyuBtnSm { width: Fit text: "修改" }
         cr_del := mod.widgets.LiyuBtnDangerSm { width: Fit text: "删除" }
     }
 
