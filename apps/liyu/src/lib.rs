@@ -24,6 +24,8 @@ mod profile_client;
 pub mod share;
 pub mod theme;
 mod wishui;
+mod account_nav;
+mod account_ui;
 
 use canvas::LiyuShareCard;
 use data::*;
@@ -3382,6 +3384,7 @@ impl LiyuView {
             vm.with_reload(|vm| {
                 theme::install(vm);
                 canvas::script_mod(vm);
+                account_ui::script_mod(vm);
                 script_mod(vm);
             });
             let source = script_eval!(vm, { mod.widgets.LiyuView });
@@ -6296,6 +6299,7 @@ impl AppModule for LiyuModule {
         // 色板先进 VM：后面两个 script_mod 里的预设都按 `liyu.<角色>` 取色。
         theme::install(vm);
         canvas::script_mod(vm);
+        account_ui::script_mod(vm);
         script_mod(vm);
     }
     fn open_schema(&self) -> OpenSchema {
