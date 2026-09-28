@@ -445,7 +445,7 @@ script_mod! {
                                     ca_input := LiyuInput { empty_text: "称呼，比如「老陈」" }
                                     ca_btn := LiyuBtn { width: Fit text: "添加" }
                                 }
-                                ct_phone := LiyuInput { empty_text: "手机号，多个用分号分隔；国际号码带国家码" }
+                                ct_phone := LiyuInput { empty_text: "手机号，多个用分号分隔" }
                                 ct_email := LiyuInput { empty_text: "邮箱，多个用分号分隔" }
                                 ct_cancel_edit := LiyuBtnSm { visible: false width: Fit text: "取消修改" }
                                 ct_paging := View { width: Fill height: Fit flow: Right spacing: 8.0 ct_prev := LiyuBtnSm { width: Fit text: "上一页" } ct_next := LiyuBtnSm { width: Fit text: "下一页" } }
@@ -645,7 +645,7 @@ script_mod! {
                                 spacing: 10.0
                                 pf_contact_note := LiyuMuted { text: "验证绑定手机号或邮箱后，该联系方式收到的待领取礼物会自动归入你的礼盒。" }
                                 pf_phone_summary := View { width: Fill height: Fit flow: Right spacing: 8.0 pf_phone_value := LiyuMuted { width: Fill text: "" } pf_phone_edit := LiyuBtnSm { width: Fit text: "修改手机号" } }
- pf_phone_editor := View { visible: false width: Fill height: Fit pf_phone := LiyuInput { empty_text: "手机号（国际号码带国家码）"  } }
+ pf_phone_editor := View { visible: false width: Fill height: Fit pf_phone := LiyuInput { empty_text: "手机号"  } }
                                 pf_phone_code_editor := View { visible: false width: Fill height: Fit flow: Down spacing: 8.0 pf_phone_request := LiyuBtnSm { width: Fit text: "获取验证码" } pf_phone_code := LiyuInput { empty_text: "验证码" } }
                                 pf_phone_save := LiyuBtnPrimary { visible: false width: Fit text: "确认绑定" }
                                 pf_email_summary := View { width: Fill height: Fit flow: Right spacing: 8.0 pf_email_value := LiyuMuted { width: Fill text: "" } pf_email_edit := LiyuBtnSm { width: Fit text: "修改邮箱" } }
@@ -1109,7 +1109,7 @@ script_mod! {
                                     spacing: 8.0
                                     oa_ship_l := LiyuMuted { text: "收件信息只给这一单用，也留在本机方便下次预填。" }
                                     oa_name := LiyuInput { empty_text: "收件人" }
-                                    oa_phone := LiyuInput { empty_text: "手机号（国际号码带国家码）" }
+                                    oa_phone := LiyuInput { empty_text: "手机号" }
                                     oa_addr := LiyuInput { empty_text: "收件地址" }
                                 }
                                 oa_ev := LiyuMuted { visible: false text: "这是电子券，收下后立即发放券码。" }
@@ -1168,7 +1168,7 @@ script_mod! {
                                     spacing: 8.0
                                     ow_ship_l := LiyuMuted { text: "换成了实物，填一下收件信息：" }
                                     ow_name := LiyuInput { empty_text: "收件人" }
-                                    ow_phone := LiyuInput { empty_text: "手机号（国际号码带国家码）" }
+                                    ow_phone := LiyuInput { empty_text: "手机号" }
                                     ow_addr := LiyuInput { empty_text: "收件地址" }
                                 }
                                 ow_calc := LiyuMuted { text: "" }
@@ -1404,7 +1404,7 @@ script_mod! {
                                 ca_pick_title := LiyuH3 { text: "确认礼物" }
                                 ca_friends_note := LiyuMuted { text: "输入手机号或邮箱即可送礼，无需对方先注册或加好友。" }
                                 ca_recipient_label := LiyuInput { empty_text: "收礼人称呼（可选）" }
-                                ca_recipient_value := LiyuInput { empty_text: "收件手机号或邮箱（国际号码带国家码）" }
+                                ca_recipient_value := LiyuInput { empty_text: "收件手机号或邮箱" }
                                 ca_friends := View {
                                     width: Fill height: Fit flow: Right{wrap: true} wrap_spacing: 8.0 spacing: 8.0
                                     ca_f0 := LiyuChip { text: "" }

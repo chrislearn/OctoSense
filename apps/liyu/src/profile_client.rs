@@ -1023,7 +1023,7 @@ pub fn request_contact_code(
     value: &str,
 ) -> Result<Option<String>, &'static str> {
     let value = crate::contacts::normalize(kind, value)
-        .ok_or("请输入有效手机号（国际号码带国家码）或邮箱")?;
+        .ok_or("请输入有效手机号或邮箱")?;
     let mut req = agent().post(&format!("{}/api/v1/auth/challenges", api_url()));
     let owner = if purpose == "bind" {
         let (_, token) = session().ok_or("请先登录")?;
