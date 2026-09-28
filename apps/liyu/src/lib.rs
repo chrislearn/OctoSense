@@ -2910,6 +2910,9 @@ pub struct LiyuView {
     editing_contact: Option<usize>,
     #[rust]
     contact_detail_id: Option<usize>,
+    /// 从熟人详情进入挑礼时保留的返回目标。
+    #[rust]
+    gift_return_contact_id: Option<usize>,
     #[rust]
     contact_page: usize,
     #[rust]
@@ -3372,6 +3375,7 @@ impl LiyuView {
         self.add_error = None;
         self.editing_contact = None;
         self.contact_detail_id = None;
+        self.gift_return_contact_id = None;
         if i == 3 && self.tab != 3 {
             // A verified address may have changed owner or the owner may have
             // replaced their photo since the last visit.
@@ -3447,6 +3451,11 @@ impl LiyuView {
             Some(o) => {
                 self.overlay = Some(o);
                 self.refresh_overlay(cx, o);
+                self.update_page_visibility(cx);
+            }
+            None if self.send_from == 0 && self.gift_return_contact_id.is_some() => {
+                self.overlay = None;
+                self.refresh_gift(cx);
                 self.update_page_visibility(cx);
             }
             None => self.set_tab(cx, self.send_from),
@@ -3562,6 +3571,12 @@ impl LiyuView {
                 }
             }
             Some(Overlay::Wallet) | Some(Overlay::Settings) | Some(Overlay::Profile) => self.set_tab(cx, 4),
+            None if self.tab == 0 => {
+                if let Some(id) = self.gift_return_contact_id.take() {
+                    self.set_tab(cx, 3);
+                    self.open_contact_detail(cx, id);
+                }
+            }
             None => {}
         }
     }
@@ -3609,6 +3624,7 @@ impl LiyuView {
 
     fn refresh_topbar(&mut self, cx: &mut Cx) {
         let title: String = match self.overlay {
+            None if self.tab == 0 && self.gift_return_contact_id.is_some() => "神秘送礼".into(),
             None => self.account_section.filter(|_| self.tab == 4).map_or(TAB_TITLES[self.tab], AccountSection::label).into(),
             Some(Overlay::Send) => {
                 if self.draft.wish.is_some() {
@@ -3657,7 +3673,8 @@ impl LiyuView {
         };
         self.set_text(cx, ids!(tb_title), &title);
         let overlay = self.overlay.is_some();
-        self.show(cx, ids!(tb_back), overlay && !matches!(self.overlay,Some(Overlay::Profile|Overlay::Settings)));
+        self.show(cx, ids!(tb_back), (overlay && !matches!(self.overlay,Some(Overlay::Profile|Overlay::Settings)))
+            || (!overlay && self.tab == 0 && self.gift_return_contact_id.is_some()));
         self.show(cx, ids!(tb_action), !overlay && self.tab <= 1);
         let wish_seg = self.tab == 0 && self.gift_wish_seg;
         self.set_text(cx, ids!(tb_action), if wish_seg { "发布心愿单" } else { "神秘送礼" });
@@ -6116,6 +6133,7 @@ impl LiyuView {
         self.pending_contacts = None;
         self.editing_contact = None;
         self.contact_detail_id = None;
+        self.gift_return_contact_id = None;
         self.contact_import_receiver = None;
         cx.stop_timer(self.contact_import_poll);
         self.contact_import_poll = Timer::empty();
@@ -6620,7 +6638,10 @@ impl LiyuView {
             self.go_back(cx);
         }
         if self.clicked(cx, ids!(tb_action), actions) {
-            if self.tab == 0 && self.gift_wish_seg {
+            if self.tab == 1 {
+                self.gift_wish_seg = false;
+                self.set_tab(cx, 0);
+            } else if self.tab == 0 && self.gift_wish_seg {
                 self.open_wish_edit(cx, None, None);
             } else {
                 let first = self.gift_rows.first().copied().unwrap_or(0);
@@ -7034,7 +7055,10 @@ impl LiyuView {
                     self.set_text(cx, ids!(ca_recipient_label), &c.label);
                     self.set_text(cx, ids!(ca_recipient_value), contacts::choices(&c).first().map(|(_, v)| v.as_str()).unwrap_or(""));
                     self.direct_product = None;
+                    self.gift_wish_seg = false;
                     self.set_tab(cx, 0);
+                    self.gift_return_contact_id = Some(c.id);
+                    self.refresh_topbar(cx);
                     self.toast(cx, "已选择收礼人，请选商品并直接送礼；可更换投递联系方式");
                 }
             } else if self.clicked(cx, ids!(fd_edit), actions) {
@@ -8276,10 +8300,28 @@ mod layout_tests {
             });
             view.handle_actions(&mut cx, &actions);
             assert_eq!(view.tab, 0);
+            assert_eq!(view.overlay, None);
+            assert_eq!(view.gift_return_contact_id, Some(view.state.contacts[0].id));
+            assert_eq!(view.input_text(&mut cx, ids!(tb_title)), "神秘送礼");
+            assert!(view.view.widget(&cx, ids!(tb_back)).visible());
             assert_eq!(
                 view.input_text(&mut cx, ids!(ca_recipient_value)),
                 "+8613800138000"
             );
+            view.open_product(&mut cx, 0, None);
+            view.go_back(&mut cx);
+            assert_eq!(view.overlay, None);
+            assert_eq!(view.input_text(&mut cx, ids!(tb_title)), "神秘送礼");
+            view.go_back(&mut cx);
+            assert_eq!(view.tab, 3);
+            assert_eq!(view.overlay, Some(Overlay::ContactDetail));
+            assert_eq!(view.contact_detail_id, Some(view.state.contacts[0].id));
+            let uid = view.view.widget(&cx, ids!(fd_send)).widget_uid();
+            let actions = cx.capture_actions(|cx| {
+                cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
+            });
+            view.handle_actions(&mut cx, &actions);
+            assert_eq!(view.tab, 0);
             view.overlay = Some(Overlay::Product);
             view.pd_item = 0;
             view.update_page_visibility(&mut cx);
@@ -8307,6 +8349,17 @@ mod layout_tests {
             view.handle_actions(&mut cx, &actions);
             assert!(view.direct_error.is_some());
             assert!(view.commerce.order.is_none());
+            view.set_tab(&mut cx, 1);
+            let uid = view.view.widget(&cx, ids!(tb_action)).widget_uid();
+            let actions = cx.capture_actions(|cx| {
+                cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
+            });
+            view.handle_actions(&mut cx, &actions);
+            assert_eq!(view.tab, 0);
+            assert_eq!(view.overlay, None);
+            assert_eq!(view.gift_return_contact_id, None);
+            assert_eq!(view.input_text(&mut cx, ids!(tb_title)), "挑礼");
+            assert!(!view.view.widget(&cx, ids!(tb_back)).visible());
         }
     }
 
