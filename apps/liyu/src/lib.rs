@@ -198,13 +198,11 @@ script_mod! {
  account_avatar := LiyuThumb { width: 56 height: 56 }
  account_name := Label { width: Fill height: Fit align: Align{x: 0.5, y: 0.5} text: "" draw_text +: { color: liyu.ink wrap: None max_lines: 1 text_overflow: Ellipsis text_style +: { font_size: 13.0 } } }
  }
- account_info_head := LiyuMuted { text: "用户信息" }
  account_categories := LiyuCard { width: Fill height: Fit flow: Down spacing: 2.0
  acc_mcat0 := mod.widgets.AccountCategoryRow { text: "个人资料" }
  acc_mcat1 := mod.widgets.AccountCategoryRow { text: "账号与联系方式" }
  acc_mcat2 := mod.widgets.AccountCategoryRow { text: "收货地址" }
  }
- account_data_head := LiyuMuted { text: "我的数据" }
  account_shortcuts := LiyuCard { width: Fill height: Fit flow: Down spacing: 2.0
  account_wishes := mod.widgets.AccountCategoryRow { width: Fill text: "心愿单" }
  account_received := mod.widgets.AccountCategoryRow { width: Fill text: "收到的礼物" }
@@ -212,7 +210,6 @@ script_mod! {
  account_drafts := mod.widgets.AccountCategoryRow { width: Fill text: "送礼草稿" }
  account_wallet := mod.widgets.AccountCategoryRow { width: Fill text: "钱包与流水" }
  }
- account_settings_head := LiyuMuted { text: "应用设置" }
  account_settings_menu := LiyuCard { width: Fill height: Fit flow: Down spacing: 2.0
  acc_mcat3 := mod.widgets.AccountCategoryRow { text: "通用" }
  acc_mcat4 := mod.widgets.AccountCategoryRow { text: "通知" }
