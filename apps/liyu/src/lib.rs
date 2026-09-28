@@ -1696,7 +1696,7 @@ script_mod! {
                             spacing: 12.0
                             mw_new := LiyuBtnPrimary {
                                 width: Fit
-                                text: "发布新的心愿单"
+                                text: "发布心愿单"
                                 draw_icon +: { svg: crate_resource("self:resources/icons/plus.svg") }
                             }
                             mw0 := LiyuWishCard { }
@@ -7891,6 +7891,7 @@ mod layout_tests {
         view.last_size = size(1000.0, 700.0);
         view.shaping = Some(shaping_for(view.last_size));
         view.open_account_section(&mut cx, AccountSection::Wishes);
+        assert_eq!(view.input_text(&mut cx, ids!(mw_new)), "发布心愿单");
         let uid = view.view.widget(&cx, ids!(mw_new)).widget_uid();
         let actions = cx.capture_actions(|cx| {
             cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
