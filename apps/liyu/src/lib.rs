@@ -1705,9 +1705,6 @@ script_mod! {
                                     draw_icon +: { svg: crate_resource("self:resources/icons/nav-gift.svg") color: liyu.ink_ghost }
                                 }
                             }
-                            mw_note := LiyuMuted {
-                                text: "心愿单只给熟人看。谁认领了哪一件，揭晓前你都不知道 —— 只知道「已有人送」。"
-                            }
                         }
 
                         // ================= 一张心愿单（覆盖页）=================
@@ -7889,6 +7886,10 @@ mod layout_tests {
         view.last_size = size(1000.0, 700.0);
         view.shaping = Some(shaping_for(view.last_size));
         view.open_account_section(&mut cx, AccountSection::Wishes);
+        assert!(view.view.widget(&cx, ids!(mw0)).visible());
+        assert!(view.view.widget(&cx, ids!(mw0.wc_title)).visible());
+        assert!(!view.view.widget(&cx, ids!(mw0.wc_when)).visible());
+        assert!(!view.view.widget(&cx, ids!(mw0.wc_badge)).visible());
         assert!(view.view.widget(&cx, ids!(tb_action)).visible());
         assert_eq!(view.input_text(&mut cx, ids!(tb_action)), "+发布");
         let uid = view.view.widget(&cx, ids!(tb_action)).widget_uid();

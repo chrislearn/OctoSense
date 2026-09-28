@@ -355,6 +355,8 @@ impl LiyuView {
             self.show(cx, &[*card], hit.is_some());
             if let Some(w) = hit {
                 self.fill_wish_card(cx, *card, w, today);
+                self.show(cx, &[*card, live_id!(wc_when)], false);
+                self.show(cx, &[*card, live_id!(wc_badge)], false);
             }
         }
         self.apply_list_state(cx, ids!(mw_empty), "还没有发布过心愿单", "发布一张", lists.len());
