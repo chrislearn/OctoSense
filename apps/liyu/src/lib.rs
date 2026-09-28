@@ -645,7 +645,6 @@ script_mod! {
                             width: Fill height: Fill
                             flow: Down
                             spacing: 14.0
-                            pf_status := LiyuBadgeBlue { text: "" }
                             pf_name_head := LiyuGroupHead { text: "基本资料" }
                             pf_name_card := LiyuCard {
                                 width: Fill height: Fit
@@ -5778,7 +5777,6 @@ impl LiyuView {
             }
         }
         let editing = self.account_edit;
-        self.show(cx, ids!(pf_status), editing.is_none());
         self.show(
             cx,
             ids!(ap_head),
@@ -6428,12 +6426,6 @@ impl LiyuView {
     }
 
     fn refresh_profile(&mut self, cx: &mut Cx) {
-        let status = if self.profile.online {
-            format!("已连接礼遇服务器 · 当前账号 {}", profile_client::active_identifier())
-        } else {
-            format!("服务器连接失败 · 当前账号 {}", profile_client::active_identifier())
-        };
-        self.set_text(cx, ids!(pf_status), &status);
         let summary = if self.profile.addresses.is_empty() {
             "还没有保存地址".to_string()
         } else {
