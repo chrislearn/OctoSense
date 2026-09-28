@@ -544,7 +544,7 @@ script_mod! {
                                     flow: Right{wrap: true}
                                     wrap_spacing: 8.0
                                     spacing: 8.0
-                                    fd_send := LiyuBtnPrimarySm { width: 96 height: 36 text: "送给TA" }
+                                    fd_send := LiyuBtnPrimarySm { width: 96 height: 36 text: "神秘送礼" }
                                     fd_edit := LiyuBtn { width: 96 height: 36 text: "修改信息" }
                                     fd_delete := LiyuBtnDanger { width: 96 height: 36 text: "删除熟人" }
                                 }
@@ -3624,7 +3624,6 @@ impl LiyuView {
 
     fn refresh_topbar(&mut self, cx: &mut Cx) {
         let title: String = match self.overlay {
-            None if self.tab == 0 && self.gift_return_contact_id.is_some() => "神秘送礼".into(),
             None => self.account_section.filter(|_| self.tab == 4).map_or(TAB_TITLES[self.tab], AccountSection::label).into(),
             Some(Overlay::Send) => {
                 if self.draft.wish.is_some() {
@@ -8302,7 +8301,8 @@ mod layout_tests {
             assert_eq!(view.tab, 0);
             assert_eq!(view.overlay, None);
             assert_eq!(view.gift_return_contact_id, Some(view.state.contacts[0].id));
-            assert_eq!(view.input_text(&mut cx, ids!(tb_title)), "神秘送礼");
+            assert_eq!(view.input_text(&mut cx, ids!(fd_send)), "神秘送礼");
+            assert_eq!(view.input_text(&mut cx, ids!(tb_title)), "挑礼");
             assert!(view.view.widget(&cx, ids!(tb_back)).visible());
             assert_eq!(
                 view.input_text(&mut cx, ids!(ca_recipient_value)),
@@ -8311,7 +8311,7 @@ mod layout_tests {
             view.open_product(&mut cx, 0, None);
             view.go_back(&mut cx);
             assert_eq!(view.overlay, None);
-            assert_eq!(view.input_text(&mut cx, ids!(tb_title)), "神秘送礼");
+            assert_eq!(view.input_text(&mut cx, ids!(tb_title)), "挑礼");
             view.go_back(&mut cx);
             assert_eq!(view.tab, 3);
             assert_eq!(view.overlay, Some(Overlay::ContactDetail));
