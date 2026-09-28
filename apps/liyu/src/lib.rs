@@ -4341,7 +4341,7 @@ impl LiyuView {
                 self.set_text(cx, &[*row, live_id!(bx_sub)], sub);
                 self.set_text(cx, &[*row, live_id!(bx_state)], state);
             }
-            self.apply_list_state(cx, ids!(bx_empty), if self.box_sent { "暂无服务器送出礼物" } else { "暂无服务器收到礼物" }, "", rows.len());
+            self.apply_list_state(cx, ids!(bx_empty), if self.box_sent { "暂无送出礼物" } else { "暂无收到礼物" }, "", rows.len());
             let more = rows.len().saturating_sub(BOX_ROWS.len());
             self.show(cx, ids!(bx_more), more > 0);
             self.set_text(cx, ids!(bx_more), &format!("还有 {more} 份较早的没有显示"));
