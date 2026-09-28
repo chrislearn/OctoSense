@@ -2977,6 +2977,28 @@ impl LiyuState {
             .map(|h| std::path::Path::new(&h).join("liyu").join("state.json"))
     }
 
+    /// Each signed-in account keeps its own copy of local gifts, contacts and settings.
+    pub fn account_state_file(identifier: &str) -> Option<std::path::PathBuf> {
+        let mut hash = 0xcbf29ce484222325_u64;
+        for byte in identifier.bytes() {
+            hash = (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3);
+        }
+        Self::data_dir().map(|dir| dir.join(format!("state-{hash:016x}.json")))
+    }
+
+    pub fn load_for_account(today: i64, identifier: &str) -> Self {
+        let mut state = Self::demo(today);
+        if let Some(path) = Self::account_state_file(identifier) {
+            if path.exists() {
+                match Self::load_from(&path) {
+                    Some(data) => state.apply_persisted(data),
+                    None => state.load_note = Some("账号数据读不出来，已用演示数据"),
+                }
+            }
+        }
+        state
+    }
+
     /// 状态目录（礼卡图片、导出都放这里）。
     pub fn data_dir() -> Option<std::path::PathBuf> {
         Self::state_file().and_then(|p| p.parent().map(|d| d.to_path_buf()))
@@ -3084,6 +3106,11 @@ impl LiyuState {
         }
         if let Some(path) = Self::state_file() {
             let _ = self.save_to(&path);
+        }
+        if crate::profile_client::has_choice() {
+            if let Some(path) = Self::account_state_file(&crate::profile_client::active_identifier()) {
+                let _ = self.save_to(&path);
+            }
         }
     }
 

@@ -126,8 +126,15 @@ pub fn restore_session() {
     }
 }
 
-/// 登出:清内存会话 + 删本机凭据文件。调用方负责重置按账号隔离的本地缓存。
+/// 登出:尽量撤销服务器 token,然后清内存会话和本机凭据。
+/// 网络失败时仍立即结束本机会话；调用方负责隔离本地缓存。
 pub fn logout() {
+    if let Some((url, token)) = api() {
+        let _ = agent()
+            .post(&format!("{url}/api/v1/auth/logout"))
+            .set("Authorization", &format!("Bearer {token}"))
+            .call();
+    }
     if let Ok(mut state) = auth().lock() {
         state.identifier.clear();
         state.token = None;
