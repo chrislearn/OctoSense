@@ -3674,8 +3674,8 @@ impl LiyuView {
         let overlay = self.overlay.is_some();
         self.show(cx, ids!(tb_back), (overlay && !matches!(self.overlay,Some(Overlay::Profile|Overlay::Settings)))
             || (!overlay && self.tab == 0 && self.gift_return_contact_id.is_some()));
-        self.show(cx, ids!(tb_action), !overlay && self.tab <= 1);
         let wish_seg = self.tab == 0 && self.gift_wish_seg;
+        self.show(cx, ids!(tb_action), !overlay && (self.tab == 1 || wish_seg));
         self.set_text(cx, ids!(tb_action), if wish_seg { "发布心愿单" } else { "神秘送礼" });
         self.show(cx, ids!(tb_add), !overlay && self.tab == 3);
     }
@@ -6642,9 +6642,6 @@ impl LiyuView {
                 self.set_tab(cx, 0);
             } else if self.tab == 0 && self.gift_wish_seg {
                 self.open_wish_edit(cx, None, None);
-            } else {
-                let first = self.gift_rows.first().copied().unwrap_or(0);
-                self.open_send(cx, first, String::new(), None);
             }
         }
         if self.clicked(cx, ids!(tb_add), actions) {
@@ -8304,6 +8301,7 @@ mod layout_tests {
             assert_eq!(view.input_text(&mut cx, ids!(fd_send)), "神秘送礼");
             assert_eq!(view.input_text(&mut cx, ids!(tb_title)), "挑礼");
             assert!(view.view.widget(&cx, ids!(tb_back)).visible());
+            assert!(!view.view.widget(&cx, ids!(tb_action)).visible());
             assert_eq!(
                 view.input_text(&mut cx, ids!(ca_recipient_value)),
                 "+8613800138000"
@@ -8360,6 +8358,11 @@ mod layout_tests {
             assert_eq!(view.gift_return_contact_id, None);
             assert_eq!(view.input_text(&mut cx, ids!(tb_title)), "挑礼");
             assert!(!view.view.widget(&cx, ids!(tb_back)).visible());
+            assert!(!view.view.widget(&cx, ids!(tb_action)).visible());
+            view.gift_wish_seg = true;
+            view.refresh_topbar(&mut cx);
+            assert!(view.view.widget(&cx, ids!(tb_action)).visible());
+            assert_eq!(view.input_text(&mut cx, ids!(tb_action)), "发布心愿单");
         }
     }
 
