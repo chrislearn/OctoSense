@@ -544,9 +544,9 @@ script_mod! {
                                     flow: Right{wrap: true}
                                     wrap_spacing: 8.0
                                     spacing: 8.0
-                                    fd_send := LiyuBtnPrimary { width: Fit text: "送给TA" }
-                                    fd_edit := LiyuBtn { width: Fit text: "修改信息" }
-                                    fd_delete := LiyuBtnDanger { width: Fit text: "删除熟人" }
+                                    fd_send := LiyuBtnPrimarySm { width: 96 height: 36 text: "送给TA" }
+                                    fd_edit := LiyuBtn { width: 96 height: 36 text: "修改信息" }
+                                    fd_delete := LiyuBtnDanger { width: 96 height: 36 text: "删除熟人" }
                                 }
                             }
                         }
