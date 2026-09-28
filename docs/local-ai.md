@@ -72,6 +72,10 @@ then starts the desktop in release mode with `app-appcard` enabled, opens AppCar
 as an in-process module, and opens the desktop assistant with `--assistant`.
 The assistant receives the running module's `appcard.ask` tool; ask it for a
 live weather card, or enter the request in AppCard's own composer.
+To reopen its generator after closing the window, click the grid icon at the
+left of the desktop dock, choose **AppCard** from the application menu, then
+click the **+** pill at the bottom center of AppCard to reveal the prompt box.
+The top-bar **AI** opens the general assistant, not AppCard's own composer.
 AppCard connects to the installed `octos` executable over stdio. On each launch,
 `tools/prepare-appcard-core.py` prepares its private `_main` profile under
 `$OCTOSENSE_HOME/appcard/core`, reusing the model selection and credentials from

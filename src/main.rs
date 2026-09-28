@@ -1842,7 +1842,7 @@ impl App {
 
     /// The registry as the `os` brief names it: (id, label).
     fn registry_apps() -> Vec<(String, String)> {
-        clients::registry()
+        clients::listed_apps()
             .iter()
             .map(|a| (a.id.clone(), a.label.clone()))
             .collect()
@@ -2077,7 +2077,7 @@ impl App {
     fn app_rows(&mut self) -> Vec<OsAppRow> {
         let state = self.state_mut();
         let focused = state.layout.focused_client();
-        let mut rows: Vec<OsAppRow> = clients::registry()
+        let mut rows: Vec<OsAppRow> = clients::listed_apps()
             .iter()
             .map(|a| OsAppRow {
                 id: a.id.clone(),
@@ -3768,9 +3768,9 @@ fn os_launch_answer(call_id: &str, label: &str, already_running: bool) -> ToolRe
 
 /// The registry's ids, for a refusal that names what exists.
 fn known_app_ids() -> String {
-    clients::registry()
+    clients::listed_apps()
         .iter()
-        .map(|a| a.id.as_str())
+        .map(|a| a.id.clone())
         .collect::<Vec<_>>()
         .join(", ")
 }

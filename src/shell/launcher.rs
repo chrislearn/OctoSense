@@ -66,6 +66,7 @@ fn icon_for(id: &str) -> Option<Ico> {
         "fab" => Ico::Refresh,
         "studio" => Ico::Moon,
         "liyu" => Ico::Gift,
+        "appcard" => Ico::Monitor,
         // Never None: an app row without an icon would shift its label.
         _ => Ico::Dot,
     })
@@ -77,7 +78,7 @@ fn icon_for(id: &str) -> Option<Ico> {
 /// alphabetical provider). The live filter never reorders.
 pub fn apps() -> Vec<MenuItem> {
     let hides = hides();
-    let items: Vec<MenuItem> = clients::registry()
+    let items: Vec<MenuItem> = clients::listed_apps()
         .iter()
         // Launchable: a package this checkout can run, or a module this
         // build links (the only kind the web build has).
@@ -116,7 +117,7 @@ mod tests {
         let items = apps();
         // Rows appear in registry order (available subset preserves it).
         let labels: Vec<String> = items.iter().map(|i| i.label.clone()).collect();
-        let registry_order: Vec<String> = clients::registry()
+        let registry_order: Vec<String> = clients::listed_apps()
             .iter()
             .filter(|a| labels.contains(&a.label))
             .map(|a| a.label.clone())
@@ -126,5 +127,20 @@ mod tests {
         assert!(items
             .iter()
             .all(|i| i.kind == MenuKind::App && i.id.starts_with("apps.")));
+    }
+
+    #[cfg(feature = "app-appcard")]
+    #[test]
+    fn linked_appcard_can_be_found_without_a_process_catalog_row() {
+        assert!(!clients::registry().iter().any(|app| app.id == "appcard"));
+        let listed = clients::listed_apps();
+        assert_eq!(listed.iter().filter(|app| app.id == "appcard").count(), 1);
+        assert_eq!(listed.first().unwrap().id, "appcard");
+        assert_eq!(clients::find_app("appcard").unwrap().label, "AppCard");
+        let host = crate::apps::AppRegistry::load(
+            std::path::Path::new("/nonexistent/apps.splash"),
+            &["--module".into(), "appcard".into()],
+        );
+        assert_eq!(host.hosting("appcard"), crate::apps::Hosting::Module);
     }
 }

@@ -131,6 +131,21 @@ pub fn registry() -> &'static [AppDef] {
     }
 }
 
+/// Curated process apps plus linked modules without a catalog row.
+pub fn listed_apps() -> Vec<AppDef> {
+    let catalog = registry();
+    let mut apps = Vec::new();
+    for module in crate::apps::bundled_catalog() {
+        if !catalog.iter().any(|app| app.id == module.id) {
+            apps.push(module);
+        }
+    }
+    // Put module-only apps first: unlike catalog apps, they have no other
+    // launcher entry once their window has been closed.
+    apps.extend_from_slice(catalog);
+    apps
+}
+
 /// Registered ids take precedence over binary aliases. A linked module
 /// without a catalog row (a module-only app such as `appcard`, which has no
 /// process form) is still an app: its bundled definition answers, and the
