@@ -145,7 +145,7 @@ impl LiyuView {
         let ctx = self.wish_claimable(self.pd_wish).filter(|(_, wi)| wi.fits(i));
         self.show(cx, ids!(pd_ctx), ctx.is_some());
         self.show(cx, ids!(pd_addwish), ctx.is_none());
-        self.show(cx, ids!(pd_cart), ctx.is_none());
+        self.show(cx, ids!(pd_direct), ctx.is_none());
         let mut notes: Vec<String> = Vec::new();
         match &ctx {
             Some((l, wi)) => {

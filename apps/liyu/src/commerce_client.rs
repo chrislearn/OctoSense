@@ -1,27 +1,8 @@
-//! Buyer-only cart and test-order REST client. Server failures never simulate success.
+//! Buyer-only direct gift checkout. Server failures never simulate success.
 use serde_json::{json, Value};
 use std::time::Duration;
 
-use crate::{
-    data::{item, CATALOG},
-    profile_client,
-};
-
-#[derive(Clone, Default)]
-pub struct Friend {
-    pub id: i64,
-    pub display_name: String,
-}
-
-#[derive(Clone, Default)]
-pub struct CartItem {
-    pub id: i64,
-    pub product_id: u16,
-    pub recipient_id: i64,
-    pub recipient_label: String,
-    pub name: String,
-    pub price_cents: i64,
-}
+use crate::{data::CATALOG, profile_client};
 
 #[derive(Clone, Default)]
 pub struct Order {
@@ -50,17 +31,16 @@ pub fn product_detail(id: u16) -> Option<ProductDetail> {
     })
 }
 
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub struct Commerce {
     pub online: bool,
-    pub friends: Vec<Friend>,
-    pub items: Vec<CartItem>,
     pub order: Option<Order>,
+    request_key: Option<(String, String)>,
 }
 
 fn agent() -> ureq::Agent {
     ureq::AgentBuilder::new()
-        .timeout(Duration::from_millis(600))
+        .timeout(Duration::from_secs(10))
         .build()
 }
 
@@ -75,7 +55,7 @@ fn json_get(path: &str) -> Result<Option<Value>, &'static str> {
     {
         Ok(reply) => reply.into_json().map(Some).map_err(|_| "服务器响应无效"),
         Err(ureq::Error::Transport(_)) => Err("无法连接礼遇服务器，请稍后重试"),
-        Err(ureq::Error::Status(_, _)) => Err("服务器暂时无法读取购物车"),
+        Err(ureq::Error::Status(_, _)) => Err("服务器暂时无法读取数据"),
     }
 }
 
@@ -94,183 +74,60 @@ fn json_post(path: &str, body: Value, key: Option<&str>) -> Result<Option<Value>
         Err(ureq::Error::Transport(_)) => Err("无法连接礼遇服务器，请稍后重试"),
         Err(ureq::Error::Status(403, _)) => Err("无权执行此操作"),
         Err(ureq::Error::Status(404, _)) => Err("收礼人或订单不存在"),
-        Err(ureq::Error::Status(409, _)) => Err("订单状态已改变，请刷新"),
+        Err(ureq::Error::Status(409, _)) => Err("商品、收件人或订单状态已改变，请检查后重试"),
         Err(ureq::Error::Status(_, _)) => Err("服务器未接受操作"),
     }
 }
 
-fn json_delete(path: &str) -> Result<Option<Value>, &'static str> {
-    let Some((url, token)) = profile_client::session() else {
-        return Err("请先登录礼遇账号");
-    };
-    match agent()
-        .delete(&format!("{url}/api/v1/{path}"))
-        .set("Authorization", &format!("Bearer {token}"))
-        .call()
-    {
-        Ok(reply) => reply.into_json().map(Some).map_err(|_| "服务器响应无效"),
-        Err(ureq::Error::Transport(_)) => Err("无法连接礼遇服务器，请稍后重试"),
-        Err(ureq::Error::Status(_, _)) => Err("服务器未删除购物车商品"),
-    }
-}
-
-fn parse_items(value: &Value) -> Vec<CartItem> {
-    value
-        .get("items")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(|v| {
-            Some(CartItem {
-                id: v.get("id")?.as_i64()?,
-                product_id: u16::try_from(v.get("product_id")?.as_u64()?).ok()?,
-                recipient_id: v.get("recipient_id").and_then(Value::as_i64).unwrap_or(0),
-                recipient_label: v
-                    .get("recipient")
-                    .and_then(|r| r.get("label"))
-                    .and_then(Value::as_str)
-                    .filter(|s| !s.is_empty())
-                    .or_else(|| {
-                        v.get("recipient")
-                            .and_then(|r| r.get("value"))
-                            .and_then(Value::as_str)
-                    })
-                    .unwrap_or("")
-                    .into(),
-                name: v.get("name")?.as_str()?.into(),
-                price_cents: v.get("price_cents")?.as_i64()?,
-            })
-        })
-        .collect()
-}
-
 impl Commerce {
-    pub fn refresh(&mut self) -> Result<(), &'static str> {
-        self.online = false;
-        let friends = json_get("friends")?;
-        let cart = json_get("cart")?;
-        if let (Some(friends), Some(cart)) = (friends, cart) {
-            self.friends = friends
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter_map(|f| {
-                    Some(Friend {
-                        id: f.get("id")?.as_i64()?,
-                        display_name: f.get("display_name")?.as_str()?.into(),
-                    })
-                })
-                .collect();
-            self.items = parse_items(&cart);
-            self.online = true;
-        } else {
-            self.online = false;
-            return Err("服务器响应无效");
-        }
-        Ok(())
-    }
-
-    pub fn add(&mut self, product_id: u16, recipient_id: i64) -> Result<(), &'static str> {
-        if product_id as usize >= CATALOG.len() {
-            return Err("商品不存在");
-        }
-        if recipient_id <= 0 {
-            return Err("请指定收礼人");
-        }
-        let response = json_post(
-            "cart/items",
-            json!({"product_id":product_id,"recipient_id":recipient_id}),
-            None,
-        )?;
-        if let Some(response) = response {
-            let id = response
-                .get("id")
-                .and_then(Value::as_i64)
-                .ok_or("服务器响应无效")?;
-            self.online = true;
-            self.items.push(CartItem {
-                id,
-                product_id,
-                recipient_id,
-                recipient_label: String::new(),
-                name: item(product_id).name.into(),
-                price_cents: item(product_id).price,
-            });
-        } else {
-            return Err("服务器响应无效");
-        }
-        Ok(())
-    }
-
-    pub fn add_contact(
+    pub fn create_order(
         &mut self,
         product_id: u16,
         kind: &str,
         value: &str,
         label: &str,
-    ) -> Result<(), &'static str> {
+    ) -> Result<Order, &'static str> {
         if product_id as usize >= CATALOG.len() {
             return Err("商品不存在");
         }
         let value = crate::contacts::normalize(kind, value).ok_or("请输入有效收件手机号或邮箱")?;
-        let reply = json_post(
-            "cart/items",
-            json!({"product_id":product_id,"recipient":{"kind":kind,"value":value,"label":label}}),
-            None,
-        )?
-        .ok_or("服务器响应无效")?;
-        if reply["id"].as_i64().is_none() {
-            return Err("服务器响应无效");
+        let body =
+            json!({"product_id":product_id,"recipient":{"kind":kind,"value":value,"label":label}});
+        let fingerprint = body.to_string();
+        if !self
+            .request_key
+            .as_ref()
+            .is_some_and(|(request, _)| request == &fingerprint)
+        {
+            let quote = json_post("orders/quote", body.clone(), None)?.ok_or("报价响应无效")?;
+            if quote["total_cents"].as_i64().is_none_or(|total| total < 0) {
+                return Err("报价响应无效");
+            }
         }
-        self.refresh()
-    }
-
-    pub fn remove(&mut self, id: i64) -> Result<(), &'static str> {
-        if id >= 0 && json_delete(&format!("cart/items/{id}"))?.is_none() {
-            return Err("服务器暂时连不上，在线商品尚未移除");
-        }
-        self.items.retain(|x| x.id != id);
-        Ok(())
-    }
-
-    pub fn total(&self) -> i64 {
-        self.items.iter().map(|x| x.price_cents).sum()
-    }
-
-    pub fn create_order(&mut self) -> Result<Order, &'static str> {
-        if self.items.is_empty() {
-            return Err("购物车是空的");
-        }
-        let Some(_) = json_post("orders/quote", json!({}), None)? else {
-            return Err("服务器暂时连不上，在线购物车尚未下单");
-        };
-        let key = format!(
-            "liyu-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_nanos())
-                .unwrap_or(0)
-        );
-        let Some(value) = json_post("orders", json!({}), Some(&key))? else {
-            return Err("下单时服务器断开，请刷新购物车后重试");
-        };
+        let key = self
+            .request_key
+            .as_ref()
+            .filter(|(request, _)| request == &fingerprint)
+            .map(|(_, key)| key.clone())
+            .unwrap_or_else(|| {
+                format!(
+                    "liyu-direct-{}-{}",
+                    std::process::id(),
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_nanos())
+                        .unwrap_or(0)
+                )
+            });
+        self.request_key = Some((fingerprint, key.clone()));
+        let value = json_post("orders", body, Some(&key))?.ok_or("下单响应无效")?;
         let order = Order {
-            id: value
-                .get("id")
-                .and_then(Value::as_i64)
-                .ok_or("订单响应无效")?,
-            total_cents: value
-                .get("total_cents")
-                .and_then(Value::as_i64)
-                .ok_or("订单响应无效")?,
-            status: value
-                .get("status")
-                .and_then(Value::as_str)
-                .unwrap_or("pending")
-                .into(),
+            id: value["id"].as_i64().ok_or("订单响应无效")?,
+            total_cents: value["total_cents"].as_i64().ok_or("订单响应无效")?,
+            status: value["status"].as_str().unwrap_or("pending").into(),
         };
-        self.items.clear();
+        self.request_key = None;
+        self.online = true;
         self.order = Some(order.clone());
         Ok(order)
     }
@@ -279,15 +136,9 @@ impl Commerce {
         let Some(mut order) = self.order.clone() else {
             return Err("还没有订单");
         };
-        let Some(value) = json_post(&format!("orders/{}/pay-test", order.id), json!({}), None)?
-        else {
-            return Err("支付时服务器断开，订单仍待支付，请稍后重试");
-        };
-        order.status = value
-            .get("status")
-            .and_then(Value::as_str)
-            .unwrap_or("paid_test")
-            .into();
+        let value = json_post(&format!("orders/{}/pay-test", order.id), json!({}), None)?
+            .ok_or("支付响应无效")?;
+        order.status = value["status"].as_str().unwrap_or("paid_test").into();
         self.order = Some(order.clone());
         Ok(order)
     }
@@ -326,17 +177,12 @@ pub fn read_notification(id: i64) -> Result<(), &'static str> {
 mod tests {
     use super::*;
     #[test]
-    fn unauthenticated_operations_do_not_create_simulated_data() {
-        let mut c = Commerce {
-            friends: vec![Friend {
-                id: 2,
-                display_name: "好友".into(),
-            }],
-            ..Default::default()
-        };
-        assert!(c.add(0, 2).is_err());
-        assert!(c.items.is_empty());
-        assert!(c.create_order().is_err());
+    fn direct_order_requires_login_and_valid_recipient() {
+        let mut c = Commerce::default();
+        assert!(c.create_order(0, "email", "bad", "朋友").is_err());
+        assert!(c
+            .create_order(0, "email", "friend@example.test", "朋友")
+            .is_err());
         assert!(c.pay_test().is_err());
         assert!(c.order.is_none());
     }

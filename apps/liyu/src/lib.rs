@@ -210,7 +210,6 @@ script_mod! {
  account_received := mod.widgets.AccountCategoryRow { width: Fill text: "收到的礼物" }
  account_sent := mod.widgets.AccountCategoryRow { width: Fill text: "送出的礼物" }
  account_drafts := mod.widgets.AccountCategoryRow { width: Fill text: "送礼草稿" }
- account_cart := mod.widgets.AccountCategoryRow { width: Fill text: "购物车与订单" }
  account_wallet := mod.widgets.AccountCategoryRow { width: Fill text: "钱包与流水" }
  }
  account_settings_head := LiyuMuted { text: "应用设置" }
@@ -568,7 +567,6 @@ script_mod! {
                                 padding: Inset{left: 6.0, right: 6.0, top: 6.0, bottom: 6.0}
                                 spacing: 0.0
                                 row_profile := LiyuSetRow { }
-                                row_cart := LiyuSetRow { }
                                 row_wish := LiyuSetRow { }
                                 row_wallet := LiyuSetRow { }
                                 row_settings := LiyuSetRow { }
@@ -1394,8 +1392,8 @@ script_mod! {
                         // ================= 账户资料（覆盖页）=================
 
 
-                        // ================= 购物车与测试订单 =================
-                        page_cart := LiyuScrollY {
+                        // ================= 单件礼物订单 =================
+                        page_direct_order := LiyuScrollY {
                             visible: false
                             width: Fill height: Fill
                             flow: Down
@@ -1403,7 +1401,7 @@ script_mod! {
                             ca_status := LiyuBadgeBlue { text: "" }
                             ca_pick := LiyuCard {
                                 width: Fill height: Fit flow: Down padding: 14.0 spacing: 10.0
-                                ca_pick_title := LiyuH3 { text: "选一件商品加入购物车" }
+                                ca_pick_title := LiyuH3 { text: "确认礼物" }
                                 ca_friends_note := LiyuMuted { text: "输入手机号或邮箱即可送礼，无需对方先注册或加好友。" }
                                 ca_recipient_label := LiyuInput { empty_text: "收礼人称呼（可选）" }
                                 ca_recipient_value := LiyuInput { empty_text: "收件手机号或邮箱（国际号码带国家码）" }
@@ -1415,21 +1413,6 @@ script_mod! {
                                     ca_f3 := LiyuChip { text: "" }
                                 }
                                 ca_choice_paging := View { width: Fill height: Fit flow: Right spacing: 8.0 ca_choice_prev := LiyuBtnSm { width: Fit text: "上一组联系人" } ca_choice_next := LiyuBtnSm { width: Fit text: "下一组联系人" } }
-                                ca_add := LiyuBtn { width: Fit text: "加入购物车" }
-                            }
-                            ca_items_head := LiyuGroupHead { text: "购物车商品" }
-                            ca_items := LiyuCard {
-                                width: Fill height: Fit flow: Down padding: 14.0 spacing: 10.0
-                                ca_empty := LiyuMuted { text: "购物车是空的" }
-                                ca_i0 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i0_img := LiyuThumb { width: 44 height: 44 } ca_i0_text := LiyuMuted { width: Fill text: "" } ca_i0_del := LiyuBtnSm { width: Fit text: "移除" } }
-                                ca_i1 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i1_img := LiyuThumb { width: 44 height: 44 } ca_i1_text := LiyuMuted { width: Fill text: "" } ca_i1_del := LiyuBtnSm { width: Fit text: "移除" } }
-                                ca_i2 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i2_img := LiyuThumb { width: 44 height: 44 } ca_i2_text := LiyuMuted { width: Fill text: "" } ca_i2_del := LiyuBtnSm { width: Fit text: "移除" } }
-                                ca_i3 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i3_img := LiyuThumb { width: 44 height: 44 } ca_i3_text := LiyuMuted { width: Fill text: "" } ca_i3_del := LiyuBtnSm { width: Fit text: "移除" } }
-                                ca_i4 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i4_img := LiyuThumb { width: 44 height: 44 } ca_i4_text := LiyuMuted { width: Fill text: "" } ca_i4_del := LiyuBtnSm { width: Fit text: "移除" } }
-                                ca_i5 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i5_img := LiyuThumb { width: 44 height: 44 } ca_i5_text := LiyuMuted { width: Fill text: "" } ca_i5_del := LiyuBtnSm { width: Fit text: "移除" } }
-                                ca_i6 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i6_img := LiyuThumb { width: 44 height: 44 } ca_i6_text := LiyuMuted { width: Fill text: "" } ca_i6_del := LiyuBtnSm { width: Fit text: "移除" } }
-                                ca_i7 := View { visible: false width: Fill height: Fit flow: Right spacing: 8.0 ca_i7_img := LiyuThumb { width: 44 height: 44 } ca_i7_text := LiyuMuted { width: Fill text: "" } ca_i7_del := LiyuBtnSm { width: Fit text: "移除" } }
-                                ca_total := LiyuH2 { text: "合计 ¥0" }
                                 ca_checkout := LiyuBtnPrimary { width: Fit text: "生成测试订单" }
                             }
                             ca_order := LiyuCard {
@@ -1489,7 +1472,7 @@ script_mod! {
                                             text: "送给 TA"
                                             draw_icon +: { svg: crate_resource("self:resources/icons/nav-gift.svg") }
                                         }
-                                        pd_cart := LiyuBtn { width: Fit text: "加入购物车" }
+                                        pd_direct := LiyuBtn { width: Fit text: "按联系方式送礼" }
                                         pd_addwish := LiyuBtn {
                                             width: Fit
                                             text: "加到我的心愿单"
@@ -2633,7 +2616,7 @@ const SIDE_PAD_VIEWS: [LiveId; 25] = [
     live_id!(page_account_sent),
     live_id!(page_settings),
     live_id!(page_profile),
-    live_id!(page_cart),
+    live_id!(page_direct_order),
     live_id!(page_product),
     live_id!(co_scroll),
     live_id!(co_bar),
@@ -2645,23 +2628,6 @@ const SIDE_PAD_VIEWS: [LiveId; 25] = [
 ];
 
 const CART_FRIEND_CHIPS: [LiveId; 4] = [live_id!(ca_f0), live_id!(ca_f1), live_id!(ca_f2), live_id!(ca_f3)];
-const CART_ITEM_ROWS: [LiveId; 8] = [
-    live_id!(ca_i0), live_id!(ca_i1), live_id!(ca_i2), live_id!(ca_i3),
-    live_id!(ca_i4), live_id!(ca_i5), live_id!(ca_i6), live_id!(ca_i7),
-];
-const CART_ITEM_TEXT: [LiveId; 8] = [
-    live_id!(ca_i0_text), live_id!(ca_i1_text), live_id!(ca_i2_text), live_id!(ca_i3_text),
-    live_id!(ca_i4_text), live_id!(ca_i5_text), live_id!(ca_i6_text), live_id!(ca_i7_text),
-];
-const CART_ITEM_IMAGE: [LiveId; 8] = [
-    live_id!(ca_i0_img), live_id!(ca_i1_img), live_id!(ca_i2_img), live_id!(ca_i3_img),
-    live_id!(ca_i4_img), live_id!(ca_i5_img), live_id!(ca_i6_img), live_id!(ca_i7_img),
-];
-const CART_ITEM_DELETE: [LiveId; 8] = [
-    live_id!(ca_i0_del), live_id!(ca_i1_del), live_id!(ca_i2_del), live_id!(ca_i3_del),
-    live_id!(ca_i4_del), live_id!(ca_i5_del), live_id!(ca_i6_del), live_id!(ca_i7_del),
-];
-
 const PROFILE_ADDRESS_ROWS: [LiveId; 6] = [
     live_id!(pf_a0), live_id!(pf_a1), live_id!(pf_a2),
     live_id!(pf_a3), live_id!(pf_a4), live_id!(pf_a5),
@@ -2721,7 +2687,7 @@ enum Overlay {
     SentGifts,
     Settings,
     Profile,
-    Cart,
+    DirectOrder,
     OnlineGift,
     /// 商品详情（可以带着「这是谁心愿单上的哪一件」的上下文）。
     Product,
@@ -2744,16 +2710,14 @@ enum AccountSection {
     Received,
     Sent,
     Drafts,
-    Cart,
     Wallet,
 }
 impl AccountSection {
-    const ALL: [Self; 6] = [
+    const ALL: [Self; 5] = [
         Self::Wishes,
         Self::Received,
         Self::Sent,
         Self::Drafts,
-        Self::Cart,
         Self::Wallet,
     ];
     fn id(self) -> LiveId {
@@ -2762,7 +2726,6 @@ impl AccountSection {
             Self::Received => live_id!(account_received),
             Self::Sent => live_id!(account_sent),
             Self::Drafts => live_id!(account_drafts),
-            Self::Cart => live_id!(account_cart),
             Self::Wallet => live_id!(account_wallet),
         }
     }
@@ -2772,7 +2735,6 @@ impl AccountSection {
             Self::Received => "收到的礼物",
             Self::Sent => "送出的礼物",
             Self::Drafts => "送礼草稿",
-            Self::Cart => "购物车与订单",
             Self::Wallet => "钱包与流水",
         }
     }
@@ -2859,9 +2821,9 @@ pub struct LiyuView {
     #[rust]
     online_gift_err: Option<Msg>,
     #[rust]
-    cart_draft_product: Option<u16>,
+    direct_product: Option<u16>,
     #[rust]
-    cart_friend_idx: usize,
+    direct_contact_idx: usize,
     #[rust]
     pending_contacts: Option<contacts::Import>,
     #[rust]
@@ -2869,7 +2831,7 @@ pub struct LiyuView {
     #[rust]
     contact_page: usize,
     #[rust]
-    cart_contact_page: usize,
+    direct_contact_page: usize,
     #[rust]
     contact_import_receiver: Option<std::sync::mpsc::Receiver<Result<contacts::Import, Msg>>>,
     #[rust]
@@ -2877,7 +2839,7 @@ pub struct LiyuView {
     #[rust]
     online_notice: Option<commerce_client::Notification>,
     #[rust]
-    cart_error: Option<Msg>,
+    direct_error: Option<Msg>,
     #[rust]
     pal: Pal,
     #[rust]
@@ -3401,7 +3363,7 @@ impl LiyuView {
             Overlay::SentGifts => self.refresh_account_gifts(cx, true),
             Overlay::Settings => self.refresh_settings(cx),
             Overlay::Profile => self.refresh_profile(cx),
-            Overlay::Cart => self.refresh_cart(cx),
+            Overlay::DirectOrder => self.refresh_direct_order(cx),
             Overlay::OnlineGift => self.refresh_online_gift(cx),
             Overlay::Product => self.refresh_product(cx),
             Overlay::Checkout => self.refresh_checkout(cx),
@@ -3423,7 +3385,7 @@ impl LiyuView {
             Overlay::SentGifts => live_id!(page_account_sent),
             Overlay::Settings => live_id!(page_settings),
             Overlay::Profile => live_id!(page_profile),
-            Overlay::Cart => live_id!(page_cart),
+            Overlay::DirectOrder => live_id!(page_direct_order),
             Overlay::OnlineGift => live_id!(page_online_gift),
             Overlay::Product => live_id!(page_product),
             Overlay::Checkout => live_id!(co_scroll),
@@ -3471,7 +3433,7 @@ impl LiyuView {
                 | Overlay::Wish
                 | Overlay::WishEdit
                 | Overlay::WishPick
-                | Overlay::Cart
+                | Overlay::DirectOrder
                 | Overlay::OnlineGift
                 | Overlay::ReceivedGifts
                 | Overlay::SentGifts,
@@ -3519,7 +3481,7 @@ impl LiyuView {
         self.show(cx, ids!(page_settings), ov == Some(Overlay::Settings));
         self.show(cx, ids!(page_profile), ov == Some(Overlay::Profile));
         self.refresh_account_nav(cx);
-        self.show(cx, ids!(page_cart), ov == Some(Overlay::Cart));
+        self.show(cx, ids!(page_direct_order), ov == Some(Overlay::DirectOrder));
         self.show(cx, ids!(page_online_gift), ov == Some(Overlay::OnlineGift));
         self.show(cx, ids!(page_product), ov == Some(Overlay::Product));
         self.show(cx, ids!(page_checkout), ov == Some(Overlay::Checkout));
@@ -3563,7 +3525,7 @@ impl LiyuView {
             Some(Overlay::SentGifts) => "送出的礼物".into(),
             Some(Overlay::Settings) => "设置".into(),
             Some(Overlay::Profile) => "账户资料".into(),
-            Some(Overlay::Cart) => "购物车".into(),
+            Some(Overlay::DirectOrder) => "直接送礼".into(),
             Some(Overlay::OnlineGift) => "服务器礼物".into(),
             Some(Overlay::Product) => "商品详情".into(),
             Some(Overlay::Checkout) => {
@@ -3606,7 +3568,7 @@ impl LiyuView {
         self.refresh_wallet(cx);
         self.refresh_settings(cx);
         self.refresh_profile(cx);
-        self.refresh_cart(cx);
+        self.refresh_direct_order(cx);
         if let Some(o) = self.overlay {
             self.refresh_overlay(cx, o);
         }
@@ -5266,7 +5228,6 @@ impl LiyuView {
         let nick = self.state.settings.nickname.clone();
         let display = if self.profile.display_name.is_empty() { nick.clone() } else { self.profile.display_name.clone() };
         self.set_row(cx, ids!(row_profile), "账户资料", "名字、手机号、邮箱、头像和收货地址", &display);
-        self.set_row(cx, ids!(row_cart), "购物车", "挑礼页选商品，给已确认的好友下单", &format!("{} 件", self.commerce.items.len()));
         self.set_row(cx, ids!(row_settings), "设置", "深浅、称呼、通知、数据", &nick);
         self.set_row(cx, ids!(row_about), "关于礼遇", "重看开场三屏", "");
         // ---- #7 账号/设置分层导航:desktop 左分类+右详情 / mobile 列表分屏 ----
@@ -5304,7 +5265,6 @@ impl LiyuView {
         self.send_from = 4;
         match section {
             AccountSection::Wishes => self.open_wishes(cx),
-            AccountSection::Cart => self.open_cart(cx, None),
             AccountSection::Wallet => {
                 self.refresh_wallet(cx);
                 self.open_overlay(cx, Overlay::Wallet);
@@ -5870,7 +5830,7 @@ impl LiyuView {
         cx.stop_timer(self.contact_import_poll);
         self.contact_import_poll = Timer::empty();
         self.contact_page = 0;
-        self.cart_contact_page = 0;
+        self.direct_contact_page = 0;
         for field in [
             live_id!(ca_input),
             live_id!(ct_phone),
@@ -6200,132 +6160,55 @@ impl LiyuView {
             .collect()
     }
 
-    fn open_cart(&mut self, cx: &mut Cx, product: Option<u16>) {
-        self.cart_draft_product = product;
-        self.cart_error = self.commerce.refresh().err();
-        self.refresh_cart(cx);
-        self.nav_to(cx, Overlay::Cart);
+    fn open_direct_order(&mut self, cx: &mut Cx, product: Option<u16>) {
+        if self.commerce.order.as_ref().is_some_and(|o| o.status == "pending") {
+            self.toast(cx, "请先完成当前待支付订单");
+        } else {
+            self.commerce.order = None;
+            self.direct_product = product;
+        }
+        self.direct_error = None;
+        self.refresh_direct_order(cx);
+        self.nav_to(cx, Overlay::DirectOrder);
     }
 
-    fn refresh_cart(&mut self, cx: &mut Cx) {
-        let status = if self.commerce.online {
-            "已连接服务器 · 订单按服务器价格结算"
-        } else {
-            "服务器连接失败，请重试"
-        };
-        self.set_text(cx, ids!(ca_status), status);
-        self.show(cx, ids!(ca_pick), self.cart_draft_product.is_some());
-        if let Some(product) = self.cart_draft_product {
-            self.set_text(
-                cx,
-                ids!(ca_pick_title),
-                &format!(
-                    "加入购物车：{} · {}",
-                    item(product).name,
-                    yuan(item(product).price)
-                ),
-            );
+    fn refresh_direct_order(&mut self, cx: &mut Cx) {
+        self.set_text(cx, ids!(ca_status), "单件礼物 · 以服务器价格生成订单");
+        self.show(cx, ids!(ca_pick), self.direct_product.is_some());
+        if let Some(product) = self.direct_product {
+            self.set_text(cx, ids!(ca_pick_title),
+                &format!("{} · 按服务器报价结算", item(product).name));
         }
         let all_choices = self.contact_delivery_choices();
-        self.cart_contact_page = self
-            .cart_contact_page
+        self.direct_contact_page = self.direct_contact_page
             .min(all_choices.len().saturating_sub(1) / CART_FRIEND_CHIPS.len());
-        self.show(cx, ids!(ca_choice_prev), self.cart_contact_page > 0);
-        self.show(
-            cx,
-            ids!(ca_choice_next),
-            (self.cart_contact_page + 1) * CART_FRIEND_CHIPS.len() < all_choices.len(),
-        );
-        let choices = all_choices
-            .into_iter()
-            .skip(self.cart_contact_page * CART_FRIEND_CHIPS.len())
-            .take(CART_FRIEND_CHIPS.len())
-            .collect::<Vec<_>>();
+        self.show(cx, ids!(ca_choice_prev), self.direct_contact_page > 0);
+        self.show(cx, ids!(ca_choice_next),
+            (self.direct_contact_page + 1) * CART_FRIEND_CHIPS.len() < all_choices.len());
         for (i, chip) in CART_FRIEND_CHIPS.iter().enumerate() {
-            self.show(cx, &[*chip], i < choices.len());
-            if let Some((label, _, value)) = choices.get(i) {
+            let choice = all_choices.get(self.direct_contact_page * CART_FRIEND_CHIPS.len() + i);
+            self.show(cx, &[*chip], choice.is_some());
+            if let Some((label, _, value)) = choice {
                 self.set_text(cx, &[*chip], &format!("{label} · {value}"));
             }
         }
-        self.set_text(
-            cx,
-            ids!(ca_friends_note),
-            "选联系人或手填手机号/邮箱；无需先注册或加好友。",
-        );
-        let rows = self
-            .commerce
-            .items
-            .iter()
-            .take(CART_ITEM_ROWS.len())
-            .map(|x| {
-                let who = if !x.recipient_label.is_empty() {
-                    x.recipient_label.clone()
-                } else {
-                    self.commerce
-                        .friends
-                        .iter()
-                        .find(|f| f.id == x.recipient_id)
-                        .map(|f| f.display_name.clone())
-                        .unwrap_or_else(|| "收礼人".into())
-                };
-                format!("{} · 送给 {} · {}", x.name, who, yuan(x.price_cents))
-            })
-            .collect::<Vec<_>>();
-        self.show(cx, ids!(ca_empty), self.commerce.items.is_empty());
-        for (i, row) in CART_ITEM_ROWS.iter().enumerate() {
-            self.show(cx, &[*row], i < rows.len());
-            if let Some(value) = rows.get(i) {
-                self.set_text(cx, &[*row, CART_ITEM_TEXT[i]], value);
-                self.set_img(
-                    cx,
-                    &[*row, CART_ITEM_IMAGE[i]],
-                    self.commerce.items.get(i).map(|x| x.product_id),
-                );
-            }
-        }
-        self.set_text(
-            cx,
-            ids!(ca_total),
-            &format!(
-                "合计 {}{}",
-                yuan(self.commerce.total()),
-                if self.commerce.items.len() > CART_ITEM_ROWS.len() {
-                    format!(" · 共 {} 件", self.commerce.items.len())
-                } else {
-                    String::new()
-                }
-            ),
-        );
-        self.show(cx, ids!(ca_checkout), !self.commerce.items.is_empty());
+        self.set_text(cx, ids!(ca_friends_note),
+            "选联系人或手填手机号/邮箱；无需先注册或加好友。单次只送一件礼物。");
+        self.show(cx, ids!(ca_checkout), self.direct_product.is_some()
+            && !self.commerce.order.as_ref().is_some_and(|o| o.status == "pending"));
         self.show(cx, ids!(ca_order), self.commerce.order.is_some());
         if let Some(order) = self.commerce.order.clone() {
-            let label = "服务器测试订单";
             let state = match order.status.as_str() {
                 "pending" => "待测试支付",
                 "paid_test" => "已完成测试支付",
                 _ => "状态待刷新",
             };
-            self.set_text(
-                cx,
-                ids!(ca_order_text),
-                &format!(
-                    "{} #{} · {} · {}",
-                    label,
-                    order.id.abs(),
-                    yuan(order.total_cents),
-                    state
-                ),
-            );
-            self.show(
-                cx,
-                ids!(ca_pay),
-                order.status == "pending" || order.status == "pending_demo",
-            );
+            self.set_text(cx, ids!(ca_order_text),
+                &format!("服务器订单 #{} · {} · {}", order.id.abs(), yuan(order.total_cents), state));
+            self.show(cx, ids!(ca_pay), order.status == "pending");
         }
-        self.show(cx, ids!(ca_error), self.cart_error.is_some());
-        if let Some(e) = self.cart_error {
-            self.set_text(cx, ids!(ca_error), e);
-        }
+        self.show(cx, ids!(ca_error), self.direct_error.is_some());
+        if let Some(e) = self.direct_error { self.set_text(cx, ids!(ca_error), e); }
     }
 
     // ---- 事件 ----
@@ -6334,8 +6217,8 @@ impl LiyuView {
         let today = today_days();
         if self.clicked(cx,ids!(ct_prev),actions){self.contact_page=self.contact_page.saturating_sub(1);self.refresh_contacts(cx);}
         if self.clicked(cx,ids!(ct_next),actions){self.contact_page+=1;self.refresh_contacts(cx);}
-        if self.clicked(cx,ids!(ca_choice_prev),actions){self.cart_contact_page=self.cart_contact_page.saturating_sub(1);self.refresh_cart(cx);}
-        if self.clicked(cx,ids!(ca_choice_next),actions){self.cart_contact_page+=1;self.refresh_cart(cx);}
+        if self.clicked(cx,ids!(ca_choice_prev),actions){self.direct_contact_page=self.direct_contact_page.saturating_sub(1);self.refresh_direct_order(cx);}
+        if self.clicked(cx,ids!(ca_choice_next),actions){self.direct_contact_page+=1;self.refresh_direct_order(cx);}
 
         for action in actions {if let Some(fda)=action.downcast_ref::<FileDialogAction>(){if fda.id()==live_id!(contact_import){if let Some(path)=fda.path(){match contacts::load_file(path){Ok(import)=>self.stage_contacts(cx,import),Err(e)=>self.toast(cx,e)}}}}}
         if self.clicked(cx,ids!(ct_import_cancel),actions){self.pending_contacts=None;self.show(cx,ids!(ct_preview),false);}
@@ -6822,7 +6705,7 @@ impl LiyuView {
             if self.clicked(cx,&[*row,live_id!(cr_edit)],actions){if let Some(c)=self.state.contact(cid).cloned(){self.editing_contact=Some(cid);self.set_text(cx,ids!(ca_input),&c.label);self.set_text(cx,ids!(ct_phone),&c.phones.unwrap_or_default().join(";"));self.set_text(cx,ids!(ct_email),&c.emails.unwrap_or_default().join(";"));self.refresh_contacts(cx);}}
             if self.clicked(cx,&[*row,live_id!(cr_send)],actions){if let Some(c)=self.state.contact(cid).cloned(){
                 self.set_text(cx,ids!(ca_recipient_label),&c.label);self.set_text(cx,ids!(ca_recipient_value),contacts::choices(&c).first().map(|(_,v)|v.as_str()).unwrap_or(""));
-                self.cart_draft_product=None;self.set_tab(cx,0);self.toast(cx,"已选择收礼人，请选商品并点击加入购物车；可更换投递联系方式");
+                self.direct_product=None;self.set_tab(cx,0);self.toast(cx,"已选择收礼人，请选商品并直接送礼；可更换投递联系方式");
             }}
             if self.clicked(cx, &[*row, live_id!(cr_del)], actions) {
                 if let Some(snap) = self.state.remove_contact(cid) {
@@ -6851,11 +6734,8 @@ impl LiyuView {
         if self.clicked(cx, &[live_id!(row_profile), live_id!(st_hit)], actions) {
             self.open_profile(cx);
         }
-        if self.clicked(cx, &[live_id!(row_cart), live_id!(st_hit)], actions) {
-            self.open_account_section(cx, AccountSection::Cart);
-        }
-        if self.clicked(cx, ids!(pd_cart), actions) && self.overlay == Some(Overlay::Product) {
-            self.open_cart(cx, Some(self.pd_item));
+        if self.clicked(cx, ids!(pd_direct), actions) && self.overlay == Some(Overlay::Product) {
+            self.open_direct_order(cx, Some(self.pd_item));
         }
         if self.clicked(cx, &[live_id!(row_wish), live_id!(st_hit)], actions)
             || self.clicked(cx, &[live_id!(row_mywish), live_id!(st_hit)], actions)
@@ -7173,32 +7053,34 @@ impl LiyuView {
             self.view.widget(cx, ids!(page_me)).redraw(cx);
         }
 
-        if self.overlay == Some(Overlay::Cart) {
-            let choices=self.contact_delivery_choices().into_iter().skip(self.cart_contact_page*CART_FRIEND_CHIPS.len()).take(CART_FRIEND_CHIPS.len()).collect::<Vec<_>>();
-            for (i,chip) in CART_FRIEND_CHIPS.iter().enumerate(){if self.toggled(cx,&[*chip],actions){if let Some((label,_,value))=choices.get(i){self.cart_friend_idx=i;self.set_text(cx,ids!(ca_recipient_label),label);self.set_text(cx,ids!(ca_recipient_value),value);self.set_chip_group(cx,&CART_FRIEND_CHIPS,i);}}}
-            if self.clicked(cx,ids!(ca_add),actions){
-                let value=self.input_text(cx,ids!(ca_recipient_value));let label=self.input_text(cx,ids!(ca_recipient_label));let kind=if value.contains('@'){"email"}else{"phone"};
-                self.cart_error=if let Some(product)=self.cart_draft_product{self.commerce.add_contact(product,kind,&value,&label).err()}else{Some("请先选择商品")};
-                if self.cart_error.is_none(){self.cart_draft_product=None;self.toast(cx,"已加入购物车");self.refresh_me(cx);}
-                self.refresh_cart(cx);
-            }
-            for (i, row) in CART_ITEM_ROWS.iter().enumerate() {
-                let Some(line) = self.commerce.items.get(i).cloned() else { continue };
-                if self.clicked(cx, &[*row, CART_ITEM_DELETE[i]], actions) {
-                    self.cart_error = self.commerce.remove(line.id).err();
-                    if self.cart_error.is_none() { self.toast(cx, "已移出购物车"); self.refresh_me(cx); }
-                    self.refresh_cart(cx);
+        if self.overlay == Some(Overlay::DirectOrder) {
+            let choices=self.contact_delivery_choices().into_iter()
+                .skip(self.direct_contact_page*CART_FRIEND_CHIPS.len())
+                .take(CART_FRIEND_CHIPS.len()).collect::<Vec<_>>();
+            for (i,chip) in CART_FRIEND_CHIPS.iter().enumerate(){
+                if self.toggled(cx,&[*chip],actions){
+                    if let Some((label,_,value))=choices.get(i){
+                        self.direct_contact_idx=i;
+                        self.set_text(cx,ids!(ca_recipient_label),label);
+                        self.set_text(cx,ids!(ca_recipient_value),value);
+                        self.set_chip_group(cx,&CART_FRIEND_CHIPS,i);
+                    }
                 }
             }
             if self.clicked(cx, ids!(ca_checkout), actions) {
-                self.cart_error = self.commerce.create_order().err();
-                if self.cart_error.is_none() { self.toast(cx, "订单已生成，可测试支付"); self.refresh_me(cx); }
-                self.refresh_cart(cx);
+                let value=self.input_text(cx,ids!(ca_recipient_value));
+                let label=self.input_text(cx,ids!(ca_recipient_label));
+                let kind=if value.contains('@'){"email"}else{"phone"};
+                self.direct_error=if let Some(product)=self.direct_product{
+                    self.commerce.create_order(product,kind,&value,&label).err()
+                }else{Some("请先选择商品")};
+                if self.direct_error.is_none(){self.toast(cx,"订单已生成，可测试支付");}
+                self.refresh_direct_order(cx);
             }
             if self.clicked(cx, ids!(ca_pay), actions) {
-                self.cart_error = self.commerce.pay_test().err();
-                if self.cart_error.is_none() { self.toast(cx, "测试支付完成"); self.refresh_me(cx); }
-                self.refresh_cart(cx);
+                self.direct_error=self.commerce.pay_test().err();
+                if self.direct_error.is_none(){self.toast(cx,"测试支付完成，礼物已送出");}
+                self.refresh_direct_order(cx);
             }
         }
 
@@ -7550,7 +7432,6 @@ mod layout_tests {
                     AccountSection::Received => live_id!(page_account_received),
                     AccountSection::Sent => live_id!(page_account_sent),
                     AccountSection::Drafts => live_id!(page_me),
-                    AccountSection::Cart => live_id!(page_cart),
                     AccountSection::Wallet => live_id!(page_wallet),
                 };
                 assert!(
@@ -8038,9 +7919,16 @@ mod layout_tests {
                 view.input_text(&mut cx, ids!(ca_recipient_value)),
                 "+8613800138000"
             );
-            view.overlay = Some(Overlay::Cart);
-            view.cart_draft_product = Some(0);
-            view.refresh_cart(&mut cx);
+            view.overlay = Some(Overlay::Product);
+            view.pd_item = 0;
+            view.update_page_visibility(&mut cx);
+            let uid = view.view.widget(&cx, ids!(pd_direct)).widget_uid();
+            let actions = cx.capture_actions(|cx| {
+                cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
+            });
+            view.handle_actions(&mut cx, &actions);
+            assert_eq!(view.overlay, Some(Overlay::DirectOrder));
+            assert!(view.view.widget(&cx, ids!(page_direct_order)).visible());
             let uid = view.view.check_box(&cx, ids!(ca_f1)).widget_uid();
             let actions =
                 cx.capture_actions(|cx| cx.widget_action(uid, CheckBoxAction::Change(true)));
@@ -8049,15 +7937,15 @@ mod layout_tests {
                 view.input_text(&mut cx, ids!(ca_recipient_value)),
                 "changed@example.test"
             );
-            // Invalid addresses are rejected without creating simulated cart lines.
+            // Invalid addresses are rejected without creating an order.
             view.set_text(&mut cx, ids!(ca_recipient_value), "invalid");
-            let uid = view.view.widget(&cx, ids!(ca_add)).widget_uid();
+            let uid = view.view.widget(&cx, ids!(ca_checkout)).widget_uid();
             let actions = cx.capture_actions(|cx| {
                 cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
             });
             view.handle_actions(&mut cx, &actions);
-            assert!(view.cart_error.is_some());
-            assert!(view.commerce.items.is_empty());
+            assert!(view.direct_error.is_some());
+            assert!(view.commerce.order.is_none());
         }
     }
 
