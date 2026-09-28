@@ -1694,11 +1694,6 @@ script_mod! {
                             width: Fill height: Fill
                             flow: Down
                             spacing: 12.0
-                            mw_new := LiyuBtnPrimary {
-                                width: Fit
-                                text: "发布心愿单"
-                                draw_icon +: { svg: crate_resource("self:resources/icons/plus.svg") }
-                            }
                             mw0 := LiyuWishCard { }
                             mw1 := LiyuWishCard { }
                             mw2 := LiyuWishCard { }
@@ -3669,8 +3664,9 @@ impl LiyuView {
                 || self.account_section.is_some()))
             || (!overlay && self.tab == 0 && self.gift_return_contact_id.is_some()));
         let wish_seg = self.tab == 0 && self.gift_wish_seg;
-        self.show(cx, ids!(tb_action), !overlay && (self.tab == 1 || wish_seg));
-        self.set_text(cx, ids!(tb_action), if wish_seg { "发布心愿单" } else { "神秘送礼" });
+        let my_wishes = self.overlay == Some(Overlay::Wishes);
+        self.show(cx, ids!(tb_action), my_wishes || (!overlay && (self.tab == 1 || wish_seg)));
+        self.set_text(cx, ids!(tb_action), if my_wishes { "+发布" } else if wish_seg { "发布心愿单" } else { "神秘送礼" });
         self.show(cx, ids!(tb_add), !overlay && self.tab == 3);
     }
 
@@ -6624,7 +6620,9 @@ impl LiyuView {
             self.go_back(cx);
         }
         if self.clicked(cx, ids!(tb_action), actions) {
-            if self.tab == 1 {
+            if self.overlay == Some(Overlay::Wishes) {
+                self.open_wish_edit(cx, None, None);
+            } else if self.tab == 1 {
                 self.gift_wish_seg = false;
                 self.set_tab(cx, 0);
             } else if self.tab == 0 && self.gift_wish_seg {
@@ -7891,13 +7889,15 @@ mod layout_tests {
         view.last_size = size(1000.0, 700.0);
         view.shaping = Some(shaping_for(view.last_size));
         view.open_account_section(&mut cx, AccountSection::Wishes);
-        assert_eq!(view.input_text(&mut cx, ids!(mw_new)), "发布心愿单");
-        let uid = view.view.widget(&cx, ids!(mw_new)).widget_uid();
+        assert!(view.view.widget(&cx, ids!(tb_action)).visible());
+        assert_eq!(view.input_text(&mut cx, ids!(tb_action)), "+发布");
+        let uid = view.view.widget(&cx, ids!(tb_action)).widget_uid();
         let actions = cx.capture_actions(|cx| {
             cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
         });
         view.handle_actions(&mut cx, &actions);
         assert_eq!(view.overlay, Some(Overlay::WishEdit));
+        assert!(!view.view.widget(&cx, ids!(tb_action)).visible());
         assert!(view.view.widget(&cx, ids!(me_list)).visible());
         assert_eq!(view.back_stack, vec![Overlay::Wishes]);
         view.go_back(&mut cx);

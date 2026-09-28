@@ -718,9 +718,7 @@ impl LiyuView {
                     }
                 }
             }
-            if self.clicked(cx, ids!(mw_new), actions)
-                || self.clicked(cx, &[live_id!(mw_empty), live_id!(em_action)], actions)
-            {
+            if self.clicked(cx, &[live_id!(mw_empty), live_id!(em_action)], actions) {
                 self.open_wish_edit(cx, None, None);
             }
         }
