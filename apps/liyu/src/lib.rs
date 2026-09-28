@@ -3372,6 +3372,15 @@ impl LiyuView {
         self.add_error = None;
         self.editing_contact = None;
         self.contact_detail_id = None;
+        if i == 3 && self.tab != 3 {
+            // A verified address may have changed owner or the owner may have
+            // replaced their photo since the last visit.
+            self.contact_avatar_cache.clear();
+            self.contact_avatar_textures.retain(|key, _| !key.starts_with("remote:"));
+            self.contact_avatar_receiver = None;
+            cx.stop_timer(self.contact_avatar_poll);
+            self.contact_avatar_poll = Timer::empty();
+        }
         self.tab = i;
         self.account_section = None;
         for (j, id) in TABS.iter().enumerate() {
@@ -5327,14 +5336,25 @@ impl LiyuView {
         let Some(id) = self.contact_detail_id else { return; };
         if let Some(c) = self.state.contacts.iter_mut().find(|c| c.id == id) {
             c.avatar_override = None;
+            let contact = c.clone();
+            self.forget_remote_contact_avatar(&contact);
             self.state.save();
             self.refresh_contact_detail(cx);
             self.toast(cx, "已恢复自动头像");
         }
     }
 
+    fn forget_remote_contact_avatar(&mut self, contact: &ContactLocal) {
+        for (kind, value) in contacts::choices(contact) {
+            let key = format!("{kind}:{value}");
+            self.contact_avatar_cache.remove(&key);
+            self.contact_avatar_textures.remove(&format!("remote:{key}"));
+        }
+    }
+
     fn open_contact_detail(&mut self, cx: &mut Cx, id: usize) {
-        if self.state.contact(id).is_none() { return; }
+        let Some(contact) = self.state.contact(id).cloned() else { return; };
+        self.forget_remote_contact_avatar(&contact);
         self.contact_detail_id = Some(id);
         self.refresh_contact_detail(cx);
         self.nav_to(cx, Overlay::ContactDetail);
@@ -8223,12 +8243,14 @@ mod layout_tests {
                 contacts::choices(&view.state.contacts[0])[0].1,
                 "+8613800138000"
             );
+            view.contact_avatar_cache.insert("phone:+8613800138000".into(), None);
             let uid = view.view.widget(&cx, ids!(c0.cr_hit)).widget_uid();
             let actions = cx.capture_actions(|cx| {
                 cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
             });
             view.handle_actions(&mut cx, &actions);
             assert_eq!(view.overlay, Some(Overlay::ContactDetail));
+            assert!(!view.contact_avatar_cache.contains_key("phone:+8613800138000"));
             assert!(view.view.widget(&cx, ids!(page_contact_detail)).visible());
             let uid = view.view.widget(&cx, ids!(fd_edit)).widget_uid();
             let actions = cx.capture_actions(|cx| {
