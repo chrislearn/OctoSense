@@ -6098,6 +6098,7 @@ impl LiyuView {
     /// 登录 / 注册之后：重置按账号隔离的客户端缓存，关闸进应用。
     fn after_account_switch(&mut self, cx: &mut Cx) {
         self.state = LiyuState::load_for_account(today_days(), &profile_client::active_identifier());
+        self.state.save();
         self.account_nav = Some(account_nav::AccountNavModel::new());
         self.account_edit = None;
         self.account_section = None;
