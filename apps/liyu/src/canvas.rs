@@ -1160,52 +1160,70 @@ script_mod! {
         }
     }
 
-    // 熟人的一行：首字方块 + 姓名 / 「送过 N 份 · 收到 N 份」+「送礼」「删除」。
-    //
-    // 首字而不是头像：这一页本来就只列本机通讯录里的人，首字已经够认。
+    // 熟人的一行：头像 + 姓名 / 联系方式；整行打开详情。
     mod.widgets.LiyuContactRow = mod.widgets.View{
-        width: Fill height: 60
-        flow: Right
-        align: Align{x: 0.0, y: 0.5}
-        padding: Inset{left: 12.0, right: 12.0}
-        spacing: 12.0
-        cr_face := mod.widgets.RoundedView {
-            width: 36 height: 36
-            flow: Down
-            align: Align{x: 0.5, y: 0.5}
-            draw_bg +: { color: liyu.face border_radius: r.card }
-            cr_initial := Label {
-                flow: Right{wrap: true}
-                text: ""
-                draw_text +: { color: liyu.blue text_style +: { font_size: 15.0 } }
+        width: Fill height: 64
+        flow: Overlay
+        cr_body := mod.widgets.View {
+            width: Fill height: Fill
+            flow: Right
+            align: Align{x: 0.0, y: 0.5}
+            padding: Inset{left: 12.0, right: 12.0}
+            spacing: 12.0
+            cr_face := mod.widgets.RoundedView {
+                width: 36 height: 36
+                flow: Down
+                align: Align{x: 0.5, y: 0.5}
+                draw_bg +: { color: liyu.face border_radius: 18.0 }
+                cr_photo := mod.widgets.LiyuThumb { visible: false width: 36 height: 36 }
+                cr_initial := Label {
+                    flow: Right{wrap: true}
+                    text: ""
+                    draw_text +: { color: liyu.blue text_style +: { font_size: 15.0 } }
+                }
+            }
+            cr_col := mod.widgets.View {
+                width: Fill height: Fit
+                flow: Down
+                spacing: 2.0
+                cr_name := Label {
+                    flow: Right{wrap: true}
+                    width: Fill
+                    max_lines: 1
+                    text_overflow: Ellipsis
+                    padding: Inset{left: 3.0, right: 3.0, top: 0.0, bottom: 0.0}
+                    text: ""
+                    draw_text +: { color: liyu.ink text_style +: { font_size: 15.0 } }
+                }
+                cr_sub := Label {
+                    flow: Right{wrap: true}
+                    width: Fill
+                    max_lines: 1
+                    text_overflow: Ellipsis
+                    padding: Inset{left: 3.0, right: 3.0, top: 0.0, bottom: 0.0}
+                    text: ""
+                    draw_text +: { color: liyu.ink_3 text_style +: { font_size: 12.0 } }
+                }
+            }
+            cr_chevron := Label {
+                text: "›"
+                draw_text +: { color: liyu.ink_3 text_style +: { font_size: 22.0 } }
             }
         }
-        cr_col := mod.widgets.View {
-            width: Fill height: Fit
-            flow: Down
-            spacing: 2.0
-            cr_name := Label {
-                flow: Right{wrap: true}
-                width: Fill
-                max_lines: 1
-                text_overflow: Ellipsis
-                padding: Inset{left: 3.0, right: 3.0, top: 0.0, bottom: 0.0}
-                text: ""
-                draw_text +: { color: liyu.ink text_style +: { font_size: 15.0 } }
-            }
-            cr_sub := Label {
-                flow: Right{wrap: true}
-                width: Fill
-                max_lines: 1
-                text_overflow: Ellipsis
-                padding: Inset{left: 3.0, right: 3.0, top: 0.0, bottom: 0.0}
-                text: ""
-                draw_text +: { color: liyu.ink_3 text_style +: { font_size: 12.0 } }
+        cr_hit := mod.widgets.ButtonFlat {
+            width: Fill height: Fill
+            text: ""
+            margin: 0.0
+            padding: 0.0
+            draw_bg +: {
+                border_size: 0.0
+                border_radius: r.button
+                color: #0000
+                color_hover: liyu.wash_2
+                color_down: liyu.wash_3
+                color_focus: liyu.wash_1
             }
         }
-        cr_send := mod.widgets.LiyuBtnSm { width: Fit text: "送给TA" }
-        cr_edit := mod.widgets.LiyuBtnSm { width: Fit text: "修改" }
-        cr_del := mod.widgets.LiyuBtnDangerSm { width: Fit text: "删除" }
     }
 
     // 揭晓后的礼物卡：暖杏底，形态·品类 / 礼物名 / 规格 / 来自谁 · 寄语。

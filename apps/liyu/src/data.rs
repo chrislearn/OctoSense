@@ -1428,9 +1428,12 @@ pub fn wish_candidates(w: &WishItem) -> Vec<WishMatch> {
 #[derive(Clone, Debug, PartialEq, SerJson, DeJson)]
 pub struct ContactLocal {
     pub id: usize,
+    /// 当前账号给这位熟人起的备注名。
     pub label: String,
     pub phones: Option<Vec<String>>,
     pub emails: Option<Vec<String>>,
+    /// 本机 contact-avatars 目录中的文件名；缺省时按服务器/联系方式生成头像。
+    pub avatar_override: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, SerJson, DeJson)]
@@ -1654,9 +1657,9 @@ impl LiyuState {
     pub fn demo(today: i64) -> Self {
         let mut s = LiyuState {
             contacts: vec![
-                ContactLocal { id: 0, label: "林舟".into(), phones: None, emails: None },
-                ContactLocal { id: 1, label: "陈晓".into(), phones: None, emails: None },
-                ContactLocal { id: 2, label: "许宁".into(), phones: None, emails: None },
+                ContactLocal { id: 0, label: "林舟".into(), phones: None, emails: None, avatar_override: None },
+                ContactLocal { id: 1, label: "陈晓".into(), phones: None, emails: None, avatar_override: None },
+                ContactLocal { id: 2, label: "许宁".into(), phones: None, emails: None, avatar_override: None },
             ],
             directory: vec!["周子墨".into(), "林小满".into(), "黄一诺".into(), "吴凯文".into()],
             gifts: Vec::new(),
@@ -2888,7 +2891,7 @@ impl LiyuState {
             return Err(AddContactError::Duplicate);
         }
         let id = self.contacts.iter().map(|c| c.id + 1).max().unwrap_or(0);
-        self.contacts.push(ContactLocal { id, label: label.to_string(), phones: None, emails: None });
+        self.contacts.push(ContactLocal { id, label: label.to_string(), phones: None, emails: None, avatar_override: None });
         self.directory.retain(|d| d != label);
         self.save();
         Ok(id)
@@ -2906,7 +2909,7 @@ impl LiyuState {
                 continue;
             }
             let id = self.contacts.iter().map(|c| c.id + 1).max().unwrap_or(0);
-            self.contacts.push(ContactLocal { id, label: name.clone(), phones: None, emails: None });
+            self.contacts.push(ContactLocal { id, label: name.clone(), phones: None, emails: None, avatar_override: None });
             self.directory.retain(|d| *d != name);
             n += 1;
         }

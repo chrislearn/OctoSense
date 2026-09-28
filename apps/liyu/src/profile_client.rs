@@ -654,6 +654,39 @@ pub fn fetch_avatar_bytes(avatar_url: &str) -> Option<Vec<u8>> {
     }
 }
 
+/// Resolve only a contact's voluntarily uploaded server avatar. The response
+/// omits both unknown contacts and accounts using their default avatar.
+pub fn lookup_contact_avatars(
+    contacts: &[(String, String)],
+) -> Result<std::collections::HashMap<String, String>, &'static str> {
+    let (url, token) = api().ok_or("尚未连接礼遇服务器")?;
+    let contacts: Vec<Value> = contacts.iter().map(|(kind, value)| json!({"kind":kind,"value":value})).collect();
+    let reply = match agent()
+        .post(&format!("{url}/api/v1/contacts/avatars"))
+        .set("Authorization", &format!("Bearer {token}"))
+        .send_json(json!({"contacts":contacts}))
+    {
+        Ok(reply) => reply.into_json::<Value>().map_err(|_| "头像查询响应无效")?,
+        Err(ureq::Error::Status(401, _)) => { mark_expired(); return Err("登录已过期，请重新登录"); }
+        Err(_) => return Err("暂时无法查询熟人头像"),
+    };
+    let mut found = std::collections::HashMap::new();
+    let rows = reply.get("avatars").and_then(Value::as_array).ok_or("头像查询响应无效")?;
+    for row in rows {
+        let (Some(kind), Some(value), Some(avatar_url)) = (
+            row.get("kind").and_then(Value::as_str),
+            row.get("value").and_then(Value::as_str),
+            row.get("avatar_url").and_then(Value::as_str),
+        ) else { continue };
+        let valid_path = avatar_url.strip_prefix("/api/v1/media/avatars/")
+            .is_some_and(|id| id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()));
+        if valid_path {
+            found.insert(format!("{kind}:{value}"), avatar_url.to_string());
+        }
+    }
+    Ok(found)
+}
+
 fn put(path: &str, value: Value, patch: bool) -> Result<Option<Value>, &'static str> {
     let Some((url, token)) = api() else {
         return Ok(None);

@@ -1,5 +1,91 @@
 //! Personal address book imports. No platform friendship is created.
 use crate::data::ContactLocal;
+use image::{DynamicImage, Rgba, RgbaImage};
+use std::io::Cursor;
+
+/// The same address always receives the same local placeholder, independent of
+/// list position or the editable remark name.
+pub fn avatar_key(c: &ContactLocal) -> String {
+    choices(c)
+        .into_iter()
+        .next()
+        .map(|(kind, value)| format!("{kind}:{value}"))
+        .unwrap_or_else(|| format!("name:{}", c.label))
+}
+
+fn hash_key(key: &str) -> u64 {
+    key.bytes().fold(0xcbf29ce484222325_u64, |hash, b| {
+        (hash ^ u64::from(b)).wrapping_mul(0x100000001b3)
+    })
+}
+
+pub fn generated_avatar(c: &ContactLocal) -> Option<Vec<u8>> {
+    let hash = hash_key(&avatar_key(c));
+    let bg = Rgba([240, 243, 250, 255]);
+    let fg = Rgba([
+        48 + ((hash >> 8) as u8) % 144,
+        48 + ((hash >> 24) as u8) % 144,
+        48 + ((hash >> 40) as u8) % 144,
+        255,
+    ]);
+    let mut image = RgbaImage::from_pixel(80, 80, Rgba([0, 0, 0, 0]));
+    for y in 0..80 {
+        for x in 0..80 {
+            let dx = x as i32 - 40;
+            let dy = y as i32 - 40;
+            if dx * dx + dy * dy < 40 * 40 {
+                image.put_pixel(x, y, bg);
+            }
+        }
+    }
+    for row in 0..5u32 {
+        for col in 0..3u32 {
+            let bit = ((hash.rotate_left((row * 3 + col) * 7) >> 17) & 1) == 1;
+            if !bit { continue; }
+            for mirrored in [col, 4 - col] {
+                for y in (row + 1) * 10..(row + 2) * 10 {
+                    for x in (mirrored + 1) * 10..(mirrored + 2) * 10 {
+                        let dx = x as i32 - 40;
+                        let dy = y as i32 - 40;
+                        if dx * dx + dy * dy < 40 * 40 { image.put_pixel(x, y, fg); }
+                    }
+                }
+            }
+        }
+    }
+    let mut bytes = Cursor::new(Vec::new());
+    DynamicImage::ImageRgba8(image).write_to(&mut bytes, image::ImageFormat::Png).ok()?;
+    Some(bytes.into_inner())
+}
+
+/// Normalize photos from disk or the server and make their corners transparent
+/// so both contact sizes render as round portraits.
+pub fn circular_photo(bytes: &[u8]) -> Result<Vec<u8>, crate::avatar::AvatarError> {
+    use crate::avatar::{AvatarEditSession, AvatarError, AvatarFormat};
+    let square = AvatarEditSession::load_bytes(bytes)?
+        .crop_anchor(4)?
+        .fit_within(128)
+        .encode_final(AvatarFormat::Png)?;
+    let mut image = image::load_from_memory(&square.bytes)
+        .map_err(|_| AvatarError::CorruptImage)?
+        .to_rgba8();
+    let (width, height) = image.dimensions();
+    let radius = width.min(height) as f64 / 2.0;
+    for y in 0..height {
+        for x in 0..width {
+            let dx = x as f64 + 0.5 - width as f64 / 2.0;
+            let dy = y as f64 + 0.5 - height as f64 / 2.0;
+            if dx * dx + dy * dy >= radius * radius {
+                image.get_pixel_mut(x, y)[3] = 0;
+            }
+        }
+    }
+    let mut output = Cursor::new(Vec::new());
+    DynamicImage::ImageRgba8(image)
+        .write_to(&mut output, image::ImageFormat::Png)
+        .map_err(|_| AvatarError::EncodeFailed)?;
+    Ok(output.into_inner())
+}
 
 pub fn normalize(kind: &str, value: &str) -> Option<String> {
     let value = value.trim();
@@ -74,6 +160,7 @@ pub fn entry(label: &str, phones: &str, emails: &str) -> Result<ContactLocal, &'
         label: label.trim().into(),
         phones: Some(values("phone", phones)?),
         emails: Some(values("email", emails)?),
+        avatar_override: None,
     })
 }
 
@@ -308,8 +395,26 @@ mod tests {
     }
     #[test]
     fn old_contact_json_remains_readable() {
-        use makepad_widgets::makepad_micro_serde::DeJson;
+        use makepad_widgets::makepad_micro_serde::{DeJson, SerJson};
         let old = ContactLocal::deserialize_json("{\"id\":4,\"label\":\"旧联系人\"}").unwrap();
         assert!(choices(&old).is_empty());
+        assert_eq!(old.avatar_override, None);
+        let mut contact = entry("老陈", "13800138000", "").unwrap();
+        contact.avatar_override = Some("contact-4.png".into());
+        assert_eq!(ContactLocal::deserialize_json(&contact.serialize_json()).unwrap(), contact);
+    }
+
+    #[test]
+    fn generated_avatar_follows_address_and_masks_photo() {
+        let a = entry("老陈", "13800138000", "").unwrap();
+        let renamed = entry("其他备注", "13800138000", "").unwrap();
+        let other = entry("老陈", "13800138001", "").unwrap();
+        assert_eq!(avatar_key(&a), avatar_key(&renamed));
+        assert_eq!(generated_avatar(&a), generated_avatar(&renamed));
+        assert_ne!(generated_avatar(&a), generated_avatar(&other));
+        let photo = circular_photo(&generated_avatar(&a).unwrap()).unwrap();
+        let image = image::load_from_memory(&photo).unwrap().to_rgba8();
+        assert_eq!(image.get_pixel(0, 0)[3], 0);
+        assert_eq!(image.get_pixel(image.width()/2, image.height()/2)[3], 255);
     }
 }

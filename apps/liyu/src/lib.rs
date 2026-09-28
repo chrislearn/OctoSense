@@ -436,17 +436,6 @@ script_mod! {
                                 padding: 16.0
                                 spacing: 12.0
                                 ct_head := LiyuH2 { text: "我的熟人" }
-                                ct_add := View {
-                                    width: Fill height: Fit
-                                    flow: Right
-                                    align: Align{x: 0.0, y: 0.5}
-                                    spacing: 8.0
-                                    ca_input := LiyuInput { empty_text: "称呼，比如「老陈」" }
-                                    ca_btn := LiyuBtn { width: Fit text: "添加" }
-                                }
-                                ct_phone := LiyuInput { empty_text: "手机号，多个用分号分隔" }
-                                ct_email := LiyuInput { empty_text: "邮箱，多个用分号分隔" }
-                                ct_cancel_edit := LiyuBtnSm { visible: false width: Fit text: "取消修改" }
                                 ct_paging := View { width: Fill height: Fit flow: Right spacing: 8.0 ct_prev := LiyuBtnSm { width: Fit text: "上一页" } ct_next := LiyuBtnSm { width: Fit text: "下一页" } }
                                 ct_hint := LiyuMuted { text: "联系人只属于你的地址簿，导入不会创建平台好友关系。" }
                                 ct_preview := View { visible: false width: Fill height: Fit flow: Down spacing: 8.0
@@ -454,7 +443,6 @@ script_mod! {
                                     ct_import_confirm := LiyuBtnPrimary { width: Fit text: "确认导入（相同联系方式合并）" }
                                     ct_import_cancel := LiyuBtnSm { width: Fit text: "取消导入" }
                                 }
-                                ca_err := LiyuBad { visible: false text: "" }
                                 ct_rows := View {
                                     width: Fill height: Fit
                                     flow: Down
@@ -478,6 +466,88 @@ script_mod! {
                                     }
                                 }
                                 ct_more := LiyuMuted { visible: false text: "" }
+                            }
+                        }
+
+                        // ================= 添加 / 修改熟人 =================
+                        page_contact_form := LiyuScrollY {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 14.0
+                            cf_card := LiyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 16.0
+                                spacing: 12.0
+                                cf_heading := LiyuH2 { text: "添加熟人" }
+                                cf_label := LiyuMuted { text: "备注名" }
+                                ca_input := LiyuInput { empty_text: "备注名，比如「老陈」" }
+                                ct_phone := LiyuInput { empty_text: "手机号，多个用分号分隔" }
+                                ct_email := LiyuInput { empty_text: "邮箱，多个用分号分隔" }
+                                cf_note := LiyuMuted { text: "手机号和邮箱可留空；填写多个时用分号分隔。" }
+                                ca_err := LiyuBad { visible: false text: "" }
+                                ca_btn := LiyuBtnPrimary { width: Fill text: "添加熟人" }
+                            }
+                        }
+
+                        // ================= 熟人详情 =================
+                        page_contact_detail := LiyuScrollY {
+                            visible: false
+                            width: Fill height: Fill
+                            flow: Down
+                            spacing: 14.0
+                            fd_card := LiyuCard {
+                                width: Fill height: Fit
+                                flow: Down
+                                padding: 16.0
+                                spacing: 14.0
+                                fd_head := View {
+                                    width: Fill height: Fit
+                                    flow: Right
+                                    align: Align{x: 0.0, y: 0.5}
+                                    spacing: 14.0
+                                    fd_face := RoundedView {
+                                        width: 64 height: 64
+                                        flow: Down
+                                        align: Align{x: 0.5, y: 0.5}
+                                        draw_bg +: { color: liyu.face border_radius: 32.0 }
+                                        fd_photo := LiyuThumb { visible: false width: 64 height: 64 }
+                                        fd_initial := Label {
+                                            text: ""
+                                            draw_text +: { color: liyu.blue text_style +: { font_size: 25.0 } }
+                                        }
+                                    }
+                                    fd_identity := View {
+                                        width: Fill height: Fit
+                                        flow: Down
+                                        spacing: 4.0
+                                        fd_name := LiyuH2 { text: "" }
+                                        fd_sub := LiyuMuted { text: "" }
+                                    }
+                                }
+                                fd_avatar_actions := View {
+                                    width: Fill height: Fit
+                                    flow: Right{wrap: true}
+                                    wrap_spacing: 8.0
+                                    spacing: 8.0
+                                    fd_avatar_pick := LiyuBtnSm { width: Fit text: "更换头像" }
+                                    fd_avatar_reset := LiyuBtnSm { visible: false width: Fit text: "恢复自动头像" }
+                                }
+                                fd_avatar_source := LiyuMuted { text: "" }
+                                fd_phone_label := LiyuMuted { text: "手机号" }
+                                fd_phone := LiyuBody { text: "" }
+                                fd_email_label := LiyuMuted { text: "邮箱" }
+                                fd_email := LiyuBody { text: "" }
+                                fd_actions := View {
+                                    width: Fill height: Fit
+                                    flow: Right{wrap: true}
+                                    wrap_spacing: 8.0
+                                    spacing: 8.0
+                                    fd_send := LiyuBtnPrimary { width: Fit text: "送给TA" }
+                                    fd_edit := LiyuBtn { width: Fit text: "修改信息" }
+                                    fd_delete := LiyuBtnDanger { width: Fit text: "删除熟人" }
+                                }
                             }
                         }
 
@@ -2314,6 +2384,10 @@ script_mod! {
                     align: Align{x: 1.0, y: 0.0}
                     padding: Inset{top: 58.0, right: 12.0}
                     ct_menu := LiyuMenu {
+                        im_add := LiyuMenuItem {
+                            text: "添加熟人"
+                            draw_icon +: { svg: crate_resource("self:resources/icons/plus.svg") }
+                        }
                         im_local := LiyuMenuItem {
                             text: "从本机导入"
                             draw_icon +: { svg: crate_resource("self:resources/icons/nav-contacts.svg") }
@@ -2598,12 +2672,14 @@ const ASIDE_MIN: f64 = 900.0;
 
 /// 自己吃左右留白的那些容器：正文区不留左右内边距，滚动条才贴得住窗口边，
 /// 所以这一份留白落到每个可滚动页面（以及送礼页那条固定底栏）身上。
-const SIDE_PAD_VIEWS: [LiveId; 25] = [
+const SIDE_PAD_VIEWS: [LiveId; 27] = [
     live_id!(page_gift),
     live_id!(page_box),
     live_id!(page_online_gift),
     live_id!(page_pact),
     live_id!(page_contacts),
+    live_id!(page_contact_detail),
+    live_id!(page_contact_form),
     live_id!(page_me),
     live_id!(sd_scroll),
     live_id!(sd_bar),
@@ -2688,6 +2764,8 @@ enum Overlay {
     Profile,
     DirectOrder,
     OnlineGift,
+    ContactDetail,
+    ContactForm,
     /// 商品详情（可以带着「这是谁心愿单上的哪一件」的上下文）。
     Product,
     /// 结算：订单 + 余额抵扣 + 付款方式，付完原地变成功页。
@@ -2796,6 +2874,9 @@ impl Stage {
 /// 校验失败时的一句话（全是 data.rs 里的静态文案）。
 /// 写成别名是因为 Script 派生宏不认字段类型里的生命周期。
 type Msg = &'static str;
+type ContactAvatarReply = Result<Vec<(String, Option<Vec<u8>>)>, Msg>;
+type ContactAvatarCache = std::collections::HashMap<String, Option<Vec<u8>>>;
+type ContactAvatarTextures = std::collections::HashMap<String, Texture>;
 
 #[derive(Script, ScriptHook, Widget)]
 pub struct LiyuView {
@@ -2828,6 +2909,8 @@ pub struct LiyuView {
     #[rust]
     editing_contact: Option<usize>,
     #[rust]
+    contact_detail_id: Option<usize>,
+    #[rust]
     contact_page: usize,
     #[rust]
     direct_contact_page: usize,
@@ -2835,6 +2918,14 @@ pub struct LiyuView {
     contact_import_receiver: Option<std::sync::mpsc::Receiver<Result<contacts::Import, Msg>>>,
     #[rust]
     contact_import_poll: Timer,
+    #[rust]
+    contact_avatar_receiver: Option<std::sync::mpsc::Receiver<ContactAvatarReply>>,
+    #[rust]
+    contact_avatar_poll: Timer,
+    #[rust]
+    contact_avatar_cache: ContactAvatarCache,
+    #[rust]
+    contact_avatar_textures: ContactAvatarTextures,
     #[rust]
     online_notice: Option<commerce_client::Notification>,
     #[rust]
@@ -2995,7 +3086,7 @@ pub struct LiyuView {
     #[rust]
     contact_rows: Vec<usize>,
     #[rust]
-    add_error: Option<AddContactError>,
+    add_error: Option<Msg>,
     #[rust]
     import_menu: bool,
 
@@ -3279,6 +3370,8 @@ impl LiyuView {
         self.reset_armed = false;
         self.import_menu = false;
         self.add_error = None;
+        self.editing_contact = None;
+        self.contact_detail_id = None;
         self.tab = i;
         self.account_section = None;
         for (j, id) in TABS.iter().enumerate() {
@@ -3364,6 +3457,8 @@ impl LiyuView {
             Overlay::Profile => self.refresh_profile(cx),
             Overlay::DirectOrder => self.refresh_direct_order(cx),
             Overlay::OnlineGift => self.refresh_online_gift(cx),
+            Overlay::ContactDetail => self.refresh_contact_detail(cx),
+            Overlay::ContactForm => self.refresh_contact_form(cx),
             Overlay::Product => self.refresh_product(cx),
             Overlay::Checkout => self.refresh_checkout(cx),
             Overlay::Wishes => self.refresh_wishes(cx),
@@ -3386,6 +3481,8 @@ impl LiyuView {
             Overlay::Profile => live_id!(page_profile),
             Overlay::DirectOrder => live_id!(page_direct_order),
             Overlay::OnlineGift => live_id!(page_online_gift),
+            Overlay::ContactDetail => live_id!(page_contact_detail),
+            Overlay::ContactForm => live_id!(page_contact_form),
             Overlay::Product => live_id!(page_product),
             Overlay::Checkout => live_id!(co_scroll),
             Overlay::Wishes => live_id!(page_wishes),
@@ -3434,6 +3531,8 @@ impl LiyuView {
                 | Overlay::WishPick
                 | Overlay::DirectOrder
                 | Overlay::OnlineGift
+                | Overlay::ContactDetail
+                | Overlay::ContactForm
                 | Overlay::ReceivedGifts
                 | Overlay::SentGifts,
             ) => self.pop_back(cx),
@@ -3482,6 +3581,8 @@ impl LiyuView {
         self.refresh_account_nav(cx);
         self.show(cx, ids!(page_direct_order), ov == Some(Overlay::DirectOrder));
         self.show(cx, ids!(page_online_gift), ov == Some(Overlay::OnlineGift));
+        self.show(cx, ids!(page_contact_detail), ov == Some(Overlay::ContactDetail));
+        self.show(cx, ids!(page_contact_form), ov == Some(Overlay::ContactForm));
         self.show(cx, ids!(page_product), ov == Some(Overlay::Product));
         self.show(cx, ids!(page_checkout), ov == Some(Overlay::Checkout));
         self.show(cx, ids!(page_wishes), ov == Some(Overlay::Wishes));
@@ -3526,6 +3627,8 @@ impl LiyuView {
             Some(Overlay::Profile) => "账户资料".into(),
             Some(Overlay::DirectOrder) => "直接送礼".into(),
             Some(Overlay::OnlineGift) => "服务器礼物".into(),
+            Some(Overlay::ContactDetail) => self.contact_detail_id.and_then(|id| self.state.contact(id)).map_or("熟人详情", |c| c.label.as_str()).into(),
+            Some(Overlay::ContactForm) => if self.editing_contact.is_some() { "修改熟人" } else { "添加熟人" }.into(),
             Some(Overlay::Product) => "商品详情".into(),
             Some(Overlay::Checkout) => {
                 if self.co_paid.is_some() { "支付成功".into() } else { "确认订单".into() }
@@ -5037,17 +5140,7 @@ impl LiyuView {
                     .map(|w| w.id)
             })
             .collect();
-        self.set_text(cx, ids!(ct_head), &format!("我的联系人（{}）", total));
-        self.set_text(
-            cx,
-            ids!(ca_btn),
-            if self.editing_contact.is_some() {
-                "保存"
-            } else {
-                "添加"
-            },
-        );
-        self.show(cx, ids!(ct_cancel_edit), self.editing_contact.is_some());
+        self.set_text(cx, ids!(ct_head), &format!("我的熟人（{}）", total));
         for (j, row) in CONTACT_ROWS.iter().enumerate() {
             let Some(c) = contacts.get(j) else {
                 self.show(cx, &[*row], false);
@@ -5061,6 +5154,7 @@ impl LiyuView {
                 .map(|ch| ch.to_string())
                 .unwrap_or_default();
             self.set_text(cx, &[*row, live_id!(cr_initial)], &initial);
+            self.show_contact_avatar(cx, &[*row, live_id!(cr_photo)], &[*row, live_id!(cr_initial)], c);
             self.set_text(cx, &[*row, live_id!(cr_name)], &c.label);
             // 有进行中的心愿单就先说心愿单（比送过几份更值得一眼看到），按钮也换成「看心愿单」。
             let sub = if !contacts::choices(c).is_empty() {
@@ -5079,9 +5173,6 @@ impl LiyuView {
                 }
             };
             self.set_text(cx, &[*row, live_id!(cr_sub)], &sub);
-            let has_wish = self.contact_wish.get(j).copied().flatten().is_some();
-            let _ = has_wish;
-            self.set_text(cx, &[*row, live_id!(cr_send)], "送给TA");
         }
         self.apply_list_state(
             cx,
@@ -5097,21 +5188,205 @@ impl LiyuView {
             ids!(ct_more),
             &format!("第 {} 页，共 {} 位联系人", self.contact_page + 1, total),
         );
-        self.show(cx, ids!(ca_err), self.add_error.is_some());
-        if let Some(e) = self.add_error {
-            self.set_text(cx, ids!(ca_err), e.text());
+        self.queue_contact_avatar_lookup(cx, &contacts);
+    }
+
+    fn contact_avatar_dir() -> Option<std::path::PathBuf> {
+        let account = profile_client::active_identifier();
+        let hash = account.bytes().fold(0xcbf29ce484222325_u64, |h, b| {
+            (h ^ u64::from(b)).wrapping_mul(0x100000001b3)
+        });
+        Some(LiyuState::data_dir()?.join("contact-avatars").join(format!("{hash:016x}")))
+    }
+
+    fn contact_avatar_path(file_name: &str) -> Option<std::path::PathBuf> {
+        if file_name.len() > 80 || !file_name.ends_with(".png")
+            || !file_name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'.')
+            || file_name.contains("..")
+        { return None; }
+        Some(Self::contact_avatar_dir()?.join(file_name))
+    }
+
+    fn contact_avatar_texture(&mut self, cx: &mut Cx, c: &ContactLocal) -> (Option<Texture>, &'static str) {
+        if let Some(file) = c.avatar_override.as_deref() {
+            if let Some(path) = Self::contact_avatar_path(file) {
+                let key = format!("local:{file}");
+                if let Some(texture) = self.contact_avatar_textures.get(&key) {
+                    return (Some(texture.clone()), "你设置的头像");
+                }
+                if let Ok(bytes) = std::fs::read(path) {
+                    if let Ok(image) = ImageBuffer::from_png(&bytes) {
+                        let texture = image.into_new_mip_texture(cx);
+                        self.contact_avatar_textures.insert(key, texture.clone());
+                        return (Some(texture), "你设置的头像");
+                    }
+                }
+            }
+        }
+        for (kind, value) in contacts::choices(c) {
+            let key = format!("{kind}:{value}");
+            if let Some(Some(bytes)) = self.contact_avatar_cache.get(&key) {
+                let texture_key = format!("remote:{key}");
+                if let Some(texture) = self.contact_avatar_textures.get(&texture_key) {
+                    return (Some(texture.clone()), "TA 设置的头像");
+                }
+                if let Ok(image) = ImageBuffer::from_png(bytes) {
+                    let texture = image.into_new_mip_texture(cx);
+                    self.contact_avatar_textures.insert(texture_key, texture.clone());
+                    return (Some(texture), "TA 设置的头像");
+                }
+            }
+        }
+        let key = format!("generated:{}", contacts::avatar_key(c));
+        if let Some(texture) = self.contact_avatar_textures.get(&key) {
+            return (Some(texture.clone()), "根据联系方式生成的头像");
+        }
+        if let Some(bytes) = contacts::generated_avatar(c) {
+            if let Ok(image) = ImageBuffer::from_png(&bytes) {
+                let texture = image.into_new_mip_texture(cx);
+                self.contact_avatar_textures.insert(key, texture.clone());
+                return (Some(texture), "根据联系方式生成的头像");
+            }
+        }
+        (None, "默认头像")
+    }
+
+    fn show_contact_avatar(&mut self, cx: &mut Cx, image: &[LiveId], initial: &[LiveId], c: &ContactLocal) -> &'static str {
+        let (texture, source) = self.contact_avatar_texture(cx, c);
+        self.view.image(cx, image).set_texture(cx, texture.clone());
+        self.show(cx, image, texture.is_some());
+        self.show(cx, initial, texture.is_none());
+        source
+    }
+
+    fn queue_contact_avatar_lookup(&mut self, cx: &mut Cx, contacts: &[ContactLocal]) {
+        if self.contact_avatar_receiver.is_some() || !profile_client::is_online() { return; }
+        let mut pending = Vec::new();
+        for contact in contacts {
+            if contact.avatar_override.is_some() { continue; }
+            for (kind, value) in contacts::choices(contact) {
+                let key = format!("{kind}:{value}");
+                if !self.contact_avatar_cache.contains_key(&key) && !pending.contains(&(kind.clone(), value.clone())) {
+                    pending.push((kind, value));
+                }
+            }
+        }
+        if pending.is_empty() { return; }
+        pending.truncate(32);
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.contact_avatar_receiver = Some(rx);
+        std::thread::spawn(move || {
+            let result = profile_client::lookup_contact_avatars(&pending).map(|found| {
+                pending.into_iter().map(|(kind, value)| {
+                    let key = format!("{kind}:{value}");
+                    let bytes = found.get(&key)
+                        .and_then(|url| profile_client::fetch_avatar_bytes(url))
+                        .and_then(|bytes| contacts::circular_photo(&bytes).ok());
+                    (key, bytes)
+                }).collect()
+            });
+            let _ = tx.send(result);
+        });
+        self.contact_avatar_poll = cx.start_interval(0.1);
+    }
+
+    fn set_contact_avatar_file(&mut self, cx: &mut Cx, path: &std::path::Path) {
+        let Some(id) = self.contact_detail_id else { return; };
+        if self.state.contact(id).is_none() { return; }
+        let bytes = match std::fs::metadata(path) {
+            Ok(meta) if meta.len() <= avatar::MAX_INPUT_BYTES => std::fs::read(path).ok(),
+            _ => None,
+        };
+        let Some(bytes) = bytes else { self.toast(cx, "无法读取头像图片或文件过大"); return; };
+        let normalized = match contacts::circular_photo(&bytes) {
+            Ok(bytes) => bytes,
+            Err(error) => { self.toast(cx, Self::avatar_err(&error)); return; }
+        };
+        let hash = normalized.iter().fold(0xcbf29ce484222325_u64, |h, b| {
+            (h ^ u64::from(*b)).wrapping_mul(0x100000001b3)
+        });
+        let file_name = format!("contact-{id}-{hash:016x}.png");
+        let Some(dir) = Self::contact_avatar_dir() else { self.toast(cx, "头像目录不可用"); return; };
+        if std::fs::create_dir_all(&dir).is_err() { self.toast(cx, "无法保存头像"); return; }
+        let target = dir.join(&file_name);
+        let temp = dir.join(format!("{file_name}.tmp"));
+        if std::fs::write(&temp, &normalized).is_err() || std::fs::rename(&temp, &target).is_err() {
+            let _ = std::fs::remove_file(temp);
+            self.toast(cx, "无法保存头像");
+            return;
+        }
+        if let Some(c) = self.state.contacts.iter_mut().find(|c| c.id == id) {
+            c.avatar_override = Some(file_name);
+        }
+        self.state.save();
+        self.refresh_contact_detail(cx);
+        self.toast(cx, "熟人头像已更新");
+    }
+
+    fn reset_contact_avatar(&mut self, cx: &mut Cx) {
+        let Some(id) = self.contact_detail_id else { return; };
+        if let Some(c) = self.state.contacts.iter_mut().find(|c| c.id == id) {
+            c.avatar_override = None;
+            self.state.save();
+            self.refresh_contact_detail(cx);
+            self.toast(cx, "已恢复自动头像");
         }
     }
 
-    fn add_contact(&mut self, cx: &mut Cx) {
+    fn open_contact_detail(&mut self, cx: &mut Cx, id: usize) {
+        if self.state.contact(id).is_none() { return; }
+        self.contact_detail_id = Some(id);
+        self.refresh_contact_detail(cx);
+        self.nav_to(cx, Overlay::ContactDetail);
+    }
+
+    fn refresh_contact_detail(&mut self, cx: &mut Cx) {
+        let Some(c) = self.contact_detail_id.and_then(|id| self.state.contact(id)).cloned() else { return; };
+        let initial = c.label.chars().next().map(|ch| ch.to_string()).unwrap_or_default();
+        self.set_text(cx, ids!(fd_initial), &initial);
+        let source = self.show_contact_avatar(cx, ids!(fd_photo), ids!(fd_initial), &c);
+        self.set_text(cx, ids!(fd_avatar_source), source);
+        self.show(cx, ids!(fd_avatar_reset), c.avatar_override.is_some());
+        self.set_text(cx, ids!(fd_name), &c.label);
+        let (sent, received) = self.state.gift_counts(&c.label);
+        self.set_text(cx, ids!(fd_sub), &format!("送过 {sent} 份 · 收到 {received} 份"));
+        let phones = c.phones.as_ref().filter(|v| !v.is_empty()).map(|v| v.join("；")).unwrap_or_else(|| "未填写".into());
+        let emails = c.emails.as_ref().filter(|v| !v.is_empty()).map(|v| v.join("；")).unwrap_or_else(|| "未填写".into());
+        self.set_text(cx, ids!(fd_phone), &phones);
+        self.set_text(cx, ids!(fd_email), &emails);
+        self.queue_contact_avatar_lookup(cx, &[c]);
+    }
+
+    fn open_contact_form(&mut self, cx: &mut Cx, id: Option<usize>) {
+        let contact = id.and_then(|id| self.state.contact(id)).cloned();
+        if id.is_some() && contact.is_none() { return; }
+        self.editing_contact = id;
+        self.add_error = None;
+        self.set_text(cx, ids!(ca_input), contact.as_ref().map_or("", |c| &c.label));
+        self.set_text(cx, ids!(ct_phone), &contact.as_ref().and_then(|c| c.phones.as_ref()).map(|v| v.join(";")).unwrap_or_default());
+        self.set_text(cx, ids!(ct_email), &contact.as_ref().and_then(|c| c.emails.as_ref()).map(|v| v.join(";")).unwrap_or_default());
+        self.refresh_contact_form(cx);
+        self.nav_to(cx, Overlay::ContactForm);
+    }
+
+    fn refresh_contact_form(&mut self, cx: &mut Cx) {
+        let editing = self.editing_contact.is_some();
+        self.set_text(cx, ids!(cf_heading), if editing { "修改熟人" } else { "添加熟人" });
+        self.set_text(cx, ids!(ca_btn), if editing { "保存修改" } else { "添加熟人" });
+        self.show(cx, ids!(ca_err), self.add_error.is_some());
+        if let Some(e) = self.add_error { self.set_text(cx, ids!(ca_err), e); }
+    }
+
+    fn save_contact(&mut self, cx: &mut Cx) {
         let label = self.input_text(cx, ids!(ca_input));
         let phones = self.input_text(cx, ids!(ct_phone));
         let emails = self.input_text(cx, ids!(ct_email));
         match contacts::entry(&label, &phones, &emails) {
             Ok(mut c) => {
-                if let Some(id) = self.editing_contact.take() {
+                if let Some(id) = self.editing_contact {
                     c.id = id;
                     if let Some(old) = self.state.contacts.iter_mut().find(|v| v.id == id) {
+                        c.avatar_override = old.avatar_override.clone();
                         *old = c;
                     }
                 } else {
@@ -5119,17 +5394,17 @@ impl LiyuView {
                 }
                 self.state.save();
                 self.add_error = None;
-                for id in [live_id!(ca_input), live_id!(ct_phone), live_id!(ct_email)] {
-                    self.set_text(cx, &[id], "");
-                }
-                self.toast(cx, "联系人已保存");
+                self.editing_contact = None;
+                self.refresh_contacts(cx);
+                self.pop_back(cx);
+                self.toast(cx, "熟人已保存");
             }
             Err(e) => {
+                self.add_error = Some(e);
+                self.refresh_contact_form(cx);
                 self.toast(cx, e);
-                return;
             }
         }
-        self.refresh_contacts(cx);
     }
 
     fn stage_contacts(&mut self, cx: &mut Cx, import: contacts::Import) {
@@ -5820,9 +6095,15 @@ impl LiyuView {
     fn after_account_switch(&mut self, cx: &mut Cx) {
         self.pending_contacts = None;
         self.editing_contact = None;
+        self.contact_detail_id = None;
         self.contact_import_receiver = None;
         cx.stop_timer(self.contact_import_poll);
         self.contact_import_poll = Timer::empty();
+        self.contact_avatar_receiver = None;
+        cx.stop_timer(self.contact_avatar_poll);
+        self.contact_avatar_poll = Timer::empty();
+        self.contact_avatar_cache.clear();
+        self.contact_avatar_textures.clear();
         self.contact_page = 0;
         self.direct_contact_page = 0;
         for field in [
@@ -6214,10 +6495,22 @@ impl LiyuView {
         if self.clicked(cx,ids!(ca_choice_prev),actions){self.direct_contact_page=self.direct_contact_page.saturating_sub(1);self.refresh_direct_order(cx);}
         if self.clicked(cx,ids!(ca_choice_next),actions){self.direct_contact_page+=1;self.refresh_direct_order(cx);}
 
-        for action in actions {if let Some(fda)=action.downcast_ref::<FileDialogAction>(){if fda.id()==live_id!(contact_import){if let Some(path)=fda.path(){match contacts::load_file(path){Ok(import)=>self.stage_contacts(cx,import),Err(e)=>self.toast(cx,e)}}}}}
+        for action in actions {
+            if let Some(fda) = action.downcast_ref::<FileDialogAction>() {
+                if fda.id() == live_id!(contact_import) {
+                    if let Some(path) = fda.path() {
+                        match contacts::load_file(path) {
+                            Ok(import) => self.stage_contacts(cx, import),
+                            Err(e) => self.toast(cx, e),
+                        }
+                    }
+                } else if fda.id() == live_id!(contact_avatar_pick) {
+                    if let Some(path) = fda.path() { self.set_contact_avatar_file(cx, path); }
+                }
+            }
+        }
         if self.clicked(cx,ids!(ct_import_cancel),actions){self.pending_contacts=None;self.show(cx,ids!(ct_preview),false);}
         if self.clicked(cx,ids!(ct_import_confirm),actions){if let Some(import)=self.pending_contacts.take(){let added=contacts::merge(&mut self.state.contacts,import.contacts);self.state.save();self.show(cx,ids!(ct_preview),false);self.refresh_contacts(cx);self.toast(cx,&format!("已导入：新增 {added} 位，其余相同联系方式已合并"));}}
-        if self.clicked(cx,ids!(ct_cancel_edit),actions){self.editing_contact=None;for id in [live_id!(ca_input),live_id!(ct_phone),live_id!(ct_email)]{self.set_text(cx,&[id],"");}self.refresh_contacts(cx);}
         for (button,field,kind) in [(live_id!(pf_phone_request),live_id!(pf_phone),"phone"),(live_id!(pf_email_request),live_id!(pf_email),"email")] {
             if self.clicked(cx,&[button],actions){let value=self.input_text(cx,&[field]);match profile_client::request_contact_code("bind",kind,&value){Ok(Some(code))=>self.toast(cx,&format!("测试通道验证码：{code}")),Ok(None)=>self.toast(cx,"验证码已加入投递队列，请查收"),Err(e)=>self.toast(cx,e)}}
         }
@@ -6317,6 +6610,10 @@ impl LiyuView {
         if self.clicked(cx, ids!(tb_add), actions) {
             self.import_menu = !self.import_menu;
             self.update_page_visibility(cx);
+        }
+        if self.clicked(cx, ids!(im_add), actions) {
+            self.import_menu = false;
+            self.open_contact_form(cx, None);
         }
         if self.clicked(cx, ids!(im_local), actions) {
             self.import_menu = false;
@@ -6687,24 +6984,48 @@ impl LiyuView {
         }
 
         // ---- 熟人 ----
-        let add_enter = self.view.text_input(cx, ids!(ca_input)).returned(actions).is_some();
-        if self.clicked(cx, ids!(ca_btn), actions) || add_enter {
-            self.add_contact(cx);
+        let add_enter = self.overlay == Some(Overlay::ContactForm)
+            && self.view.text_input(cx, ids!(ca_input)).returned(actions).is_some();
+        if self.overlay == Some(Overlay::ContactForm) && (self.clicked(cx, ids!(ca_btn), actions) || add_enter) {
+            self.save_contact(cx);
         }
         if self.clicked(cx, ids!(ct_empty.em_action), actions) {
             self.import_local(cx);
         }
         for (j, row) in CONTACT_ROWS.iter().enumerate() {
             let Some(cid) = self.contact_rows.get(j).copied() else { continue };
-            if self.clicked(cx,&[*row,live_id!(cr_edit)],actions){if let Some(c)=self.state.contact(cid).cloned(){self.editing_contact=Some(cid);self.set_text(cx,ids!(ca_input),&c.label);self.set_text(cx,ids!(ct_phone),&c.phones.unwrap_or_default().join(";"));self.set_text(cx,ids!(ct_email),&c.emails.unwrap_or_default().join(";"));self.refresh_contacts(cx);}}
-            if self.clicked(cx,&[*row,live_id!(cr_send)],actions){if let Some(c)=self.state.contact(cid).cloned(){
-                self.set_text(cx,ids!(ca_recipient_label),&c.label);self.set_text(cx,ids!(ca_recipient_value),contacts::choices(&c).first().map(|(_,v)|v.as_str()).unwrap_or(""));
-                self.direct_product=None;self.set_tab(cx,0);self.toast(cx,"已选择收礼人，请选商品并直接送礼；可更换投递联系方式");
-            }}
-            if self.clicked(cx, &[*row, live_id!(cr_del)], actions) {
-                if let Some(snap) = self.state.remove_contact(cid) {
-                    self.refresh_contacts(cx);
-                    self.offer_undo(cx, snap);
+            if self.clicked(cx, &[*row, live_id!(cr_hit)], actions) {
+                self.open_contact_detail(cx, cid);
+                break;
+            }
+        }
+        if self.overlay == Some(Overlay::ContactDetail) {
+            if self.clicked(cx, ids!(fd_avatar_pick), actions) {
+                cx.open_select_file_dialog(
+                    FileDialog::new()
+                        .set_id(live_id!(contact_avatar_pick))
+                        .set_title("选择熟人头像".into())
+                        .add_filter("图片".into(), vec!["png".into(), "jpg".into(), "jpeg".into(), "webp".into()]),
+                );
+            } else if self.clicked(cx, ids!(fd_avatar_reset), actions) {
+                self.reset_contact_avatar(cx);
+            } else if self.clicked(cx, ids!(fd_send), actions) {
+                if let Some(c) = self.contact_detail_id.and_then(|id| self.state.contact(id)).cloned() {
+                    self.set_text(cx, ids!(ca_recipient_label), &c.label);
+                    self.set_text(cx, ids!(ca_recipient_value), contacts::choices(&c).first().map(|(_, v)| v.as_str()).unwrap_or(""));
+                    self.direct_product = None;
+                    self.set_tab(cx, 0);
+                    self.toast(cx, "已选择收礼人，请选商品并直接送礼；可更换投递联系方式");
+                }
+            } else if self.clicked(cx, ids!(fd_edit), actions) {
+                self.open_contact_form(cx, self.contact_detail_id);
+            } else if self.clicked(cx, ids!(fd_delete), actions) {
+                if let Some(id) = self.contact_detail_id {
+                    if let Some(snap) = self.state.remove_contact(id) {
+                        self.contact_detail_id = None;
+                        self.pop_back(cx);
+                        self.offer_undo(cx, snap);
+                    }
                 }
             }
         }
@@ -7142,6 +7463,21 @@ impl Widget for LiyuView {
         if self.contact_import_poll.is_event(event).is_some(){
             let result=self.contact_import_receiver.as_ref().and_then(|rx|rx.try_recv().ok());
             if let Some(result)=result{self.contact_import_receiver=None;cx.stop_timer(self.contact_import_poll);self.contact_import_poll=Timer::empty();match result{Ok(import)=>self.stage_contacts(cx,import),Err(e)=>self.toast(cx,e)}}
+        }
+        if self.contact_avatar_poll.is_event(event).is_some() {
+            let result = self.contact_avatar_receiver.as_ref().and_then(|rx| rx.try_recv().ok());
+            if let Some(result) = result {
+                self.contact_avatar_receiver = None;
+                cx.stop_timer(self.contact_avatar_poll);
+                self.contact_avatar_poll = Timer::empty();
+                if let Ok(avatars) = result {
+                    for (key, bytes) in avatars { self.contact_avatar_cache.insert(key, bytes); }
+                    if self.tab == 3 {
+                        self.refresh_contacts(cx);
+                        if self.overlay == Some(Overlay::ContactDetail) { self.refresh_contact_detail(cx); }
+                    }
+                }
+            }
         }
         if self.notice_poll.is_event(event).is_some() {
             self.poll_notices(cx);
@@ -7887,11 +8223,19 @@ mod layout_tests {
                 contacts::choices(&view.state.contacts[0])[0].1,
                 "+8613800138000"
             );
-            let uid = view.view.widget(&cx, ids!(c0.cr_edit)).widget_uid();
+            let uid = view.view.widget(&cx, ids!(c0.cr_hit)).widget_uid();
             let actions = cx.capture_actions(|cx| {
                 cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
             });
             view.handle_actions(&mut cx, &actions);
+            assert_eq!(view.overlay, Some(Overlay::ContactDetail));
+            assert!(view.view.widget(&cx, ids!(page_contact_detail)).visible());
+            let uid = view.view.widget(&cx, ids!(fd_edit)).widget_uid();
+            let actions = cx.capture_actions(|cx| {
+                cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
+            });
+            view.handle_actions(&mut cx, &actions);
+            assert_eq!(view.overlay, Some(Overlay::ContactForm));
             view.set_text(&mut cx, ids!(ct_email), "changed@example.test");
             let uid = view.view.widget(&cx, ids!(ca_btn)).widget_uid();
             let actions = cx.capture_actions(|cx| {
@@ -7903,7 +8247,8 @@ mod layout_tests {
                 &vec!["changed@example.test".to_string()]
             );
             assert_eq!(view.state.contacts.len(), 2);
-            let uid = view.view.widget(&cx, ids!(c0.cr_send)).widget_uid();
+            assert_eq!(view.overlay, Some(Overlay::ContactDetail));
+            let uid = view.view.widget(&cx, ids!(fd_send)).widget_uid();
             let actions = cx.capture_actions(|cx| {
                 cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
             });
