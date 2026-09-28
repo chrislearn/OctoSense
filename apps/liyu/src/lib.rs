@@ -126,7 +126,7 @@ script_mod! {
                             draw_icon +: { svg: crate_resource("self:resources/icons/chevron-left.svg") }
                         }
                         tb_gap := View { width: Fill height: Fit }
-                        tb_action := LiyuBtnPrimarySm { visible: false width: Fit text: "发起神秘送礼" }
+                        tb_action := LiyuBtnPrimarySm { visible: false width: Fit text: "神秘送礼" }
                         tb_add := LiyuAddBtn {
                             visible: false
                             draw_icon +: { svg: crate_resource("self:resources/icons/plus.svg") }
@@ -331,7 +331,6 @@ script_mod! {
                             width: Fill height: Fill
                             flow: Down
                             spacing: 14.0
-                            bx_mode := LiyuBadgeBlue { text: "" }
                             bx_seg := LiyuSegTrack {
                                 bs_recv := LiyuSeg { text: "收到的" }
                                 bs_sent := LiyuSeg { text: "送出的" }
@@ -2674,7 +2673,7 @@ fn shaping_for(size: Vec2d) -> Shaping {
 /// 盖在 Tab 页上的覆盖页。它们不是第六个 Tab：从哪来、回哪去（见 `go_back`）。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Overlay {
-    /// 发起神秘送礼（单页向导）。
+    /// 神秘送礼（单页向导）。
     Send,
     /// 礼卡已生成 / 看礼卡。
     Card,
@@ -3507,7 +3506,7 @@ impl LiyuView {
                 } else if self.return_banner.is_some() {
                     "回一份礼".into()
                 } else {
-                    "发起神秘送礼".into()
+                    "神秘送礼".into()
                 }
             }
             Some(Overlay::Card) => "神秘礼卡".into(),
@@ -3549,7 +3548,7 @@ impl LiyuView {
         self.show(cx, ids!(tb_back), overlay && !matches!(self.overlay,Some(Overlay::Profile|Overlay::Settings)));
         self.show(cx, ids!(tb_action), !overlay && self.tab <= 1);
         let wish_seg = self.tab == 0 && self.gift_wish_seg;
-        self.set_text(cx, ids!(tb_action), if wish_seg { "发布心愿单" } else { "发起神秘送礼" });
+        self.set_text(cx, ids!(tb_action), if wish_seg { "发布心愿单" } else { "神秘送礼" });
         self.show(cx, ids!(tb_add), !overlay && self.tab == 3);
     }
 
@@ -4314,11 +4313,6 @@ impl LiyuView {
 
     fn refresh_box(&mut self, cx: &mut Cx) {
         let _ = self.gift_client.refresh();
-        self.set_text(cx, ids!(bx_mode), if self.gift_client.online {
-            "服务器礼盒 · 按收礼人/送礼人权限显示"
-        } else {
-            "礼盒加载失败，请检查服务器连接"
-        });
         if self.gift_client.online {
             self.set_chip_group(cx, &BOX_SEGS, self.box_sent as usize);
             let rows = if self.box_sent {
