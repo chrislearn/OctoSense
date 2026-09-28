@@ -1,8 +1,8 @@
 //! 心愿单相关页面：商品详情、结算、我的心愿单、一张心愿单、发布 / 编辑、挑一件。
 //!
 //! 流程（好友那边）：挑礼页「熟人的心愿单」/ 熟人列表 → 一张心愿单 →
-//! 具体的一件「送这件」→ 商品详情 → 送礼页（收礼人、日子都定好）→ 结算 → 成功；
-//! 说了个大概的「帮 TA 挑」→ 只列符合的商品（附理由）→ 商品详情 → 同上。
+//! 具体的一件「送给TA」→ 商品详情 → 送礼页（收礼人、日子都定好）→ 结算 → 成功；
+//! 说了个大概的「送给TA」→ 先列符合的商品（附理由）→ 商品详情 → 同上。
 //! 流程（自己这边）：我的心愿单 → 发布 / 编辑（挑具体的，或者说个大概）→ 心愿单详情看进度。
 
 use crate::*;
@@ -160,7 +160,7 @@ impl LiyuView {
                     format!("TA 说：{} · {}。这件：{}", wants, budget_text(wi.max_price), why)
                 };
                 self.set_text(cx, ids!(pd_ctx_r), &r);
-                self.set_text(cx, ids!(pd_send), "就送这件");
+                self.set_text(cx, ids!(pd_send), "送给TA");
                 self.set_text(cx, ids!(pd_rel_h), "也符合这条心愿");
                 let others: Vec<&WishMatch> = if wi.is_exact() {
                     Vec::new()
@@ -171,7 +171,7 @@ impl LiyuView {
                 notes = others.iter().map(|m| m.reason()).collect();
             }
             None => {
-                self.set_text(cx, ids!(pd_send), "送给 TA");
+                self.set_text(cx, ids!(pd_send), "送给TA");
                 self.set_text(cx, ids!(pd_rel_h), "同类还有");
                 self.rel_rows = related_items(i, REL_CARDS.len());
             }
@@ -182,7 +182,7 @@ impl LiyuView {
         self.fill_cards(cx, &REL_CARDS, &rows, &notes);
     }
 
-    /// 「送给 TA / 就送这件」：进送礼页。从心愿单来的，收礼人和心愿都带上，
+    /// 「送给TA」：进送礼页。从心愿单来的，收礼人和心愿都带上，
     /// 日子还没到就默认约在那天送到。
     fn send_from_product(&mut self, cx: &mut Cx) {
         let i = self.pd_item;
@@ -435,7 +435,7 @@ impl LiyuView {
             self.tint_text(cx, &[*row, live_id!(wr_state)], c);
             let can_give = !mine && open && wi.is_open();
             self.show(cx, &[*row, live_id!(wr_go)], can_give);
-            self.set_text(cx, &[*row, live_id!(wr_go)], if wi.is_exact() { "送这件" } else { "帮 TA 挑" });
+            self.set_text(cx, &[*row, live_id!(wr_go)], "送给TA");
             self.show(cx, &[*row, live_id!(wr_alt)], false);
         }
 

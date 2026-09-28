@@ -1426,7 +1426,7 @@ script_mod! {
                         // ================= 商品详情（覆盖页）=================
                         //
                         // 大图 + 名字价格 + 两个动作；宽屏左图右字，手机上下排（apply_shaping 里切）。
-                        // 从「帮 TA 挑」进来时多一张心愿卡，说这件为什么对得上 TA 的心愿。
+                        // 从笼统心愿的候选列表进来时多一张心愿卡，说这件为什么对得上 TA 的心愿。
                         page_product := LiyuScrollY {
                             visible: false
                             width: Fill height: Fill
@@ -1469,7 +1469,7 @@ script_mod! {
                                         spacing: 10.0
                                         pd_send := LiyuBtnPrimary {
                                             width: Fit
-                                            text: "送给 TA"
+                                            text: "送给TA"
                                             draw_icon +: { svg: crate_resource("self:resources/icons/nav-gift.svg") }
                                         }
                                         pd_direct := LiyuBtn { width: Fit text: "按联系方式送礼" }
@@ -1664,7 +1664,7 @@ script_mod! {
 
                         // ================= 一张心愿单（覆盖页）=================
                         //
-                        // 好友的：每件一个「送这件 / 帮 TA 挑」；有人送了的调暗、按钮收起。
+                        // 好友的：每件一个「送给TA」；有人送了的调暗、按钮收起。
                         // 自己的：看进度、编辑、分享、提前结束；另有一张演示卡替好友来认领。
                         page_wish := LiyuScrollY {
                             visible: false
@@ -3541,7 +3541,7 @@ impl LiyuView {
                 if self.wish_draft.id.is_some() { "编辑心愿单".into() } else { "发布心愿单".into() }
             }
             Some(Overlay::WishPick) => {
-                if self.wp_wish.is_some() { "帮 TA 挑一件".into() } else { "挑一件放进心愿单".into() }
+                if self.wp_wish.is_some() { "送给TA".into() } else { "挑一件放进心愿单".into() }
             }
         };
         self.set_text(cx, ids!(tb_title), &title);
@@ -4019,7 +4019,7 @@ impl LiyuView {
         self.set_text(cx, ids!(ag2_v), &bal);
     }
 
-    /// 一张商品卡：图 / 名字 / 品牌 / 价格 + 形态；`note` 是「帮 TA 挑」时的理由。
+    /// 一张商品卡：图 / 名字 / 品牌 / 价格 + 形态；`note` 是笼统心愿选礼时的理由。
     fn fill_product_card(&mut self, cx: &mut Cx, card: LiveId, i: u16, note: &str) {
         let it = item(i);
         self.set_img(cx, &[card, live_id!(pk_img)], Some(i));
@@ -5087,7 +5087,7 @@ impl LiyuView {
             self.set_text(cx, &[*row, live_id!(cr_sub)], &sub);
             let has_wish = self.contact_wish.get(j).copied().flatten().is_some();
             let _ = has_wish;
-            self.set_text(cx, &[*row, live_id!(cr_send)], "送礼");
+            self.set_text(cx, &[*row, live_id!(cr_send)], "送给TA");
         }
         self.apply_list_state(
             cx,
@@ -7187,7 +7187,7 @@ fn join(base: &[LiveId], id: LiveId) -> Vec<LiveId> {
     v
 }
 
-/// 「送给TA」→「送给 TA」：拉丁字母开头的称呼和前面的汉字之间留一格。
+/// 动态姓名以拉丁字母开头时，在前面的汉字后留一格；固定按钮文案「送给TA」不调用这里。
 fn spaced(name: &str) -> String {
     if name.chars().next().is_some_and(|c| c.is_ascii_alphanumeric()) {
         format!(" {name}")

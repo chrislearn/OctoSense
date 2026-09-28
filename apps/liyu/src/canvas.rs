@@ -1203,7 +1203,7 @@ script_mod! {
                 draw_text +: { color: liyu.ink_3 text_style +: { font_size: 12.0 } }
             }
         }
-        cr_send := mod.widgets.LiyuBtnSm { width: Fit text: "送礼" }
+        cr_send := mod.widgets.LiyuBtnSm { width: Fit text: "送给TA" }
         cr_edit := mod.widgets.LiyuBtnSm { width: Fit text: "修改" }
         cr_del := mod.widgets.LiyuBtnDangerSm { width: Fit text: "删除" }
     }
@@ -1260,7 +1260,7 @@ script_mod! {
     // 商品卡：宫格里的一格。图在上，名字 / 品牌 / 价格 + 形态在下，整格可点。
     //
     // 卡宽和图边长都由 Rust 按可用宽度算（apply_shaping 里的 tile_size），
-    // 这里的 160 / 144 只是没算之前的占位。pk_note 只在「帮 TA 挑」时露出，
+    // 这里的 160 / 144 只是没算之前的占位。pk_note 只在笼统心愿选礼时露出，
     // 说这一件为什么符合心愿（「55 寸 · 在预算内」）。
     mod.widgets.LiyuProductCard = mod.widgets.View{
         width: 160 height: Fit
@@ -1437,7 +1437,7 @@ script_mod! {
     //
     // 具体的一件，图就是那件商品；只说了个大概的（「一台电视」），图是那一类里
     // 最贴近的一件，名字后面跟着「· 大概」。按钮文案由 Rust 按身份和状态换：
-    // 好友看是「送这件」/「帮 TA 挑」，自己看是「移除」或者干脆没有。
+    // 好友看是「送给TA」，自己看是「移除」或者干脆没有。
     mod.widgets.LiyuWishItemRow = mod.widgets.View{
         width: Fill height: Fit
         flow: Right
