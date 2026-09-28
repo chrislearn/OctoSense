@@ -434,9 +434,7 @@ script_mod! {
                                 flow: Down
                                 padding: 16.0
                                 spacing: 12.0
-                                ct_head := LiyuH2 { text: "我的熟人" }
                                 ct_paging := View { width: Fill height: Fit flow: Right spacing: 8.0 ct_prev := LiyuBtnSm { width: Fit text: "上一页" } ct_next := LiyuBtnSm { width: Fit text: "下一页" } }
-                                ct_hint := LiyuMuted { text: "联系人只属于你的地址簿，导入不会创建平台好友关系。" }
                                 ct_preview := View { visible: false width: Fill height: Fit flow: Down spacing: 8.0
                                     ct_preview_text := LiyuMuted { width: Fill text: "" }
                                     ct_import_confirm := LiyuBtnPrimary { width: Fit text: "确认导入（相同联系方式合并）" }
@@ -5140,6 +5138,7 @@ impl LiyuView {
             ids!(ct_next),
             (self.contact_page + 1) * CONTACT_ROWS.len() < total,
         );
+        self.show(cx, ids!(ct_paging), total > CONTACT_ROWS.len());
         self.contact_rows = contacts.iter().map(|c| c.id).collect();
         let today = today_days();
         let friends = self.state.friend_wishlists(today);
@@ -5152,7 +5151,6 @@ impl LiyuView {
                     .map(|w| w.id)
             })
             .collect();
-        self.set_text(cx, ids!(ct_head), &format!("我的熟人（{}）", total));
         for (j, row) in CONTACT_ROWS.iter().enumerate() {
             let Some(c) = contacts.get(j) else {
                 self.show(cx, &[*row], false);
@@ -8289,6 +8287,21 @@ mod layout_tests {
             view.shaping = Some(shaping_for(view.last_size));
             view.tab = 3;
             view.state.contacts.clear();
+            view.update_page_visibility(&mut cx);
+            view.refresh_contacts(&mut cx);
+            assert!(!view.view.widget(&cx, ids!(ct_paging)).visible());
+            assert!(view.view.widget(&cx, ids!(tb_add)).visible());
+            let uid = view.view.widget(&cx, ids!(tb_add)).widget_uid();
+            let actions = cx.capture_actions(|cx| {
+                cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
+            });
+            view.handle_actions(&mut cx, &actions);
+            assert!(view.view.widget(&cx, ids!(ct_menu_layer)).visible());
+            let actions = cx.capture_actions(|cx| {
+                cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
+            });
+            view.handle_actions(&mut cx, &actions);
+            assert!(!view.view.widget(&cx, ids!(ct_menu_layer)).visible());
             let csv = "name,phone,email\n同名,13800138000,a@example.test\n同名,+14155550123,b@example.test\n无效,xxx,\n";
             view.stage_contacts(&mut cx, contacts::parse_csv(csv).unwrap());
             assert!(view.state.contacts.is_empty());

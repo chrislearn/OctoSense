@@ -452,16 +452,16 @@ script_mod! {
 
     // 圆形「+」按钮：头部的新建 / 导入入口，点开一张菜单。
     mod.widgets.LiyuAddBtn = mod.widgets.LiyuIconBtn{
-        width: 32 height: 32
-        icon_walk: Walk{ width: 15.0 height: Fit }
-        draw_icon +: { color: liyu.ink }
+        width: 36 height: 36
+        icon_walk: Walk{ width: 17.0 height: Fit }
+        draw_icon +: { color: liyu.on_blue }
         draw_bg +: {
-            border_radius: r.card
-            border_size: 1.0
-            border_color: liyu.line
-            border_color_hover: liyu.blue
-            border_color_down: liyu.blue
-            border_color_focus: liyu.line
+            border_radius: 18.0
+            border_size: 0.0
+            color: liyu.blue
+            color_hover: liyu.blue_hi
+            color_down: liyu.blue_lo
+            color_focus: liyu.blue_hi
         }
     }
 
