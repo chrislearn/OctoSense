@@ -1,0 +1,163 @@
+name: Apps and services
+
+# The system apps' host services, the AppCard assistant (apps/appcard) and
+# the shell services (crates/kernel, crates/app-peers, crates/ai-host).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.cargo/**'
+      - 'native-runtime.lock.json'
+      - 'runtime-patches.lock.json'
+      - 'tools/setup.py'
+      - '.github/workflows/apps.yml'
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.cargo/**'
+      - 'native-runtime.lock.json'
+      - 'runtime-patches.lock.json'
+      - 'tools/setup.py'
+      - '.github/workflows/apps.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apps-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  services:
+    # crates/kernel (octosense-kernel): the shell's octos kernel, tested
+    # against a stand-in kernel (a python3 script speaking NDJSON JSON-RPC);
+    # crates/app-peers: the scoped assistant service and its broker against a
+    # scripted kernel. The real-kernel tests need an `octos` binary
+    # (OCTOS_CORE_TEST_KERNEL / OCTOS_APP_PEERS_TEST_KERNEL) and pass without.
+    # crates/toolbox: the system toolbox's workflow templates, on recorded
+    # fixtures (the live smoke test is #[ignore]d: it needs the network).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      # The workspace's [patch] tables name .sources/: prepare them even
+      # though these crates do not build Makepad.
+      - run: python3 tools/setup.py
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: services
+      - name: Kernel service
+        run: |
+          cargo test --locked -p octosense-kernel
+          cargo clippy --locked -p octosense-kernel --all-targets --no-deps -- -D warnings
+      - name: App peers
+        run: |
+          cargo test --locked -p octosense-app-peers
+          cargo test --locked -p octosense-app-peers --features octos-core,ws
+          cargo clippy --locked -p octosense-app-peers --all-targets --no-deps -- -D warnings
+          cargo clippy --locked -p octosense-app-peers --all-targets --features octos-core,ws --no-deps -- -D warnings
+      - name: AI providers config
+        run: cargo test --locked -p octosense-llm-config
+      - name: System toolbox (workflow templates)
+        run: |
+          cargo fmt -p octosense-toolbox --check
+          cargo test --locked -p octosense-toolbox
+          cargo test --locked -p octosense-toolbox --features live
+          cargo test --locked -p octosense-toolbox --features octos-engine
+          cargo clippy --locked -p octosense-toolbox --all-targets --no-deps -- -D warnings
+          cargo clippy --locked -p octosense-toolbox --all-targets --features live,octos-engine --no-deps -- -D warnings
+
+  kernel-security:
+    # The Talk to Octos security checks against a REAL octos: the kernel's
+    # real-kernel tests (what the external token must not reach, pairing,
+    # revoke, a SIGKILLed host) and the app-peer real-kernel tests. The octos
+    # binary is built at the revision Cargo.lock pins and cached by it.
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - run: python3 tools/setup.py
+      - name: The pinned octos revision
+        id: octos
+        run: echo "rev=$(python3 -c 'import importlib.util as u; s=u.spec_from_file_location("k","tools/kernel-artifact.py"); m=u.module_from_spec(s); s.loader.exec_module(m); print(m.octos_revision())')" >> "$GITHUB_OUTPUT"
+      # Outside target/: rust-cache restores and prunes target/.
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/octos-kernel/target/release/octos
+          key: octos-kernel-${{ runner.os }}-${{ steps.octos.outputs.rev }}
+      - name: Build octos (unless cached)
+        run: |
+          if [ ! -x "$RUNNER_TEMP/octos-kernel/target/release/octos" ]; then
+            python3 tools/kernel-artifact.py --host --work "$RUNNER_TEMP/octos-kernel"
+          fi
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: kernel-security
+      - name: Real-kernel tests
+        env:
+          OCTOS_CORE_TEST_KERNEL: ${{ runner.temp }}/octos-kernel/target/release/octos
+          OCTOS_APP_PEERS_TEST_KERNEL: ${{ runner.temp }}/octos-kernel/target/release/octos
+        run: |
+          cargo test --locked -p octosense-kernel --test real_kernel -- --test-threads=1 --nocapture
+          cargo test --locked -p octosense-app-peers --features octos-core --test real_kernel
+
+  apps:
+    # macOS: the host services and AppCard link App Hub and Makepad, whose
+    # host system-dependency set is verified on macOS (what the dev machines run).
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - run: python3 tools/setup.py
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: apps
+      - name: Host services (Mail, AI providers, News)
+        run: |
+          cargo test --locked -p octosense-mail-service -p octosense-llm-service -p octosense-news-service
+          cargo clippy --locked -p octosense-news-service --all-targets --no-deps -- -D warnings
+      - name: Shell AI services (crates/ai-host)
+        run: |
+          cargo test --locked -p octosense-ai-host
+          cargo test --locked -p octosense-ai-host --features octos-core,llm
+          cargo clippy --locked -p octosense-ai-host --all-targets --features octos-core,llm --no-deps -- -D warnings
+      - name: AppCard runtime setup safeguards
+        working-directory: apps/appcard
+        run: PYTHONPATH=tools python3 -m unittest core.test_native_runtime
+      # -p + --no-deps scopes the lint gate to AppCard's own crates: Makepad is
+      # the source locked by Octoscript-Makepad; its warnings are not ours to
+      # gate, but it is fully compiled here, so this is also the compile check.
+      - name: AppCard clippy (own crates; shared runtime compiles)
+        run: cargo clippy --locked -p octos-app -p octos-app-store -p octos-app-transport -p octos-app-render --all-targets --no-deps -- -D warnings
+      # The transport over the shell's octos kernel, including a kernel
+      # restart against the core's stand-in kernel.
+      - name: AppCard transport and store
+        run: cargo test --locked -p octos-app-transport -p octos-app-store
+      - name: One Makepad, App Hub, octos and Rinx in the locked graph
+        run: |
+          # `cargo tree -i` fails when the graph holds more than one octos-core.
+          cargo tree --locked -p octos-app -i octos-core --target all --depth 0
+          python3 tools/setup.py --check --cargo

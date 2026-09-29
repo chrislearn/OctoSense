@@ -1,137 +1,252 @@
-# wm — makepad window manager. An Omarchy-behaving tiling window manager
-# built as a Makepad app.
+# OctoSense: the shell, its services, the system apps and both packagings in
+# one workspace (docs/adr/0001-one-octosense-repository.md).
 #
-# Nested mode (this crate, all desktop OSes): wm owns one OS window,
-# fullscreen it and it is the desktop. Tiles host other Makepad apps as
-# child processes through the Studio runview mechanism: a tiny in-process
-# websocket hub accepts `--stdin-loop` clients, each tile shares a GPU
-# swapchain (IOSurface / DXGI handle / DMA-BUF) with its child and forwards
-# input over the studio protocol.
+#   desktop/   the desktop packaging (package `octosense`)
+#   phone/     the Home app: Android, OpenHarmony and iOS packaging (package
+#              `octosense-home`; the APK keeps the dev.makepad.octosense id)
+#   crates/    shell (octosense-shell: window manager, hosting, phone layer —
+#              both packages link it) and its services: ai-host, kernel,
+#              app-peers, toolbox (workflow templates; not linked by the
+#              shells yet)
+#   apps/      system apps and their host services, native modules, AppCard
 #
-# Session mode (later, Linux only): the same layout/chrome/protocol with a
-# Wayland compositor display backend instead of a Makepad window. The
-# layout tree, keybindings, theming and client management are kept free of
-# nested-mode assumptions for that reason.
+# Every external dependency is pinned ONCE, below, in [workspace.dependencies];
+# members inherit it with `workspace = true`. Makepad and OctoScript resolve to
+# the checkouts tools/setup.py prepares in .sources/ (the [patch] tables at
+# the end), so the graph has one Makepad, one App Hub, one octos and one Rinx
+# by construction; tools/setup.py --check --cargo verifies it.
 
-[package]
-name = "octosense"
+[workspace]
+resolver = "2"
+members = [
+    "desktop",
+    "phone",
+    "crates/kernel",
+    "crates/app-peers",
+    "crates/ai-host",
+    "crates/shell",
+    "crates/toolbox",
+    "apps/reference",
+    "apps/liyu",
+    "apps/news/host-service",
+    "apps/mail/host-service",
+    "apps/ai-providers/config",
+    "apps/ai-providers/host-service",
+    "apps/appcard/module",
+    "apps/appcard/app/app",
+    "apps/appcard/app/crates/octos-app-store",
+    "apps/appcard/app/crates/octos-app-transport",
+    "apps/appcard/app/crates/octos-app-render",
+]
+# Separate tools with their own lockfiles, and the framework checkouts.
+exclude = [
+    ".sources",
+    "apps/appcard/personal-data",
+    "apps/appcard/tools",
+    "apps/appcard/vendor",
+    "apps/appcard/app/splash-native",
+]
+default-members = ["desktop"]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
-default-run = "octosense"
+authors = ["octos-app contributors"]
 
-[package.metadata.packager]
-product_name = "OctoSense"
-identifier = "dev.makepad.octosense"
-
-# Android builds this entry point as a shared library. Declaring it explicitly
-# avoids cargo-makepad's generated wrapper duplicating our workspace section.
-[lib]
-path = "src/main.rs"
-# The binary target runs the tests for this shared source.
-test = false
-bench = false
-doctest = false
-
-[[bin]]
-name = "octosense"
-path = "src/main.rs"
-
-[dependencies]
-# `appcard,maps`: the Octoscript-AppCard widget set (kit, text roles, weather,
-# finance, matplot) and the map navigation layer the appcard module renders.
-makepad-widgets = { git = "https://github.com/OctoSense-org/makepad.git", rev = "d4502ef1e4d196d2829a07aa137740cb0581e9b4", features = ["appcard", "maps"] }
-makepad-studio-protocol = { git = "https://github.com/OctoSense-org/makepad.git", rev = "d4502ef1e4d196d2829a07aa137740cb0581e9b4" }
-makepad-network = { git = "https://github.com/OctoSense-org/makepad.git", rev = "d4502ef1e4d196d2829a07aa137740cb0581e9b4" }
-makepad-wm-api = { git = "https://github.com/OctoSense-org/makepad.git", rev = "d4502ef1e4d196d2829a07aa137740cb0581e9b4" }
-# The AI services wire only: the WM relays frames between the aichat child and the apps.
-makepad-ai-services = { git = "https://github.com/OctoSense-org/makepad.git", rev = "d4502ef1e4d196d2829a07aa137740cb0581e9b4" }
-makepad-strict-json = { git = "https://github.com/OctoSense-org/makepad.git", rev = "d4502ef1e4d196d2829a07aa137740cb0581e9b4" }
-# In-process hosting (aicontrol §3): the module contract, the palette applied
-# into each instance's isolate, and the modules this build links.
-makepad-app-module = { git = "https://github.com/OctoSense-org/makepad.git", rev = "d4502ef1e4d196d2829a07aa137740cb0581e9b4" }
-makepad-wm-theme = { git = "https://github.com/OctoSense-org/makepad.git", rev = "d4502ef1e4d196d2829a07aa137740cb0581e9b4" }
-makepad-sheets = { git = "https://github.com/OctoSense-org/makepad.git", rev = "d4502ef1e4d196d2829a07aa137740cb0581e9b4", default-features = false, optional = true }
-makepad-photos = { git = "https://github.com/OctoSense-org/makepad.git", rev = "d4502ef1e4d196d2829a07aa137740cb0581e9b4", default-features = false, optional = true }
-octosense-reference = { path = "apps/reference", optional = true }
-octosense-liyu = { path = "apps/liyu", optional = true }
-# The whole Octoscript-AppCard app hosted in a tile, in-process (Phase B of
-# the AppCard port): octos-app's AppShell — routing brain, cards, kernel agent.
-octosense-appcard = { path = "apps/appcard", optional = true }
-# The assistant as a module, seated in the pane in-process: the web build's
-# only chat, a desktop option. Without the engine feature: no model runtime,
-# NoModel and the tool console (the child process keeps the real models).
-makepad-aichat = { git = "https://github.com/OctoSense-org/makepad.git", rev = "d4502ef1e4d196d2829a07aa137740cb0581e9b4", default-features = false, optional = true }
-
-# A phone cannot spawn the desktop catalog's Cargo binaries. Link the
-# available modules into native mobile builds without requiring CLI flags.
-[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+[workspace.dependencies]
+# --- The native apps, declared in native-apps.json (ADR 0004 §1): Rinx
+# (Matrix chats, Moments, articles, mini apps; the library as a hosted
+# module only, never its standalone entry or its own kernel, Rinx ADR 0007),
+# Terminal, App Hub (the store and the Card runner) and the opt-in Sheets,
+# Reference and AppCard. A git source shares its repository's revision with
+# the pins below; tools/native_apps.py writes this block and checks that.
+# BEGIN native-apps: pins (generated by tools/native_apps.py from native-apps.json; do not edit)
+rinx = { git = "https://github.com/hagency-org/Rinx.git", rev = "68afcf796d303aaf646eeb832d65c450a56c92b5", default-features = false, features = ["octosense-module"] }
 octosense-reference = { path = "apps/reference" }
-octosense-appcard = { path = "apps/appcard" }
-makepad-sheets = { git = "https://github.com/OctoSense-org/makepad.git", rev = "d4502ef1e4d196d2829a07aa137740cb0581e9b4", default-features = false }
-makepad-photos = { git = "https://github.com/OctoSense-org/makepad.git", rev = "d4502ef1e4d196d2829a07aa137740cb0581e9b4", default-features = false }
+octosense-liyu = { path = "apps/liyu" }
+makepad-sheets = { git = "https://github.com/OctoSense-org/makepad.git", rev = "4fdcfccc127b700f1fc01aa1a5488af938dd7f3d", default-features = false }
+makepad-terminal = { git = "https://github.com/OctoSense-org/makepad.git", rev = "4fdcfccc127b700f1fc01aa1a5488af938dd7f3d" }
+octosense-appcard = { path = "apps/appcard/module" }
+octosense-app-hub-app = { git = "https://github.com/OctoSense-org/OctoSense-App-Hub", rev = "e8601b80ce104db2e48208094714bdcffdce6b5a" }
+# END native-apps: pins
+# --- Makepad (OctoSense-org/makepad), the revision Octoscript-Makepad's
+# runtime.json pins (native-runtime.lock.json); resolved to .sources/makepad.
+makepad-widgets = { git = "https://github.com/OctoSense-org/makepad.git", rev = "4fdcfccc127b700f1fc01aa1a5488af938dd7f3d" }
+makepad-code-editor = { git = "https://github.com/OctoSense-org/makepad.git", rev = "4fdcfccc127b700f1fc01aa1a5488af938dd7f3d" }
+makepad-ai = { git = "https://github.com/OctoSense-org/makepad.git", rev = "4fdcfccc127b700f1fc01aa1a5488af938dd7f3d" }
+makepad-studio-protocol = { git = "https://github.com/OctoSense-org/makepad.git", rev = "4fdcfccc127b700f1fc01aa1a5488af938dd7f3d" }
+makepad-network = { git = "https://github.com/OctoSense-org/makepad.git", rev = "4fdcfccc127b700f1fc01aa1a5488af938dd7f3d" }
+makepad-wm-api = { git = "https://github.com/OctoSense-org/makepad.git", rev = "4fdcfccc127b700f1fc01aa1a5488af938dd7f3d" }
+makepad-ai-services = { git = "https://github.com/OctoSense-org/makepad.git", rev = "4fdcfccc127b700f1fc01aa1a5488af938dd7f3d" }
+makepad-strict-json = { git = "https://github.com/OctoSense-org/makepad.git", rev = "4fdcfccc127b700f1fc01aa1a5488af938dd7f3d" }
+makepad-app-module = { git = "https://github.com/OctoSense-org/makepad.git", rev = "4fdcfccc127b700f1fc01aa1a5488af938dd7f3d" }
+makepad-wm-theme = { git = "https://github.com/OctoSense-org/makepad.git", rev = "4fdcfccc127b700f1fc01aa1a5488af938dd7f3d" }
+makepad-aichat = { git = "https://github.com/OctoSense-org/makepad.git", rev = "4fdcfccc127b700f1fc01aa1a5488af938dd7f3d", default-features = false }
+# --- OctoScript (Octoscript 68f6a9df) and its Makepad runtime
+# (Octoscript-Makepad 65d30a09, native-runtime.lock.json).
+octoscript-ui-l0 = { git = "https://github.com/OctoSense-org/Octoscript.git", rev = "68f6a9df55692b5d8ef8873a12721e279a3f40d6" }
+# The bounded VM, capability-leased host modules and executable JSON schemas
+# (the system toolbox's workflow templates, crates/toolbox).
+octoscript-core = { git = "https://github.com/OctoSense-org/Octoscript.git", rev = "68f6a9df55692b5d8ef8873a12721e279a3f40d6" }
+octoscript-capabilities = { git = "https://github.com/OctoSense-org/Octoscript.git", rev = "68f6a9df55692b5d8ef8873a12721e279a3f40d6" }
+octoscript-schema = { git = "https://github.com/OctoSense-org/Octoscript.git", rev = "68f6a9df55692b5d8ef8873a12721e279a3f40d6" }
+octoscript-makepad = { git = "https://github.com/OctoSense-org/Octoscript-Makepad.git", rev = "b33f494b963759088edf5785fc626cb8593818ee" }
+octoscript-node = { git = "https://github.com/OctoSense-org/Octoscript-Makepad.git", rev = "b33f494b963759088edf5785fc626cb8593818ee" }
+# --- App Hub's host service registry the Mail and llm services register
+# into; the same revision as App Hub's app crate (a native app, above).
+octosense-appstore = { git = "https://github.com/OctoSense-org/OctoSense-App-Hub", rev = "e8601b80ce104db2e48208094714bdcffdce6b5a" }
+# --- octos: ONE source for every octos crate (octos-org/octos main at the
+# merge of octos#2601, the `serve --host-managed` follow-ups). Move octos-core, octos-cli
+# and octos-research together; the Android kernel artifact (liboctos.so) is
+# built from this same revision.
+octos-core = { git = "https://github.com/octos-org/octos.git", rev = "5e7577f0cb92cf618b965745434b0200e2b82865" }
+octos-cli = { git = "https://github.com/octos-org/octos.git", rev = "5e7577f0cb92cf618b965745434b0200e2b82865", default-features = false }
+# The research engine (the metasearch, the SSRF-safe polite reader and the
+# toolbox scope) for the toolbox's `octos-engine` feature. Same source and
+# revision as above.
+octos-research = { git = "https://github.com/octos-org/octos.git", rev = "5e7577f0cb92cf618b965745434b0200e2b82865", default-features = false }
+# --- AppCard's inline renderers.
+streaming-markdown-kit = { git = "https://github.com/Project-Robius-China/streaming-markdown-kit.git", branch = "main" }
+makepad-diagram-kit = { git = "https://github.com/Project-Robius-China/makepad-diagram-kit.git", branch = "main" }
+robius-open = { git = "https://github.com/project-robius/robius" }
 
-[features]
-default = []
-# Also usable on desktop for testing the same embedded apps with --module.
-mobile-apps = ["app-reference", "app-sheets", "app-photos", "app-appcard"]
-app-reference = ["dep:octosense-reference"]
-# 礼遇 LiYu 演示应用 linked in as a module, the same way as reference.
-app-liyu = ["dep:octosense-liyu"]
-# Sheets linked in as a module (hosting is still Process unless switched).
-app-sheets = ["dep:makepad-sheets"]
-# Photos (the picture wall) linked in as a module, the same way.
-app-photos = ["dep:makepad-photos"]
-# The AppCard module (one L0 weather card in a tile) linked in.
-app-appcard = ["dep:octosense-appcard"]
-# The aichat module linked in (the pane seats it in-process where there are
-# no processes, or when `aichat` is switched to module hosting).
-app-aichat = ["dep:makepad-aichat"]
+# --- This repository's crates.
+octosense-kernel = { path = "crates/kernel" }
+octosense-app-peers = { path = "crates/app-peers" }
+octosense-ai-host = { path = "crates/ai-host" }
+octosense-shell = { path = "crates/shell" }
+octosense-toolbox = { path = "crates/toolbox" }
+octosense-llm-config = { path = "apps/ai-providers/config" }
+octosense-llm-service = { path = "apps/ai-providers/host-service" }
+octosense-mail-service = { path = "apps/mail/host-service" }
+octosense-news-service = { path = "apps/news/host-service" }
+octos-app = { path = "apps/appcard/app/app", default-features = false }
+octos-app-store = { path = "apps/appcard/app/crates/octos-app-store" }
+octos-app-transport = { path = "apps/appcard/app/crates/octos-app-transport" }
+octos-app-render = { path = "apps/appcard/app/crates/octos-app-render" }
 
-[workspace]
-members = [".", "apps/reference", "apps/appcard", "apps/liyu"]
-default-members = ["."]
-resolver = "2"
+# --- crates.io (AppCard's crates inherit these).
+tokio = { version = "1", features = ["rt", "macros", "net", "time", "sync"] }
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-native-roots"] }
+futures-util = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+url = "2"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream", "multipart"] }
+keyring = "3"
+# Matches octos and the Matrix SDK: one libsqlite3-sys when AppCard shares a
+# process with them (OctoSense hosting Rinx).
+rusqlite = { version = "0.40.1", features = ["bundled"] }
+log = "0.4"
+
+# Workspace-wide clippy policy for the crates that opt in (`[lints]
+# workspace = true`, AppCard's): lints that are real but tracked elsewhere.
+[workspace.lints.clippy]
+result_large_err = "allow"
+large_enum_variant = "allow"
+derivable_impls = "allow"
+unnecessary_get_then_check = "allow"
+collapsible_match = "allow"
 
 [profile.dev]
 opt-level = 1
+# Keep dev builds small: line tables are enough for backtraces, dependencies
+# get no debug info, and incremental caches are disabled (they grow unbounded).
+debug = "line-tables-only"
+incremental = false
 
-# `octos-app` (the AppCard module's engine) links two inline-renderer kits
-# that name makepad-widgets by the ZhangHanDong/makepad URL. Redirected to the
-# one makepad lineage this workspace pins, so the graph has a single
-# makepad-widgets (a second one would make every widget type mismatch).
+[profile.dev.package."*"]
+debug = false
+
+# The provisioning QR's Argon2id and the QR/image decoders take seconds
+# unoptimised; optimise just those so debug builds and tests run at speed.
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3
+[profile.dev.package.image]
+opt-level = 3
+[profile.dev.package.zune-jpeg]
+opt-level = 3
+[profile.dev.package.png]
+opt-level = 3
+[profile.dev.package.rqrr]
+opt-level = 3
 
 [profile.release]
 # cargo-makepad builds Android with `-C prefer-dynamic` (libstd as a bundled
 # .so): fat LTO refuses that ("cannot prefer dynamic linking when performing
 # LTO"), and `panic = "abort"` breaks the cdylib link against the prebuilt
-# aarch64-linux-android std, which ships the unwind runtime. Same profile as
-# Octoscript-AppCard's app/Cargo.toml documents.
+# aarch64-linux-android std, which ships the unwind runtime.
 lto = false
 panic = "unwind"
 
-# Resolve the exact framework sources prepared by tools/setup-native.py.
-
+# One Makepad and one OctoScript: every crate the graph pulls by these URLs
+# (the shells', AppCard's, App Hub's, Rinx's) resolves to the checkouts
+# tools/setup.py prepares in .sources/ (with the reviewed runtime patch).
 [patch."https://github.com/OctoSense-org/makepad.git"]
-makepad-widgets = { path = "../makepad/widgets" }
-makepad-code-editor = { path = "../makepad/code_editor" }
-makepad-ai = { path = "../makepad/libs/makepad_ai" }
-makepad-studio-protocol = { path = "../makepad/platform/studio" }
-makepad-network = { path = "../makepad/platform/network" }
-makepad-wm-api = { path = "../makepad/libs/wm_api" }
-makepad-ai-services = { path = "../makepad/libs/ai/services" }
-makepad-strict-json = { path = "../makepad/libs/strict_json" }
-makepad-app-module = { path = "../makepad/libs/app_module" }
-makepad-wm-theme = { path = "../makepad/libs/wm_theme" }
-makepad-sheets = { path = "../makepad/apps/sheets" }
-makepad-photos = { path = "../makepad/apps/photos" }
-makepad-aichat = { path = "../makepad/apps/aichat" }
+makepad-script = { path = ".sources/makepad/platform/script" }
+makepad-widgets = { path = ".sources/makepad/widgets" }
+makepad-code-editor = { path = ".sources/makepad/code_editor" }
+makepad-ai = { path = ".sources/makepad/libs/makepad_ai" }
+makepad-studio-protocol = { path = ".sources/makepad/platform/studio" }
+makepad-network = { path = ".sources/makepad/platform/network" }
+makepad-wm-api = { path = ".sources/makepad/libs/wm_api" }
+makepad-ai-services = { path = ".sources/makepad/libs/ai/services" }
+makepad-strict-json = { path = ".sources/makepad/libs/strict_json" }
+makepad-app-module = { path = ".sources/makepad/libs/app_module" }
+makepad-wm-theme = { path = ".sources/makepad/libs/wm_theme" }
+makepad-aichat = { path = ".sources/makepad/apps/aichat" }
+# Rinx's article editor: the Markdown and math components.
+makepad-markdown = { path = ".sources/makepad/libs/markdown" }
+makepad-markdown-widgets = { path = ".sources/makepad/libs/markdown_widgets" }
+# The native apps from Makepad (native-apps.json `source.local`).
+# BEGIN native-apps: patch https://github.com/OctoSense-org/makepad.git (generated by tools/native_apps.py from native-apps.json; do not edit)
+makepad-sheets = { path = ".sources/makepad/apps/sheets" }
+makepad-terminal = { path = ".sources/makepad/apps/terminal" }
+# END native-apps: patch https://github.com/OctoSense-org/makepad.git
+
+# AppCard's inline-renderer kits name makepad-widgets by the ZhangHanDong URL.
+[patch."https://github.com/ZhangHanDong/makepad.git"]
+makepad-widgets = { path = ".sources/makepad/widgets" }
+
+# Rinx names makepad by the kevinaboos URL; it resolves to the one makepad here.
+[patch."https://github.com/kevinaboos/makepad"]
+makepad-widgets = { path = ".sources/makepad/widgets" }
+makepad-code-editor = { path = ".sources/makepad/code_editor" }
 
 [patch."https://github.com/OctoSense-org/Octoscript.git"]
-octoscript-ui-l0 = { path = "../octoscript/crates/octoscript-ui-l0" }
+octoscript-ui-l0 = { path = ".sources/octoscript/crates/octoscript-ui-l0" }
+# octos-research (metasearch) runs its engines on the bounded OctoScript
+# core; it resolves to the same checkout, so the graph keeps one OctoScript.
+octoscript-core = { path = ".sources/octoscript/crates/octoscript-core" }
+octoscript-capabilities = { path = ".sources/octoscript/crates/octoscript-capabilities" }
+octoscript-schema = { path = ".sources/octoscript/crates/octoscript-schema" }
 
 [patch."https://github.com/OctoSense-org/Octoscript-Makepad.git"]
-octoscript-node = { path = "../octoscript-makepad/crates/octoscript-node" }
+octoscript-makepad = { path = ".sources/octoscript-makepad/crates/octoscript-makepad" }
+octoscript-widgets = { path = ".sources/octoscript-makepad/crates/octoscript-widgets" }
+octoscript-node = { path = ".sources/octoscript-makepad/crates/octoscript-node" }
 
-[patch."https://github.com/ZhangHanDong/makepad.git"]
-makepad-widgets = { path = "../makepad/widgets" }
+# Rinx takes the app-peers contract from this repository by git. Redirect
+# it to the same local workspace crates, so the host and module share one
+# broker contract and one kernel.
+[patch."https://github.com/OctoSense-org/OctoSense.git"]
+octosense-app-peers = { path = "crates/app-peers" }
+octosense-kernel = { path = "crates/kernel" }
+octosense-llm-config = { path = "apps/ai-providers/config" }
+
+# Rinx's Matrix stack: the patched ruma its own workspace uses (Rinx's
+# [patch] sections do not reach a consumer workspace).
+[patch."https://github.com/ruma/ruma"]
+ruma = { git = "https://github.com/project-robius/ruma.git", branch = "tsp" }
+
+# OpenHarmony's ioctl ABI differs from Linux: crates.io nix 0.29 plus
+# `target_env = "ohos"`, from the vendor/ tree of octos' former branch rev
+# 18fcd3f1 (octos main no longer vendors it). Not an octos crate: `cargo tree
+# -i octos-core` still sees one octos source.
+[patch.crates-io]
+nix = { git = "https://github.com/octos-org/octos.git", rev = "18fcd3f16e527d2b601d7ae244f056fb711bb6b8" }

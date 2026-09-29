@@ -1,0 +1,92 @@
+name: Phone
+
+# Home (phone/, package `octosense-home`): the old ROM `home` job. It runs
+# when the phone, the shared crates (crates/shell included) or the apps
+# change, not for desktop-only or docs changes (ADR 0001 §4). It runs the
+# shell's tests (octosense-shell) for both packages.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'phone/**'
+      - 'crates/**'
+      - 'apps/**'
+      - 'Cargo.toml'
+      - 'native-apps.json'
+      - 'Cargo.lock'
+      - '.cargo/**'
+      - 'native-runtime.lock.json'
+      - 'runtime-patches.lock.json'
+      - 'tools/**'
+      - '.github/workflows/phone.yml'
+  pull_request:
+    paths:
+      - 'phone/**'
+      - 'crates/**'
+      - 'apps/**'
+      - 'Cargo.toml'
+      - 'native-apps.json'
+      - 'Cargo.lock'
+      - '.cargo/**'
+      - 'native-runtime.lock.json'
+      - 'runtime-patches.lock.json'
+      - 'tools/**'
+      - '.github/workflows/phone.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phone-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  home:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Prepare pinned sources and the reviewed runtime patch
+        run: python3 tools/setup.py
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: phone
+      - name: Compile Home and its bundled modules
+        working-directory: phone
+        run: |
+          # The octos kernel is a shell service (feature `octos-core`): the
+          # default and mobile-apps builds link it, on desktop and Android.
+          cargo check --locked -p octosense-home
+          cargo check --locked -p octosense-home --features mobile-apps
+          cargo check --locked -p octosense-home -p octosense-reference -p octosense-appcard --features mobile-apps,app-appcard
+          # The graph guards every shell passes (tools/check-shell-graph.sh):
+          # the AI services (octosense-ai-host, the octos kernel, app-peers)
+          # in the default and mobile-apps graphs, host and Android; AppCard's
+          # UI opt-in only; hosted Rinx the library module only (Rinx ADR
+          # 0007); one makepad, one App Hub, one octos.
+          bash ../tools/check-shell-graph.sh -p octosense-home
+      - name: Verify the single runtime graph
+        run: python3 tools/setup.py --check --cargo
+      - name: The native apps' generated places match native-apps.json
+        run: python3 tools/native_apps.py --check
+      - name: Build Home, App Hub admission and runtime policy tests
+        working-directory: phone
+        timeout-minutes: 60
+        run: cargo test --locked --features mobile-apps -p octosense-shell -p octosense-home -p octosense-app-policy -p octosense-app-hub -p octosense-appcard -p octosense-ai-host --no-run
+      - name: Test Home, App Hub admission and runtime policy
+        working-directory: phone
+        timeout-minutes: 30
+        run: |
+          # octosense-app-hub-app is App Hub's shared shell crate, a git
+          # dependency with dev-dependencies: cargo cannot test it from here;
+          # OctoSense-App-Hub's CI tests it.
+          cargo test --locked --features mobile-apps -p octosense-shell -p octosense-home -p octosense-app-policy -p octosense-app-hub -p octosense-appcard -p octosense-ai-host
+          # The opt-in AppCard build: its module registers into the shell.
+          cargo test --locked --features mobile-apps,app-appcard -p octosense-shell appcard
+          cargo test --locked -p makepad-widgets splash_policy
+          cargo test --locked -p makepad-script-std gate::tests

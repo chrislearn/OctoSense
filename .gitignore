@@ -1,4 +1,4 @@
-/target/
+target/
 /.worktrees/
 /.octosense/
 # Retain the legacy state exclusion during the project rename.
@@ -10,7 +10,10 @@ __pycache__/
 *.gguf
 *.gguf.part
 
-# OLP 黑板:分支无关的工作文件,不入库(防跨分支裂脑)
+# Framework checkouts prepared by tools/setup.py.
+/.sources/
+
+# Local OctoLoop coordination state.
 .octos/OUTER_LOOP_REVIEW.md
 .octos/EVOLUTION.md
 .octos/OUTER_LOOP_REVIEW.md.lock

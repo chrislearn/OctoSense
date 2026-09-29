@@ -1,0 +1,86 @@
+name: Desktop
+
+# The desktop packaging (desktop/, package `octosense`) against the one
+# workspace: default, mobile-apps and the opt-in AppCard build, the graph
+# guards, and the desktop's tool and script tests.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'crates/**'
+      - 'apps/**'
+      - 'Cargo.toml'
+      - 'native-apps.json'
+      - 'Cargo.lock'
+      - '.cargo/**'
+      - 'native-runtime.lock.json'
+      - 'runtime-patches.lock.json'
+      - 'tools/**'
+      - '.github/workflows/desktop.yml'
+  pull_request:
+    paths:
+      - 'desktop/**'
+      - 'crates/**'
+      - 'apps/**'
+      - 'Cargo.toml'
+      - 'native-apps.json'
+      - 'Cargo.lock'
+      - '.cargo/**'
+      - 'native-runtime.lock.json'
+      - 'runtime-patches.lock.json'
+      - 'tools/**'
+      - '.github/workflows/desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  desktop:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Prepare the pinned framework sources
+        run: python3 tools/setup.py
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: desktop
+      - name: Compile the desktop with the shared runtime
+        working-directory: desktop
+        run: |
+          # The octos kernel is a shell service (feature `octos-core`): the
+          # default and mobile-apps builds link it, on desktop and Android.
+          cargo check --locked -p octosense
+          cargo check --locked -p octosense --features mobile-apps
+          cargo check --locked -p octosense -p octosense-reference -p octosense-appcard --features mobile-apps,app-appcard
+          # The graph guards every shell passes (tools/check-shell-graph.sh):
+          # the AI services (octosense-ai-host, the octos kernel, app-peers)
+          # in the default and mobile-apps graphs, host and Android; AppCard's
+          # UI opt-in only; hosted Rinx the library module only (Rinx ADR
+          # 0007); one makepad, one App Hub, one octos.
+          bash ../tools/check-shell-graph.sh -p octosense
+      - name: One copy of every shell source
+        run: |
+          # The shell is crates/shell; the packages keep only their entry
+          # point and product code (phone: Settings). No .rs path may exist
+          # in two of them.
+          dup=$(find crates/shell/src desktop/src phone/src -name '*.rs' ! -name main.rs ! -name lib.rs -type f \
+            | sed -E 's#^(crates/shell|desktop|phone)/src/##' | sort | uniq -d)
+          [ -z "$dup" ] || { echo "::error::source files in two crates: $dup"; exit 1; }
+      - name: Desktop tools and scripts
+        run: |
+          python3 -m unittest discover -s tools -p 'test_*.py'
+      - name: One Makepad, App Hub, octos and Rinx in the locked graph
+        run: python3 tools/setup.py --check --cargo
+      - name: The native apps' generated places match native-apps.json
+        run: python3 tools/native_apps.py --check
