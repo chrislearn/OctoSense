@@ -388,14 +388,22 @@ mod tests {
         let src = include_str!("theme.rs");
         let head = format!("mod.liyu_themes.{} = {{", table);
         let start = src.find(&head).expect("色板没找到") + head.len();
-        let end = start + src[start..].find("
-    }").expect("色板没收尾");
+        let end = start
+            + src[start..]
+                .find(
+                    "
+    }",
+                )
+                .expect("色板没收尾");
         let mut out: Vec<String> = src[start..end]
             .lines()
             .filter_map(|line| {
                 let line = line.split("//").next().unwrap_or("").trim();
                 let (name, value) = line.split_once(':')?;
-                value.trim().starts_with("#x").then(|| name.trim().to_string())
+                value
+                    .trim()
+                    .starts_with("#x")
+                    .then(|| name.trim().to_string())
             })
             .collect();
         out.sort();
@@ -458,7 +466,9 @@ mod tests {
                     mode
                 );
                 assert!(
-                    script_eval!(vm, { mod.widgets.LiyuInput }).as_object().is_some(),
+                    script_eval!(vm, { mod.widgets.LiyuInput })
+                        .as_object()
+                        .is_some(),
                     "{:?} 下 LiyuInput 没注册",
                     mode
                 );

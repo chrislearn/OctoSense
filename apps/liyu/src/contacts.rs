@@ -41,20 +41,26 @@ pub fn generated_avatar(c: &ContactLocal) -> Option<Vec<u8>> {
     for row in 0..5u32 {
         for col in 0..3u32 {
             let bit = ((hash.rotate_left((row * 3 + col) * 7) >> 17) & 1) == 1;
-            if !bit { continue; }
+            if !bit {
+                continue;
+            }
             for mirrored in [col, 4 - col] {
                 for y in (row + 1) * 10..(row + 2) * 10 {
                     for x in (mirrored + 1) * 10..(mirrored + 2) * 10 {
                         let dx = x as i32 - 40;
                         let dy = y as i32 - 40;
-                        if dx * dx + dy * dy < 40 * 40 { image.put_pixel(x, y, fg); }
+                        if dx * dx + dy * dy < 40 * 40 {
+                            image.put_pixel(x, y, fg);
+                        }
                     }
                 }
             }
         }
     }
     let mut bytes = Cursor::new(Vec::new());
-    DynamicImage::ImageRgba8(image).write_to(&mut bytes, image::ImageFormat::Png).ok()?;
+    DynamicImage::ImageRgba8(image)
+        .write_to(&mut bytes, image::ImageFormat::Png)
+        .ok()?;
     Some(bytes.into_inner())
 }
 
@@ -401,7 +407,10 @@ mod tests {
         assert_eq!(old.avatar_override, None);
         let mut contact = entry("老陈", "13800138000", "").unwrap();
         contact.avatar_override = Some("contact-4.png".into());
-        assert_eq!(ContactLocal::deserialize_json(&contact.serialize_json()).unwrap(), contact);
+        assert_eq!(
+            ContactLocal::deserialize_json(&contact.serialize_json()).unwrap(),
+            contact
+        );
     }
 
     #[test]
@@ -415,6 +424,9 @@ mod tests {
         let photo = circular_photo(&generated_avatar(&a).unwrap()).unwrap();
         let image = image::load_from_memory(&photo).unwrap().to_rgba8();
         assert_eq!(image.get_pixel(0, 0)[3], 0);
-        assert_eq!(image.get_pixel(image.width()/2, image.height()/2)[3], 255);
+        assert_eq!(
+            image.get_pixel(image.width() / 2, image.height() / 2)[3],
+            255
+        );
     }
 }

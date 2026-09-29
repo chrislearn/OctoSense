@@ -134,48 +134,256 @@ pub fn is_weekend(days: i64) -> bool {
 /// 一张一百多字的姓氏表就能覆盖绝大多数称呼，而完整拼音表要几万条、还得
 /// 处理多音字。认不出来的一律进「#」那一组，不猜。
 const SURNAME_INITIALS: &[(&str, char)] = &[
-    ("欧阳", 'O'), ("司马", 'S'), ("诸葛", 'Z'), ("上官", 'S'), ("慕容", 'M'), ("东方", 'D'),
-    ("皇甫", 'H'), ("尉迟", 'Y'), ("公孙", 'G'), ("令狐", 'L'), ("艾", 'A'), ("安", 'A'),
-    ("白", 'B'), ("包", 'B'), ("鲍", 'B'), ("贝", 'B'), ("毕", 'B'), ("卞", 'B'),
-    ("卜", 'B'), ("柏", 'B'), ("蔡", 'C'), ("曹", 'C'), ("岑", 'C'), ("常", 'C'),
-    ("车", 'C'), ("陈", 'C'), ("成", 'C'), ("程", 'C'), ("池", 'C'), ("褚", 'C'),
-    ("崔", 'C'), ("昌", 'C'), ("戴", 'D'), ("邓", 'D'), ("狄", 'D'), ("丁", 'D'),
-    ("董", 'D'), ("窦", 'D'), ("杜", 'D'), ("段", 'D'), ("樊", 'F'), ("范", 'F'),
-    ("方", 'F'), ("房", 'F'), ("费", 'F'), ("冯", 'F'), ("凤", 'F'), ("傅", 'F'),
-    ("符", 'F'), ("酆", 'F'), ("甘", 'G'), ("高", 'G'), ("戈", 'G'), ("葛", 'G'),
-    ("龚", 'G'), ("古", 'G'), ("谷", 'G'), ("顾", 'G'), ("关", 'G'), ("管", 'G'),
-    ("桂", 'G'), ("郭", 'G'), ("韩", 'H'), ("郝", 'H'), ("何", 'H'), ("和", 'H'),
-    ("贺", 'H'), ("洪", 'H'), ("侯", 'H'), ("胡", 'H'), ("花", 'H'), ("华", 'H'),
-    ("黄", 'H'), ("霍", 'H'), ("嵇", 'J'), ("汲", 'J'), ("计", 'J'), ("纪", 'J'),
-    ("季", 'J'), ("贾", 'J'), ("江", 'J'), ("姜", 'J'), ("蒋", 'J'), ("焦", 'J'),
-    ("金", 'J'), ("靳", 'J'), ("康", 'K'), ("柯", 'K'), ("孔", 'K'), ("寇", 'K'),
-    ("邝", 'K'), ("赖", 'L'), ("蓝", 'L'), ("郎", 'L'), ("乐", 'L'), ("雷", 'L'),
-    ("黎", 'L'), ("李", 'L'), ("连", 'L'), ("廉", 'L'), ("梁", 'L'), ("廖", 'L'),
-    ("林", 'L'), ("凌", 'L'), ("刘", 'L'), ("柳", 'L'), ("龙", 'L'), ("卢", 'L'),
-    ("鲁", 'L'), ("陆", 'L'), ("路", 'L'), ("吕", 'L'), ("罗", 'L'), ("骆", 'L'),
-    ("马", 'M'), ("毛", 'M'), ("梅", 'M'), ("孟", 'M'), ("米", 'M'), ("苗", 'M'),
-    ("闵", 'M'), ("明", 'M'), ("莫", 'M'), ("牟", 'M'), ("穆", 'M'), ("倪", 'N'),
-    ("聂", 'N'), ("宁", 'N'), ("牛", 'N'), ("钮", 'N'), ("欧", 'O'), ("潘", 'P'),
-    ("庞", 'P'), ("裴", 'P'), ("彭", 'P'), ("皮", 'P'), ("平", 'P'), ("戚", 'Q'),
-    ("齐", 'Q'), ("祁", 'Q'), ("钱", 'Q'), ("乔", 'Q'), ("秦", 'Q'), ("邱", 'Q'),
-    ("裘", 'Q'), ("曲", 'Q'), ("屈", 'Q'), ("覃", 'Q'), ("冉", 'R'), ("饶", 'R'),
-    ("任", 'R'), ("阮", 'R'), ("邵", 'S'), ("佘", 'S'), ("申", 'S'), ("沈", 'S'),
-    ("盛", 'S'), ("施", 'S'), ("石", 'S'), ("时", 'S'), ("史", 'S'), ("舒", 'S'),
-    ("水", 'S'), ("司", 'S'), ("宋", 'S'), ("苏", 'S'), ("孙", 'S'), ("谭", 'T'),
-    ("汤", 'T'), ("唐", 'T'), ("陶", 'T'), ("滕", 'T'), ("田", 'T'), ("童", 'T'),
-    ("涂", 'T'), ("万", 'W'), ("汪", 'W'), ("王", 'W'), ("危", 'W'), ("韦", 'W'),
-    ("卫", 'W'), ("魏", 'W'), ("温", 'W'), ("文", 'W'), ("翁", 'W'), ("邬", 'W'),
-    ("巫", 'W'), ("吴", 'W'), ("伍", 'W'), ("武", 'W'), ("奚", 'X'), ("习", 'X'),
-    ("郗", 'X'), ("夏", 'X'), ("向", 'X'), ("项", 'X'), ("萧", 'X'), ("肖", 'X'),
-    ("谢", 'X'), ("辛", 'X'), ("邢", 'X'), ("熊", 'X'), ("徐", 'X'), ("许", 'X'),
-    ("宣", 'X'), ("薛", 'X'), ("闫", 'Y'), ("阎", 'Y'), ("严", 'Y'), ("颜", 'Y'),
-    ("晏", 'Y'), ("杨", 'Y'), ("姚", 'Y'), ("叶", 'Y'), ("伊", 'Y'), ("易", 'Y'),
-    ("殷", 'Y'), ("尹", 'Y'), ("应", 'Y'), ("尤", 'Y'), ("游", 'Y'), ("于", 'Y'),
-    ("余", 'Y'), ("俞", 'Y'), ("虞", 'Y'), ("喻", 'Y'), ("元", 'Y'), ("袁", 'Y'),
-    ("岳", 'Y'), ("云", 'Y'), ("禹", 'Y'), ("臧", 'Z'), ("曾", 'Z'), ("翟", 'Z'),
-    ("詹", 'Z'), ("张", 'Z'), ("章", 'Z'), ("赵", 'Z'), ("郑", 'Z'), ("钟", 'Z'),
-    ("周", 'Z'), ("朱", 'Z'), ("诸", 'Z'), ("祝", 'Z'), ("庄", 'Z'), ("卓", 'Z'),
-    ("宗", 'Z'), ("邹", 'Z'), ("祖", 'Z'), ("左", 'Z'),
+    ("欧阳", 'O'),
+    ("司马", 'S'),
+    ("诸葛", 'Z'),
+    ("上官", 'S'),
+    ("慕容", 'M'),
+    ("东方", 'D'),
+    ("皇甫", 'H'),
+    ("尉迟", 'Y'),
+    ("公孙", 'G'),
+    ("令狐", 'L'),
+    ("艾", 'A'),
+    ("安", 'A'),
+    ("白", 'B'),
+    ("包", 'B'),
+    ("鲍", 'B'),
+    ("贝", 'B'),
+    ("毕", 'B'),
+    ("卞", 'B'),
+    ("卜", 'B'),
+    ("柏", 'B'),
+    ("蔡", 'C'),
+    ("曹", 'C'),
+    ("岑", 'C'),
+    ("常", 'C'),
+    ("车", 'C'),
+    ("陈", 'C'),
+    ("成", 'C'),
+    ("程", 'C'),
+    ("池", 'C'),
+    ("褚", 'C'),
+    ("崔", 'C'),
+    ("昌", 'C'),
+    ("戴", 'D'),
+    ("邓", 'D'),
+    ("狄", 'D'),
+    ("丁", 'D'),
+    ("董", 'D'),
+    ("窦", 'D'),
+    ("杜", 'D'),
+    ("段", 'D'),
+    ("樊", 'F'),
+    ("范", 'F'),
+    ("方", 'F'),
+    ("房", 'F'),
+    ("费", 'F'),
+    ("冯", 'F'),
+    ("凤", 'F'),
+    ("傅", 'F'),
+    ("符", 'F'),
+    ("酆", 'F'),
+    ("甘", 'G'),
+    ("高", 'G'),
+    ("戈", 'G'),
+    ("葛", 'G'),
+    ("龚", 'G'),
+    ("古", 'G'),
+    ("谷", 'G'),
+    ("顾", 'G'),
+    ("关", 'G'),
+    ("管", 'G'),
+    ("桂", 'G'),
+    ("郭", 'G'),
+    ("韩", 'H'),
+    ("郝", 'H'),
+    ("何", 'H'),
+    ("和", 'H'),
+    ("贺", 'H'),
+    ("洪", 'H'),
+    ("侯", 'H'),
+    ("胡", 'H'),
+    ("花", 'H'),
+    ("华", 'H'),
+    ("黄", 'H'),
+    ("霍", 'H'),
+    ("嵇", 'J'),
+    ("汲", 'J'),
+    ("计", 'J'),
+    ("纪", 'J'),
+    ("季", 'J'),
+    ("贾", 'J'),
+    ("江", 'J'),
+    ("姜", 'J'),
+    ("蒋", 'J'),
+    ("焦", 'J'),
+    ("金", 'J'),
+    ("靳", 'J'),
+    ("康", 'K'),
+    ("柯", 'K'),
+    ("孔", 'K'),
+    ("寇", 'K'),
+    ("邝", 'K'),
+    ("赖", 'L'),
+    ("蓝", 'L'),
+    ("郎", 'L'),
+    ("乐", 'L'),
+    ("雷", 'L'),
+    ("黎", 'L'),
+    ("李", 'L'),
+    ("连", 'L'),
+    ("廉", 'L'),
+    ("梁", 'L'),
+    ("廖", 'L'),
+    ("林", 'L'),
+    ("凌", 'L'),
+    ("刘", 'L'),
+    ("柳", 'L'),
+    ("龙", 'L'),
+    ("卢", 'L'),
+    ("鲁", 'L'),
+    ("陆", 'L'),
+    ("路", 'L'),
+    ("吕", 'L'),
+    ("罗", 'L'),
+    ("骆", 'L'),
+    ("马", 'M'),
+    ("毛", 'M'),
+    ("梅", 'M'),
+    ("孟", 'M'),
+    ("米", 'M'),
+    ("苗", 'M'),
+    ("闵", 'M'),
+    ("明", 'M'),
+    ("莫", 'M'),
+    ("牟", 'M'),
+    ("穆", 'M'),
+    ("倪", 'N'),
+    ("聂", 'N'),
+    ("宁", 'N'),
+    ("牛", 'N'),
+    ("钮", 'N'),
+    ("欧", 'O'),
+    ("潘", 'P'),
+    ("庞", 'P'),
+    ("裴", 'P'),
+    ("彭", 'P'),
+    ("皮", 'P'),
+    ("平", 'P'),
+    ("戚", 'Q'),
+    ("齐", 'Q'),
+    ("祁", 'Q'),
+    ("钱", 'Q'),
+    ("乔", 'Q'),
+    ("秦", 'Q'),
+    ("邱", 'Q'),
+    ("裘", 'Q'),
+    ("曲", 'Q'),
+    ("屈", 'Q'),
+    ("覃", 'Q'),
+    ("冉", 'R'),
+    ("饶", 'R'),
+    ("任", 'R'),
+    ("阮", 'R'),
+    ("邵", 'S'),
+    ("佘", 'S'),
+    ("申", 'S'),
+    ("沈", 'S'),
+    ("盛", 'S'),
+    ("施", 'S'),
+    ("石", 'S'),
+    ("时", 'S'),
+    ("史", 'S'),
+    ("舒", 'S'),
+    ("水", 'S'),
+    ("司", 'S'),
+    ("宋", 'S'),
+    ("苏", 'S'),
+    ("孙", 'S'),
+    ("谭", 'T'),
+    ("汤", 'T'),
+    ("唐", 'T'),
+    ("陶", 'T'),
+    ("滕", 'T'),
+    ("田", 'T'),
+    ("童", 'T'),
+    ("涂", 'T'),
+    ("万", 'W'),
+    ("汪", 'W'),
+    ("王", 'W'),
+    ("危", 'W'),
+    ("韦", 'W'),
+    ("卫", 'W'),
+    ("魏", 'W'),
+    ("温", 'W'),
+    ("文", 'W'),
+    ("翁", 'W'),
+    ("邬", 'W'),
+    ("巫", 'W'),
+    ("吴", 'W'),
+    ("伍", 'W'),
+    ("武", 'W'),
+    ("奚", 'X'),
+    ("习", 'X'),
+    ("郗", 'X'),
+    ("夏", 'X'),
+    ("向", 'X'),
+    ("项", 'X'),
+    ("萧", 'X'),
+    ("肖", 'X'),
+    ("谢", 'X'),
+    ("辛", 'X'),
+    ("邢", 'X'),
+    ("熊", 'X'),
+    ("徐", 'X'),
+    ("许", 'X'),
+    ("宣", 'X'),
+    ("薛", 'X'),
+    ("闫", 'Y'),
+    ("阎", 'Y'),
+    ("严", 'Y'),
+    ("颜", 'Y'),
+    ("晏", 'Y'),
+    ("杨", 'Y'),
+    ("姚", 'Y'),
+    ("叶", 'Y'),
+    ("伊", 'Y'),
+    ("易", 'Y'),
+    ("殷", 'Y'),
+    ("尹", 'Y'),
+    ("应", 'Y'),
+    ("尤", 'Y'),
+    ("游", 'Y'),
+    ("于", 'Y'),
+    ("余", 'Y'),
+    ("俞", 'Y'),
+    ("虞", 'Y'),
+    ("喻", 'Y'),
+    ("元", 'Y'),
+    ("袁", 'Y'),
+    ("岳", 'Y'),
+    ("云", 'Y'),
+    ("禹", 'Y'),
+    ("臧", 'Z'),
+    ("曾", 'Z'),
+    ("翟", 'Z'),
+    ("詹", 'Z'),
+    ("张", 'Z'),
+    ("章", 'Z'),
+    ("赵", 'Z'),
+    ("郑", 'Z'),
+    ("钟", 'Z'),
+    ("周", 'Z'),
+    ("朱", 'Z'),
+    ("诸", 'Z'),
+    ("祝", 'Z'),
+    ("庄", 'Z'),
+    ("卓", 'Z'),
+    ("宗", 'Z'),
+    ("邹", 'Z'),
+    ("祖", 'Z'),
+    ("左", 'Z'),
 ];
 
 /// 称呼前面这些字不是姓，是叫法。做索引时先剥掉。
@@ -257,13 +465,6 @@ pub const PACT_NOTICE_LEAD_DAYS: i64 = 1;
 pub const CANDIDATE_COUNT: usize = 6;
 /// 契约禁用词：契约只写轻约定，不涉及钱。
 pub const BANNED_WORDS: [&str; 7] = ["转账", "借钱", "红包", "还钱", "现金", "打钱", "贷款"];
-/// 预设契约：（芯片上的短名, 契约全文）。
-pub const PACT_PRESETS: [(&str, &str); 4] = [
-    ("回请咖啡", "下周找时间回请我喝一杯咖啡"),
-    ("晒一晒", "收下要发一条朋友圈晒一晒"),
-    ("陪看电影", "周末陪我看一场电影"),
-    ("见面拥抱", "下次见面先给我一个拥抱"),
-];
 /// 身份保密时对送礼人的称呼。
 pub const MYSTERY_FRIEND: &str = "一位神秘的朋友";
 /// 未揭晓的礼物在列表里的名字。
@@ -345,78 +546,385 @@ const fn ci(
     tags: &'static [&'static str],
     desc: &'static str,
 ) -> CatalogItem {
-    CatalogItem { name, brand, kind, cat, physical, spec, price: yuan * 100, tags, desc }
+    CatalogItem {
+        name,
+        brand,
+        kind,
+        cat,
+        physical,
+        spec,
+        price: yuan * 100,
+        tags,
+        desc,
+    }
 }
 
 use Category::{Baby, Blind, Coffee, Digital, Home, Movie, Sweet, Trendy};
 
 pub const CATALOG: [CatalogItem; 33] = [
-    ci("三顿半精品咖啡礼盒", "三顿半", "咖啡", Coffee, true, "24 颗装 · 包邮", 109,
-        &["冷萃", "速溶", "礼盒"], "超即溶的精品咖啡，冷水牛奶都能三秒化开。24 颗 6 种风味，一个月的早晨都有着落。"),
-    ci("星巴克中杯拿铁电子券", "星巴克", "咖啡", Coffee, false, "全国门店通用 · 30 天有效", 35,
-        &["电子券", "门店"], "一杯中杯拿铁，想喝的时候去门店出示券码就行。"),
-    ci("喜茶多肉葡萄兑换券", "喜茶", "奶茶", Coffee, false, "全国门店通用 · 30 天有效", 29,
-        &["电子券", "水果茶"], "招牌多肉葡萄，一整杯的果肉。门店或小程序都能兑。"),
-    ci("电影通兑票", "猫眼", "电影票", Movie, false, "2D 场次通兑 · 60 天有效", 49,
-        &["电子券", "2D"], "全国大部分影院 2D 场次通兑，挑一部想看的片子就好。"),
-    ci("电影双人套票", "猫眼", "电影票", Movie, false, "两张通兑票 + 爆米花套餐", 98,
-        &["电子券", "双人", "爆米花"], "两张票加一份爆米花套餐 —— 送了这个，下次见面就有了理由。"),
-    ci("帆布托特包", "野帆", "包", Trendy, true, "米白 · 加厚帆布 · 包邮", 79,
-        &["米白", "大容量", "帆布"], "16 安加厚帆布，装得下电脑和一天的零碎。越用越软。"),
-    ci("香薰蜡烛", "栖木", "香薰", Trendy, true, "无花果香 · 200g · 包邮", 88,
-        &["无花果", "助眠", "200g"], "无花果叶和一点木质调，点燃 40 小时。睡前点一会儿，房间是暖的。"),
-    ci("拍立得相纸", "即影", "相纸", Trendy, true, "mini 白边 · 40 张 · 包邮", 59,
-        &["mini", "40张"], "mini 规格白边相纸 40 张，适配常见的拍立得相机。"),
-    ci("潮玩盲盒", "泡泡岛", "盲盒", Blind, true, "随机一款 · 有隐藏款 · 包邮", 69,
-        &["潮玩", "隐藏款", "摆件"], "12 款常规加 1 款隐藏，拆之前谁也不知道是哪一只。"),
-    ci("文具盲盒", "纸上", "盲盒", Blind, true, "6 件随机 · 包邮", 39,
-        &["文具", "手帐"], "胶带、便签、印章、钢笔…… 随机 6 件，做手帐的人会喜欢。"),
-    ci("小蛋糕兑换券", "好利来", "蛋糕", Sweet, false, "6 寸 · 指定门店自提", 128,
-        &["电子券", "6寸", "生日"], "6 寸鲜奶蛋糕，提前一天在小程序预约，门店自提。"),
-    ci("向日葵花束", "花点时间", "鲜花", Sweet, true, "3 枝装 · 同城配送", 99,
-        &["向日葵", "同城"], "三枝向日葵配尤加利叶，同城当天配送。"),
-    ci("澄光 Q5 55 英寸 4K 电视", "澄光", "电视", Digital, true, "55 英寸 · 4K · 包邮包安装", 2699,
-        &["55寸", "4K", "护眼", "客厅"], "55 英寸 4K 屏，低蓝光护眼模式。开机无广告，老人小孩都会用。"),
-    ci("澄光 Q7 65 英寸 4K 电视", "澄光", "电视", Digital, true, "65 英寸 · 4K 120Hz · 包邮包安装", 3999,
-        &["65寸", "4K", "120Hz", "游戏", "客厅"], "65 英寸 4K 120Hz 高刷，接游戏机不拖影。客厅一面墙刚刚好。"),
-    ci("声屿 Mini 43 英寸电视", "声屿", "电视", Digital, true, "43 英寸 · 全高清 · 包邮", 1299,
-        &["43寸", "全高清", "卧室"], "43 英寸全高清，放卧室或出租屋正合适。自带音箱不闷。"),
-    ci("澄光 Q9 75 英寸 Mini LED 电视", "澄光", "电视", Digital, true, "75 英寸 · Mini LED · 包邮包安装", 6999,
-        &["75寸", "4K", "MiniLED", "120Hz", "客厅"], "75 英寸 Mini LED，暗场景也看得清。给新家客厅的一份大礼。"),
-    ci("声屿 Pebble 蓝牙音箱", "声屿", "音箱", Digital, true, "蓝牙 5.3 · IP67 防水 · 包邮", 399,
-        &["蓝牙", "便携", "防水"], "鹅卵石大小，扔进包里就走。防水，浴室和野餐都能放。"),
-    ci("声屿 Air 降噪耳机", "声屿", "耳机", Digital, true, "头戴式 · 主动降噪 · 包邮", 899,
-        &["降噪", "蓝牙", "头戴", "长续航"], "主动降噪，地铁上也能听清轻音乐。一次充电用 40 小时。"),
-    ci("光语 便携投影仪", "光语", "投影仪", Digital, true, "1080P · 自动对焦 · 包邮", 1999,
-        &["1080P", "便携", "卧室"], "往白墙一照就是 100 寸。自动对焦，躺在床上看电影。"),
-    ci("暖物 可视空气炸锅 5L", "暖物", "空气炸锅", Home, true, "5L · 可视窗 · 包邮", 329,
-        &["5L", "可视", "大容量"], "透明可视窗，炸到几分熟一眼就知道。5L 够三四个人吃。"),
-    ci("暖物 保温电热水壶", "暖物", "水壶", Home, true, "1.7L · 恒温 · 包邮", 159,
-        &["1.7L", "恒温", "泡茶"], "五档恒温，泡茶冲奶都合适。304 不锈钢内胆。"),
-    ci("栖木 全棉四件套", "栖木", "床品", Home, true, "1.8m 床 · 60 支全棉 · 包邮", 459,
-        &["1.8m", "全棉", "奶油色"], "60 支长绒棉，奶油色，越洗越软。搬新家换一套新床品。"),
-    ci("栖木 陶瓷餐具礼盒", "栖木", "餐具", Home, true, "8 件套 · 可进洗碗机 · 包邮", 269,
-        &["陶瓷", "8件", "洗碗机"], "两人份的碗盘杯 8 件，哑光釉面，可进洗碗机和微波炉。"),
-    ci("栖木 氛围落地灯", "栖木", "灯", Home, true, "暖光 · 三档调光 · 包邮", 239,
-        &["暖光", "调光", "卧室"], "暖白两色、三档亮度。沙发边放一盏，晚上就不想开大灯了。"),
-    ci("琴叶榕盆栽", "青田", "绿植", Home, true, "80cm 高 · 含盆 · 同城配送", 139,
-        &["大盆", "好养", "客厅"], "80 厘米的琴叶榕，叶子大、好养活。放新家客厅一角。"),
-    ci("多肉组合盆栽", "青田", "绿植", Home, true, "6 株 · 陶盆 · 包邮", 59,
-        &["小盆", "好养", "桌面"], "六株多肉拼在一个陶盆里，两周浇一次水就行。"),
-    ci("小橡 轻便婴儿推车", "小橡", "推车", Baby, true, "可登机 · 5.8kg · 包邮", 1299,
-        &["轻便", "可登机", "可躺"], "一只手就能收起来，5.8 公斤，能带上飞机。"),
-    ci("小橡 新生儿礼盒", "小橡", "母婴礼盒", Baby, true, "0–6 个月 · 纯棉 9 件 · 包邮", 369,
-        &["纯棉", "0-6月", "满月"], "纯棉和尚服、口水巾、小袜子 9 件，满月礼刚刚好。"),
-    ci("木作益智积木", "小橡", "玩具", Baby, true, "100 块 · 3 岁以上 · 包邮", 199,
-        &["3岁+", "益智", "木质"], "100 块榉木积木，水性漆，棱角都磨圆了。"),
-    ci("随行保温杯", "野帆", "杯子", Trendy, true, "480ml · 12 小时保温 · 包邮", 129,
-        &["480ml", "保温", "通勤"], "一只手能开盖，放包里不漏。热水放到下午还烫。"),
-    ci("暖物 扫拖机器人", "暖物", "扫地机", Home, true, "扫拖一体 · 自动集尘 · 包邮", 1899,
-        &["扫拖一体", "自动集尘", "新家"], "扫拖一体，自动倒尘。搬进新家，地板交给它。"),
-    ci("声屿 S6 55 英寸 QLED 电视", "声屿", "电视", Digital, true, "55 英寸 · QLED · 包邮包安装", 2499,
-        &["55寸", "4K", "QLED", "卧室"], "55 英寸量子点屏，颜色比普通 4K 更鲜亮。窄边框，挂在卧室不占地方。"),
-    ci("澄光 Q6 65 英寸 4K 电视", "澄光", "电视", Digital, true, "65 英寸 · 4K · 包邮包安装", 2999,
-        &["65寸", "4K", "护眼", "客厅"], "65 英寸 4K，三千块以内能买到的大屏。护眼模式、开机无广告。"),
+    ci(
+        "三顿半精品咖啡礼盒",
+        "三顿半",
+        "咖啡",
+        Coffee,
+        true,
+        "24 颗装 · 包邮",
+        109,
+        &["冷萃", "速溶", "礼盒"],
+        "超即溶的精品咖啡，冷水牛奶都能三秒化开。24 颗 6 种风味，一个月的早晨都有着落。",
+    ),
+    ci(
+        "星巴克中杯拿铁电子券",
+        "星巴克",
+        "咖啡",
+        Coffee,
+        false,
+        "全国门店通用 · 30 天有效",
+        35,
+        &["电子券", "门店"],
+        "一杯中杯拿铁，想喝的时候去门店出示券码就行。",
+    ),
+    ci(
+        "喜茶多肉葡萄兑换券",
+        "喜茶",
+        "奶茶",
+        Coffee,
+        false,
+        "全国门店通用 · 30 天有效",
+        29,
+        &["电子券", "水果茶"],
+        "招牌多肉葡萄，一整杯的果肉。门店或小程序都能兑。",
+    ),
+    ci(
+        "电影通兑票",
+        "猫眼",
+        "电影票",
+        Movie,
+        false,
+        "2D 场次通兑 · 60 天有效",
+        49,
+        &["电子券", "2D"],
+        "全国大部分影院 2D 场次通兑，挑一部想看的片子就好。",
+    ),
+    ci(
+        "电影双人套票",
+        "猫眼",
+        "电影票",
+        Movie,
+        false,
+        "两张通兑票 + 爆米花套餐",
+        98,
+        &["电子券", "双人", "爆米花"],
+        "两张票加一份爆米花套餐 —— 送了这个，下次见面就有了理由。",
+    ),
+    ci(
+        "帆布托特包",
+        "野帆",
+        "包",
+        Trendy,
+        true,
+        "米白 · 加厚帆布 · 包邮",
+        79,
+        &["米白", "大容量", "帆布"],
+        "16 安加厚帆布，装得下电脑和一天的零碎。越用越软。",
+    ),
+    ci(
+        "香薰蜡烛",
+        "栖木",
+        "香薰",
+        Trendy,
+        true,
+        "无花果香 · 200g · 包邮",
+        88,
+        &["无花果", "助眠", "200g"],
+        "无花果叶和一点木质调，点燃 40 小时。睡前点一会儿，房间是暖的。",
+    ),
+    ci(
+        "拍立得相纸",
+        "即影",
+        "相纸",
+        Trendy,
+        true,
+        "mini 白边 · 40 张 · 包邮",
+        59,
+        &["mini", "40张"],
+        "mini 规格白边相纸 40 张，适配常见的拍立得相机。",
+    ),
+    ci(
+        "潮玩盲盒",
+        "泡泡岛",
+        "盲盒",
+        Blind,
+        true,
+        "随机一款 · 有隐藏款 · 包邮",
+        69,
+        &["潮玩", "隐藏款", "摆件"],
+        "12 款常规加 1 款隐藏，拆之前谁也不知道是哪一只。",
+    ),
+    ci(
+        "文具盲盒",
+        "纸上",
+        "盲盒",
+        Blind,
+        true,
+        "6 件随机 · 包邮",
+        39,
+        &["文具", "手帐"],
+        "胶带、便签、印章、钢笔…… 随机 6 件，做手帐的人会喜欢。",
+    ),
+    ci(
+        "小蛋糕兑换券",
+        "好利来",
+        "蛋糕",
+        Sweet,
+        false,
+        "6 寸 · 指定门店自提",
+        128,
+        &["电子券", "6寸", "生日"],
+        "6 寸鲜奶蛋糕，提前一天在小程序预约，门店自提。",
+    ),
+    ci(
+        "向日葵花束",
+        "花点时间",
+        "鲜花",
+        Sweet,
+        true,
+        "3 枝装 · 同城配送",
+        99,
+        &["向日葵", "同城"],
+        "三枝向日葵配尤加利叶，同城当天配送。",
+    ),
+    ci(
+        "澄光 Q5 55 英寸 4K 电视",
+        "澄光",
+        "电视",
+        Digital,
+        true,
+        "55 英寸 · 4K · 包邮包安装",
+        2699,
+        &["55寸", "4K", "护眼", "客厅"],
+        "55 英寸 4K 屏，低蓝光护眼模式。开机无广告，老人小孩都会用。",
+    ),
+    ci(
+        "澄光 Q7 65 英寸 4K 电视",
+        "澄光",
+        "电视",
+        Digital,
+        true,
+        "65 英寸 · 4K 120Hz · 包邮包安装",
+        3999,
+        &["65寸", "4K", "120Hz", "游戏", "客厅"],
+        "65 英寸 4K 120Hz 高刷，接游戏机不拖影。客厅一面墙刚刚好。",
+    ),
+    ci(
+        "声屿 Mini 43 英寸电视",
+        "声屿",
+        "电视",
+        Digital,
+        true,
+        "43 英寸 · 全高清 · 包邮",
+        1299,
+        &["43寸", "全高清", "卧室"],
+        "43 英寸全高清，放卧室或出租屋正合适。自带音箱不闷。",
+    ),
+    ci(
+        "澄光 Q9 75 英寸 Mini LED 电视",
+        "澄光",
+        "电视",
+        Digital,
+        true,
+        "75 英寸 · Mini LED · 包邮包安装",
+        6999,
+        &["75寸", "4K", "MiniLED", "120Hz", "客厅"],
+        "75 英寸 Mini LED，暗场景也看得清。给新家客厅的一份大礼。",
+    ),
+    ci(
+        "声屿 Pebble 蓝牙音箱",
+        "声屿",
+        "音箱",
+        Digital,
+        true,
+        "蓝牙 5.3 · IP67 防水 · 包邮",
+        399,
+        &["蓝牙", "便携", "防水"],
+        "鹅卵石大小，扔进包里就走。防水，浴室和野餐都能放。",
+    ),
+    ci(
+        "声屿 Air 降噪耳机",
+        "声屿",
+        "耳机",
+        Digital,
+        true,
+        "头戴式 · 主动降噪 · 包邮",
+        899,
+        &["降噪", "蓝牙", "头戴", "长续航"],
+        "主动降噪，地铁上也能听清轻音乐。一次充电用 40 小时。",
+    ),
+    ci(
+        "光语 便携投影仪",
+        "光语",
+        "投影仪",
+        Digital,
+        true,
+        "1080P · 自动对焦 · 包邮",
+        1999,
+        &["1080P", "便携", "卧室"],
+        "往白墙一照就是 100 寸。自动对焦，躺在床上看电影。",
+    ),
+    ci(
+        "暖物 可视空气炸锅 5L",
+        "暖物",
+        "空气炸锅",
+        Home,
+        true,
+        "5L · 可视窗 · 包邮",
+        329,
+        &["5L", "可视", "大容量"],
+        "透明可视窗，炸到几分熟一眼就知道。5L 够三四个人吃。",
+    ),
+    ci(
+        "暖物 保温电热水壶",
+        "暖物",
+        "水壶",
+        Home,
+        true,
+        "1.7L · 恒温 · 包邮",
+        159,
+        &["1.7L", "恒温", "泡茶"],
+        "五档恒温，泡茶冲奶都合适。304 不锈钢内胆。",
+    ),
+    ci(
+        "栖木 全棉四件套",
+        "栖木",
+        "床品",
+        Home,
+        true,
+        "1.8m 床 · 60 支全棉 · 包邮",
+        459,
+        &["1.8m", "全棉", "奶油色"],
+        "60 支长绒棉，奶油色，越洗越软。搬新家换一套新床品。",
+    ),
+    ci(
+        "栖木 陶瓷餐具礼盒",
+        "栖木",
+        "餐具",
+        Home,
+        true,
+        "8 件套 · 可进洗碗机 · 包邮",
+        269,
+        &["陶瓷", "8件", "洗碗机"],
+        "两人份的碗盘杯 8 件，哑光釉面，可进洗碗机和微波炉。",
+    ),
+    ci(
+        "栖木 氛围落地灯",
+        "栖木",
+        "灯",
+        Home,
+        true,
+        "暖光 · 三档调光 · 包邮",
+        239,
+        &["暖光", "调光", "卧室"],
+        "暖白两色、三档亮度。沙发边放一盏，晚上就不想开大灯了。",
+    ),
+    ci(
+        "琴叶榕盆栽",
+        "青田",
+        "绿植",
+        Home,
+        true,
+        "80cm 高 · 含盆 · 同城配送",
+        139,
+        &["大盆", "好养", "客厅"],
+        "80 厘米的琴叶榕，叶子大、好养活。放新家客厅一角。",
+    ),
+    ci(
+        "多肉组合盆栽",
+        "青田",
+        "绿植",
+        Home,
+        true,
+        "6 株 · 陶盆 · 包邮",
+        59,
+        &["小盆", "好养", "桌面"],
+        "六株多肉拼在一个陶盆里，两周浇一次水就行。",
+    ),
+    ci(
+        "小橡 轻便婴儿推车",
+        "小橡",
+        "推车",
+        Baby,
+        true,
+        "可登机 · 5.8kg · 包邮",
+        1299,
+        &["轻便", "可登机", "可躺"],
+        "一只手就能收起来，5.8 公斤，能带上飞机。",
+    ),
+    ci(
+        "小橡 新生儿礼盒",
+        "小橡",
+        "母婴礼盒",
+        Baby,
+        true,
+        "0–6 个月 · 纯棉 9 件 · 包邮",
+        369,
+        &["纯棉", "0-6月", "满月"],
+        "纯棉和尚服、口水巾、小袜子 9 件，满月礼刚刚好。",
+    ),
+    ci(
+        "木作益智积木",
+        "小橡",
+        "玩具",
+        Baby,
+        true,
+        "100 块 · 3 岁以上 · 包邮",
+        199,
+        &["3岁+", "益智", "木质"],
+        "100 块榉木积木，水性漆，棱角都磨圆了。",
+    ),
+    ci(
+        "随行保温杯",
+        "野帆",
+        "杯子",
+        Trendy,
+        true,
+        "480ml · 12 小时保温 · 包邮",
+        129,
+        &["480ml", "保温", "通勤"],
+        "一只手能开盖，放包里不漏。热水放到下午还烫。",
+    ),
+    ci(
+        "暖物 扫拖机器人",
+        "暖物",
+        "扫地机",
+        Home,
+        true,
+        "扫拖一体 · 自动集尘 · 包邮",
+        1899,
+        &["扫拖一体", "自动集尘", "新家"],
+        "扫拖一体，自动倒尘。搬进新家，地板交给它。",
+    ),
+    ci(
+        "声屿 S6 55 英寸 QLED 电视",
+        "声屿",
+        "电视",
+        Digital,
+        true,
+        "55 英寸 · QLED · 包邮包安装",
+        2499,
+        &["55寸", "4K", "QLED", "卧室"],
+        "55 英寸量子点屏，颜色比普通 4K 更鲜亮。窄边框，挂在卧室不占地方。",
+    ),
+    ci(
+        "澄光 Q6 65 英寸 4K 电视",
+        "澄光",
+        "电视",
+        Digital,
+        true,
+        "65 英寸 · 4K · 包邮包安装",
+        2999,
+        &["65寸", "4K", "护眼", "客厅"],
+        "65 英寸 4K，三千块以内能买到的大屏。护眼模式、开机无广告。",
+    ),
 ];
 
 /// 按下标取目录项；越界（旧存档、坏数据）退回第一件，不 panic。
@@ -502,7 +1010,12 @@ pub enum Unlock {
 }
 
 impl Unlock {
-    pub const ALL: [Unlock; 4] = [Unlock::GuessWho, Unlock::Question, Unlock::Passphrase, Unlock::Free];
+    pub const ALL: [Unlock; 4] = [
+        Unlock::GuessWho,
+        Unlock::Question,
+        Unlock::Passphrase,
+        Unlock::Free,
+    ];
 
     pub fn from_u8(v: u8) -> Self {
         match v {
@@ -586,7 +1099,9 @@ pub fn answer_matches(expected: &str, guess: &str, aliases: bool) -> bool {
         return false;
     }
     if aliases {
-        split_aliases(expected).iter().any(|a| normalize_answer(a) == g)
+        split_aliases(expected)
+            .iter()
+            .any(|a| normalize_answer(a) == g)
     } else {
         normalize_answer(expected) == g
     }
@@ -821,7 +1336,10 @@ impl Gift {
 
     /// 称呼的第一个别名（送出时是备注）。
     pub fn peer_name(&self) -> String {
-        split_aliases(&self.peer).into_iter().next().unwrap_or_default()
+        split_aliases(&self.peer)
+            .into_iter()
+            .next()
+            .unwrap_or_default()
     }
 
     /// 收到的礼物：此刻能给我看的送礼人名字。没揭晓、或揭晓了但身份保密，都是「一位神秘的朋友」。
@@ -894,8 +1412,9 @@ impl Gift {
                 GiftState::Sealed => "待拆 · TA 还没打开".into(),
                 GiftState::Opened => format!("解谜中 · 猜错 {} 次", self.attempts),
                 GiftState::Revealed => "已揭晓 · 等 TA 决定".into(),
-                GiftState::Accepted | GiftState::Exchanged | GiftState::CashedOut =>
-                    "TA 已处理礼物".into(),
+                GiftState::Accepted | GiftState::Exchanged | GiftState::CashedOut => {
+                    "TA 已处理礼物".into()
+                }
                 GiftState::Expired => "已过期 · 已全额退回".into(),
                 GiftState::Withdrawn => "已撤回 · 已全额退回".into(),
             }
@@ -940,8 +1459,9 @@ impl Gift {
         }
         if self.settled_on > 0 {
             let s = match self.state() {
-                GiftState::Accepted | GiftState::Exchanged | GiftState::CashedOut =>
-                    "TA 已处理礼物".to_string(),
+                GiftState::Accepted | GiftState::Exchanged | GiftState::CashedOut => {
+                    "TA 已处理礼物".to_string()
+                }
                 GiftState::Expired => format!("7 天没拆开，已全额退回 {}", yuan(self.price)),
                 GiftState::Withdrawn => format!("你撤回了礼物，已全额退回 {}", yuan(self.price)),
                 _ => String::new(),
@@ -1044,8 +1564,22 @@ pub const WISH_NOTICE_LEAD_DAYS: i64 = 3;
 pub const OCCASIONS: [&str; 6] = ["生日", "结婚", "乔迁", "毕业", "宝宝", "其他"];
 /// 「说个大概」能选的东西，每个都对得上目录里的 `CatalogItem::kind`。
 pub const WISH_KINDS: [&str; 16] = [
-    "电视", "耳机", "音箱", "投影仪", "空气炸锅", "扫地机", "床品", "餐具",
-    "灯", "绿植", "鲜花", "蛋糕", "咖啡", "盲盒", "玩具", "推车",
+    "电视",
+    "耳机",
+    "音箱",
+    "投影仪",
+    "空气炸锅",
+    "扫地机",
+    "床品",
+    "餐具",
+    "灯",
+    "绿植",
+    "鲜花",
+    "蛋糕",
+    "咖啡",
+    "盲盒",
+    "玩具",
+    "推车",
 ];
 /// 「说个大概」的预算档（元）。0 = 不限。
 pub const WISH_BUDGETS: [i64; 7] = [0, 100, 300, 500, 1000, 3000, 5000];
@@ -1150,7 +1684,9 @@ impl WishItem {
     pub fn sub(&self) -> String {
         match self.item {
             Some(i) => format!("{} · {}", item(i).brand, yuan(item(i).price)),
-            None if self.wants.is_empty() => format!("说了个大概 · {}", budget_text(self.max_price)),
+            None if self.wants.is_empty() => {
+                format!("说了个大概 · {}", budget_text(self.max_price))
+            }
             None => format!("{} · {}", budget_text(self.max_price), self.wants),
         }
     }
@@ -1214,7 +1750,10 @@ impl Wishlist {
     }
 
     pub fn occasion_label(&self) -> &'static str {
-        OCCASIONS.get(self.occasion as usize).copied().unwrap_or("其他")
+        OCCASIONS
+            .get(self.occasion as usize)
+            .copied()
+            .unwrap_or("其他")
     }
 
     /// 「林舟的生日」；场合是「其他」时只说「林舟的日子」。
@@ -1285,7 +1824,10 @@ pub struct WishDraft {
 
 impl WishDraft {
     pub fn new(today: i64) -> Self {
-        WishDraft { event_on: today + 14, ..Default::default() }
+        WishDraft {
+            event_on: today + 14,
+            ..Default::default()
+        }
     }
 
     pub fn from_list(w: &Wishlist) -> Self {
@@ -1302,8 +1844,15 @@ impl WishDraft {
 
     /// 标题没写时用的默认标题：「阿岚的生日心愿单」。
     pub fn default_title(&self, nickname: &str) -> String {
-        let me = split_aliases(nickname).into_iter().next().unwrap_or_else(|| "我".into());
-        match OCCASIONS.get(self.occasion as usize).copied().unwrap_or("其他") {
+        let me = split_aliases(nickname)
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| "我".into());
+        match OCCASIONS
+            .get(self.occasion as usize)
+            .copied()
+            .unwrap_or("其他")
+        {
             "其他" => format!("{me}的心愿单"),
             o => format!("{me}的{o}心愿单"),
         }
@@ -1331,7 +1880,11 @@ impl WishMatch {
         } else {
             format!("符合 {} · ", self.hits.join(" · "))
         };
-        s.push_str(if self.within { "预算内" } else { "超出预算" });
+        s.push_str(if self.within {
+            "预算内"
+        } else {
+            "超出预算"
+        });
         s
     }
 }
@@ -1350,7 +1903,11 @@ fn parse_min_size(wants: &str) -> (Option<u32>, String) {
     while start > 0 && chars[start - 1].is_ascii_digit() {
         start -= 1;
     }
-    let n: Option<u32> = chars[start..digits_end].iter().collect::<String>().parse().ok();
+    let n: Option<u32> = chars[start..digits_end]
+        .iter()
+        .collect::<String>()
+        .parse()
+        .ok();
     if n.is_none() {
         return (None, wants.to_string());
     }
@@ -1368,13 +1925,21 @@ fn parse_min_size(wants: &str) -> (Option<u32>, String) {
 
 /// 商品的尺寸标签（「55寸」→ 55）。
 fn size_of(i: u16) -> Option<u32> {
-    item(i).tags.iter().find_map(|t| t.strip_suffix('寸').and_then(|n| n.parse().ok()))
+    item(i)
+        .tags
+        .iter()
+        .find_map(|t| t.strip_suffix('寸').and_then(|n| n.parse().ok()))
 }
 
 /// 要求里的关键词：按空白和常见分隔符拆开，去掉「要」「最好」这类虚词。
 fn want_tokens(rest: &str) -> Vec<String> {
     rest.split(|c: char| c.is_whitespace() || "，,、/;；·+和".contains(c))
-        .map(|t| t.trim_start_matches("最好").trim_start_matches('要').trim_end_matches('的').trim())
+        .map(|t| {
+            t.trim_start_matches("最好")
+                .trim_start_matches('要')
+                .trim_end_matches('的')
+                .trim()
+        })
         .filter(|t| !t.is_empty() && !["以上", "以内", "左右", "都行", "随便"].contains(t))
         .map(|t| t.to_string())
         .collect()
@@ -1385,13 +1950,23 @@ fn want_tokens(rest: &str) -> Vec<String> {
 /// 具体的心愿只返回那一件。
 pub fn wish_candidates(w: &WishItem) -> Vec<WishMatch> {
     if let Some(i) = w.item {
-        return vec![WishMatch { item: i, hits: Vec::new(), within: true }];
+        return vec![WishMatch {
+            item: i,
+            hits: Vec::new(),
+            within: true,
+        }];
     }
     let (min_size, rest) = parse_min_size(&w.wants);
     let tokens = want_tokens(&rest);
-    let pool: Vec<u16> = (0..CATALOG.len() as u16).filter(|&i| item(i).kind == w.kind).collect();
+    let pool: Vec<u16> = (0..CATALOG.len() as u16)
+        .filter(|&i| item(i).kind == w.kind)
+        .collect();
     let sized: Vec<u16> = match min_size {
-        Some(n) => pool.iter().copied().filter(|&i| size_of(i).is_some_and(|s| s >= n)).collect(),
+        Some(n) => pool
+            .iter()
+            .copied()
+            .filter(|&i| size_of(i).is_some_and(|s| s >= n))
+            .collect(),
         None => pool.clone(),
     };
     let base = if sized.is_empty() { pool } else { sized };
@@ -1403,19 +1978,31 @@ pub fn wish_candidates(w: &WishItem) -> Vec<WishMatch> {
         }
         for t in &tokens {
             let tl = t.to_lowercase();
-            let hit = it.tags.iter().any(|g| g.to_lowercase().contains(&tl) || tl.contains(&g.to_lowercase()))
+            let hit = it
+                .tags
+                .iter()
+                .any(|g| g.to_lowercase().contains(&tl) || tl.contains(&g.to_lowercase()))
                 || it.name.to_lowercase().contains(&tl)
                 || it.desc.contains(t.as_str());
             if hit && !hits.contains(t) {
                 hits.push(t.clone());
             }
         }
-        WishMatch { item: i, hits, within: w.max_price <= 0 || it.price <= w.max_price }
+        WishMatch {
+            item: i,
+            hits,
+            within: w.max_price <= 0 || it.price <= w.max_price,
+        }
     };
     let mut all: Vec<WishMatch> = base.into_iter().map(score).collect();
     if all.iter().any(|m| m.within) {
         all.retain(|m| m.within);
-        all.sort_by(|a, b| b.hits.len().cmp(&a.hits.len()).then(item(a.item).price.cmp(&item(b.item).price)));
+        all.sort_by(|a, b| {
+            b.hits
+                .len()
+                .cmp(&a.hits.len())
+                .then(item(a.item).price.cmp(&item(b.item).price))
+        });
     } else {
         all.sort_by_key(|m| item(m.item).price);
     }
@@ -1548,7 +2135,9 @@ pub struct AcceptForm {
 pub enum AnswerOutcome {
     /// 空答案，不扣机会。
     Empty,
-    Wrong { left: u8 },
+    Wrong {
+        left: u8,
+    },
     Right,
     /// 机会用完，礼物照样拆开，身份保密。
     Exhausted,
@@ -1570,10 +2159,16 @@ pub enum SimStep {
     /// 约好的日子提前到了（演示），礼卡送到 TA 手里。
     Delivered,
     Opened,
-    Revealed { known: bool },
-    Accepted { pact: bool },
+    Revealed {
+        known: bool,
+    },
+    Accepted {
+        pact: bool,
+    },
     Exchanged,
-    CashedOut { returned: bool },
+    CashedOut {
+        returned: bool,
+    },
 }
 
 impl SimStep {
@@ -1583,8 +2178,9 @@ impl SimStep {
             SimStep::Opened => "TA 打开了礼卡，第一次没猜中",
             SimStep::Revealed { known: true } => "TA 答对了，知道是你",
             SimStep::Revealed { known: false } => "TA 机会用完，礼物拆开了，没透露你",
-            SimStep::Accepted { .. } | SimStep::Exchanged | SimStep::CashedOut { .. } =>
-                "TA 已处理礼物",
+            SimStep::Accepted { .. } | SimStep::Exchanged | SimStep::CashedOut { .. } => {
+                "TA 已处理礼物"
+            }
         }
     }
 }
@@ -1657,11 +2253,34 @@ impl LiyuState {
     pub fn demo(today: i64) -> Self {
         let mut s = LiyuState {
             contacts: vec![
-                ContactLocal { id: 0, label: "林舟".into(), phones: None, emails: None, avatar_override: None },
-                ContactLocal { id: 1, label: "陈晓".into(), phones: None, emails: None, avatar_override: None },
-                ContactLocal { id: 2, label: "许宁".into(), phones: None, emails: None, avatar_override: None },
+                ContactLocal {
+                    id: 0,
+                    label: "林舟".into(),
+                    phones: None,
+                    emails: None,
+                    avatar_override: None,
+                },
+                ContactLocal {
+                    id: 1,
+                    label: "陈晓".into(),
+                    phones: None,
+                    emails: None,
+                    avatar_override: None,
+                },
+                ContactLocal {
+                    id: 2,
+                    label: "许宁".into(),
+                    phones: None,
+                    emails: None,
+                    avatar_override: None,
+                },
             ],
-            directory: vec!["周子墨".into(), "林小满".into(), "黄一诺".into(), "吴凯文".into()],
+            directory: vec![
+                "周子墨".into(),
+                "林小满".into(),
+                "黄一诺".into(),
+                "吴凯文".into(),
+            ],
             gifts: Vec::new(),
             pacts: Vec::new(),
             ledger: Vec::new(),
@@ -1744,7 +2363,13 @@ impl LiyuState {
         g.settled_on = today - 6;
         let (gid, text) = (g.id, g.contract.clone());
         s.gifts.push(g);
-        s.push_ledger(today - 8, -WELCOME_BONUS, 6800, "送出 · 香薰蜡烛", "余额抵 ¥20 · 模拟支付 ¥68");
+        s.push_ledger(
+            today - 8,
+            -WELCOME_BONUS,
+            6800,
+            "送出 · 香薰蜡烛",
+            "余额抵 ¥20 · 模拟支付 ¥68",
+        );
         let pid = s.take_id();
         s.pacts.push(Pact {
             id: pid,
@@ -1771,7 +2396,13 @@ impl LiyuState {
         g.opened_on = today - 2;
         g.revealed_on = today - 2;
         s.gifts.push(g);
-        s.push_ledger(today - 3, 0, 3500, "送出 · 星巴克中杯拿铁电子券", "模拟支付 ¥35");
+        s.push_ledger(
+            today - 3,
+            0,
+            3500,
+            "送出 · 星巴克中杯拿铁电子券",
+            "模拟支付 ¥35",
+        );
 
         // 心愿单：两张进行中的好友心愿单、一张结束了的，再加我自己的一张。
         let taken = |mut w: WishItem, day: i64| {
@@ -1838,7 +2469,11 @@ impl LiyuState {
             today - 1,
             today - 12,
             0,
-            vec![coffee, WishItem::vague("耳机", 100_000, "降噪"), WishItem::exact(11)],
+            vec![
+                coffee,
+                WishItem::vague("耳机", 100_000, "降噪"),
+                WishItem::exact(11),
+            ],
         );
         s.gifts[0].wish_id = Some(mine);
 
@@ -1913,7 +2548,10 @@ impl LiyuState {
 
     /// 等我处理的收到的礼物（待拆 / 解谜中 / 待决定）。
     pub fn pending_received(&self, today: i64) -> usize {
-        self.received(today).iter().filter(|g| g.tone() == Tone::Pending).count()
+        self.received(today)
+            .iter()
+            .filter(|g| g.tone() == Tone::Pending)
+            .count()
     }
 
     /// 契约：`mine` 这一侧，待兑现的在前、到期早的在前。
@@ -1929,7 +2567,10 @@ impl LiyuState {
     }
 
     pub fn open_pacts(&self) -> usize {
-        self.pacts.iter().filter(|p| p.state() == PactState::Pending).count()
+        self.pacts
+            .iter()
+            .filter(|p| p.state() == PactState::Pending)
+            .count()
     }
 
     /// 流水，新的在前。
@@ -1939,10 +2580,13 @@ impl LiyuState {
         v
     }
 
-
     /// 送礼的付款拆分：（余额抵扣, 模拟支付）。
     pub fn pay_split(&self, price: i64, use_balance: bool) -> (i64, i64) {
-        let a = if use_balance { self.balance().min(price) } else { 0 };
+        let a = if use_balance {
+            self.balance().min(price)
+        } else {
+            0
+        };
         (a, price - a)
     }
 
@@ -1971,7 +2615,12 @@ impl LiyuState {
             return Vec::new();
         };
         let mut others: Vec<String> = Vec::new();
-        for n in self.contacts.iter().map(|c| c.label.clone()).chain(self.directory.iter().cloned()) {
+        for n in self
+            .contacts
+            .iter()
+            .map(|c| c.label.clone())
+            .chain(self.directory.iter().cloned())
+        {
             if !aliases.contains(&n) && !others.contains(&n) && n != self.settings.nickname {
                 others.push(n);
             }
@@ -2062,7 +2711,12 @@ impl LiyuState {
                 };
                 out.push(Notice {
                     kind: NoticeKind::WishSoon,
-                    text: format!("{}{}，心愿单上还有 {} 件没人送", w.event_name(""), when, w.open_count()),
+                    text: format!(
+                        "{}{}，心愿单上还有 {} 件没人送",
+                        w.event_name(""),
+                        when,
+                        w.open_count()
+                    ),
                     target: w.id,
                 });
             }
@@ -2153,7 +2807,10 @@ impl LiyuState {
         g.message = d.message.trim().into();
         let (a, b) = self.pay_split(g.price, d.use_balance);
         let title = format!("送出 · {}", g.catalog().name);
-        let method = d.pay.and_then(|p| PAY_METHODS.get(p as usize).copied()).unwrap_or("模拟支付");
+        let method = d
+            .pay
+            .and_then(|p| PAY_METHODS.get(p as usize).copied())
+            .unwrap_or("模拟支付");
         let note = match (a > 0, b > 0) {
             (true, true) => format!("余额抵 {} · {method} {}", yuan(a), yuan(b)),
             (true, false) => format!("余额抵 {}", yuan(a)),
@@ -2245,7 +2902,9 @@ impl LiyuState {
             g.revealed_on = today;
             AnswerOutcome::Exhausted
         } else {
-            AnswerOutcome::Wrong { left: g.attempts_left() }
+            AnswerOutcome::Wrong {
+                left: g.attempts_left(),
+            }
         };
         self.save();
         out
@@ -2271,7 +2930,11 @@ impl LiyuState {
         if !physical {
             return;
         }
-        let (n, p, a) = (f.name.trim().to_string(), f.phone.trim().to_string(), f.addr.trim().to_string());
+        let (n, p, a) = (
+            f.name.trim().to_string(),
+            f.phone.trim().to_string(),
+            f.addr.trim().to_string(),
+        );
         if let Some(g) = self.gift_mut(id) {
             g.ship_name = n.clone();
             g.ship_phone = p.clone();
@@ -2298,7 +2961,9 @@ impl LiyuState {
         }
         let physical = g.catalog().physical;
         Self::check_ship(physical, f)?;
-        let pact = g.has_contract().then(|| (g.contract.clone(), g.peer_name()));
+        let pact = g
+            .has_contract()
+            .then(|| (g.contract.clone(), g.peer_name()));
         self.keep_ship(id, physical, f);
         let g = self.gift_mut(id).unwrap();
         g.set_state(GiftState::Accepted);
@@ -2334,13 +2999,25 @@ impl LiyuState {
         g.set_state(GiftState::CashedOut);
         g.settled_on = today;
         g.refund = refund;
-        self.push_ledger(today, refund, 0, &title, &format!("手续费 {}（{}%）", yuan(f), CASHOUT_FEE_PCT));
+        self.push_ledger(
+            today,
+            refund,
+            0,
+            &title,
+            &format!("手续费 {}（{}%）", yuan(f), CASHOUT_FEE_PCT),
+        );
         self.save();
         Ok(refund)
     }
 
     /// 换一份：抵扣额 = 价格 − 5% 手续费，多退少补（余额先补，不够的模拟支付）。
-    pub fn exchange(&mut self, id: u64, new_item: u16, f: &AcceptForm, today: i64) -> Result<ExchangeResult, &'static str> {
+    pub fn exchange(
+        &mut self,
+        id: u64,
+        new_item: u16,
+        f: &AcceptForm,
+        today: i64,
+    ) -> Result<ExchangeResult, &'static str> {
         let g = self.revealed_received(id)?;
         if new_item as usize >= CATALOG.len() {
             return Err("先选一件要换的礼物");
@@ -2356,7 +3033,11 @@ impl LiyuState {
         let fee_note = format!("手续费 {}（{}%）", yuan(fe), EXCHANGE_FEE_PCT);
         let res = if diff >= 0 {
             self.push_ledger(today, diff, 0, &format!("换购退差 · {names}"), &fee_note);
-            ExchangeResult { diff, from_balance: 0, external: 0 }
+            ExchangeResult {
+                diff,
+                from_balance: 0,
+                external: 0,
+            }
         } else {
             let need = -diff;
             let a = self.balance().min(need);
@@ -2369,7 +3050,11 @@ impl LiyuState {
                 note.push_str(&format!(" · 模拟支付 {}", yuan(b)));
             }
             self.push_ledger(today, -a, b, &format!("换购补差 · {names}"), &note);
-            ExchangeResult { diff, from_balance: a, external: b }
+            ExchangeResult {
+                diff,
+                from_balance: a,
+                external: b,
+            }
         };
         self.keep_ship(id, physical, f);
         let g = self.gift_mut(id).unwrap();
@@ -2400,7 +3085,11 @@ impl LiyuState {
             g.set_state(GiftState::Expired);
             g.settled_on = g.sent_on + EXPIRE_DAYS;
             if g.is_sent() {
-                let (day, price, title) = (g.settled_on, g.price, format!("退回 · {}", g.catalog().name));
+                let (day, price, title) = (
+                    g.settled_on,
+                    g.price,
+                    format!("退回 · {}", g.catalog().name),
+                );
                 self.push_ledger(day, price, 0, &title, "7 天没拆开，全额退回");
             }
             self.release_wish(*id);
@@ -2415,7 +3104,11 @@ impl LiyuState {
 
     /// 标记 / 确认已兑现。逾期了也可以，没有惩罚。
     pub fn fulfil_pact(&mut self, id: u64) -> Result<(), &'static str> {
-        let p = self.pacts.iter_mut().find(|p| p.id == id).ok_or("找不到这条契约")?;
+        let p = self
+            .pacts
+            .iter_mut()
+            .find(|p| p.id == id)
+            .ok_or("找不到这条契约")?;
         if p.state() != PactState::Pending {
             return Err("这条契约已经了结了");
         }
@@ -2426,7 +3119,11 @@ impl LiyuState {
 
     /// 「免了吧」：只有答应我的那一侧能放过对方。
     pub fn waive_pact(&mut self, id: u64) -> Result<(), &'static str> {
-        let p = self.pacts.iter_mut().find(|p| p.id == id).ok_or("找不到这条契约")?;
+        let p = self
+            .pacts
+            .iter_mut()
+            .find(|p| p.id == id)
+            .ok_or("找不到这条契约")?;
         if p.mine {
             return Err("答应了就是答应了");
         }
@@ -2440,7 +3137,11 @@ impl LiyuState {
 
     /// 「提醒 TA」：每条每天一次。
     pub fn nudge_pact(&mut self, id: u64, today: i64) -> Result<(), &'static str> {
-        let p = self.pacts.iter_mut().find(|p| p.id == id).ok_or("找不到这条契约")?;
+        let p = self
+            .pacts
+            .iter_mut()
+            .find(|p| p.id == id)
+            .ok_or("找不到这条契约")?;
         if p.mine || p.state() != PactState::Pending {
             return Err("这条契约不用提醒");
         }
@@ -2526,10 +3227,16 @@ impl LiyuState {
                         g.refund = refund;
                         let best = best_item_within(refund).filter(|_| r_return == 0);
                         if let Some(best) = best {
-                            let peer = if g.peer.is_empty() { "一位朋友".to_string() } else { g.peer.clone() };
+                            let peer = if g.peer.is_empty() {
+                                "一位朋友".to_string()
+                            } else {
+                                g.peer.clone()
+                            };
                             return_gift = Some((best, peer));
                         }
-                        SimStep::CashedOut { returned: best.is_some() }
+                        SimStep::CashedOut {
+                            returned: best.is_some(),
+                        }
                     }
                 }
             }
@@ -2628,13 +3335,24 @@ impl LiyuState {
 
     /// 「加到我的心愿单」加到哪张：进行中、日子最近的那张。
     pub fn current_my_wishlist(&self, today: i64) -> Option<u64> {
-        self.my_wishlists(today).into_iter().find(|w| w.is_open(today)).map(|w| w.id)
+        self.my_wishlists(today)
+            .into_iter()
+            .find(|w| w.is_open(today))
+            .map(|w| w.id)
     }
 
     /// 这位熟人进行中的心愿单（通讯录副标题用）。
     pub fn wish_hint(&self, label: &str, today: i64) -> Option<String> {
-        let w = self.friend_wishlists(today).into_iter().find(|w| w.owner == label && w.is_open(today))?;
-        Some(format!("{}心愿单 · {} · {} 件没人送", w.occasion_label(), w.countdown(today), w.open_count()))
+        let w = self
+            .friend_wishlists(today)
+            .into_iter()
+            .find(|w| w.owner == label && w.is_open(today))?;
+        Some(format!(
+            "{}心愿单 · {} · {} 件没人送",
+            w.occasion_label(),
+            w.countdown(today),
+            w.open_count()
+        ))
     }
 
     /// 一件心愿此刻的状态文案。我自己的看「谁送的」（揭晓后才说名字），好友的只看「有没有人送」。
@@ -2699,7 +3417,12 @@ impl LiyuState {
                 return Err("只能改自己的心愿单");
             }
             // 已经有人认领的那几件是别人的心意，编辑时不能拿掉。
-            if old.items.iter().filter(|w| !w.is_open()).any(|w| !d.items.contains(w)) {
+            if old
+                .items
+                .iter()
+                .filter(|w| !w.is_open())
+                .any(|w| !d.items.contains(w))
+            {
                 return Err("已经有人认领的心愿不能删");
             }
         }
@@ -2713,7 +3436,12 @@ impl LiyuState {
             "" => d.default_title(&self.settings.nickname),
             t => t.to_string(),
         };
-        let audience: Vec<String> = d.audience.iter().map(|a| a.trim().to_string()).filter(|a| !a.is_empty()).collect();
+        let audience: Vec<String> = d
+            .audience
+            .iter()
+            .map(|a| a.trim().to_string())
+            .filter(|a| !a.is_empty())
+            .collect();
         let id = match d.id {
             Some(id) => {
                 let w = self.wishlist_mut(id).ok_or("找不到这张心愿单")?;
@@ -2792,7 +3520,11 @@ impl LiyuState {
     }
 
     /// 送礼时认领心愿：单子得是好友的、还开着，那件还没人送，送的东西对得上。
-    fn check_claim(&self, d: &SendDraft, today: i64) -> Result<Option<(u64, usize, String)>, &'static str> {
+    fn check_claim(
+        &self,
+        d: &SendDraft,
+        today: i64,
+    ) -> Result<Option<(u64, usize, String)>, &'static str> {
         let Some((wid, idx)) = d.wish else {
             if d.deliver_on.is_some_and(|day| day > today) {
                 return Err("只有心愿单上的礼物能约好日子送");
@@ -2811,7 +3543,11 @@ impl LiyuState {
             return Err("这件已经有人送了");
         }
         if !wi.fits(d.item) {
-            return Err(if wi.is_exact() { "心愿单上要的是另一件" } else { "要送心愿单上说的那一类" });
+            return Err(if wi.is_exact() {
+                "心愿单上要的是另一件"
+            } else {
+                "要送心愿单上说的那一类"
+            });
         }
         if let Some(day) = d.deliver_on {
             if day > w.event_on.max(today) {
@@ -2839,13 +3575,19 @@ impl LiyuState {
         if !w.is_mine() || !w.is_open(today) {
             return Err("这张心愿单已经结束了");
         }
-        let idx = w.items.iter().position(|x| x.is_open()).ok_or("心愿都有人送啦")?;
+        let idx = w
+            .items
+            .iter()
+            .position(|x| x.is_open())
+            .ok_or("心愿都有人送啦")?;
         let wi = w.items[idx].clone();
         let event_on = w.event_on;
         if self.contacts.is_empty() {
             return Err("先加一位熟人，才有人来认领");
         }
-        let who = self.contacts[(mix(id ^ (idx as u64 + 1)) % self.contacts.len() as u64) as usize].label.clone();
+        let who = self.contacts[(mix(id ^ (idx as u64 + 1)) % self.contacts.len() as u64) as usize]
+            .label
+            .clone();
         let pick = wish_candidates(&wi).first().map(|m| m.item).unwrap_or(0);
         let day = event_on.max(today);
         let mut g = self.new_gift(DIR_RECEIVED, pick, day);
@@ -2891,7 +3633,13 @@ impl LiyuState {
             return Err(AddContactError::Duplicate);
         }
         let id = self.contacts.iter().map(|c| c.id + 1).max().unwrap_or(0);
-        self.contacts.push(ContactLocal { id, label: label.to_string(), phones: None, emails: None, avatar_override: None });
+        self.contacts.push(ContactLocal {
+            id,
+            label: label.to_string(),
+            phones: None,
+            emails: None,
+            avatar_override: None,
+        });
         self.directory.retain(|d| d != label);
         self.save();
         Ok(id)
@@ -2909,7 +3657,13 @@ impl LiyuState {
                 continue;
             }
             let id = self.contacts.iter().map(|c| c.id + 1).max().unwrap_or(0);
-            self.contacts.push(ContactLocal { id, label: name.clone(), phones: None, emails: None, avatar_override: None });
+            self.contacts.push(ContactLocal {
+                id,
+                label: name.clone(),
+                phones: None,
+                emails: None,
+                avatar_override: None,
+            });
             self.directory.retain(|d| *d != name);
             n += 1;
         }
@@ -3108,7 +3862,9 @@ impl LiyuState {
             let _ = self.save_to(&path);
         }
         if crate::profile_client::has_choice() {
-            if let Some(path) = Self::account_state_file(&crate::profile_client::active_identifier()) {
+            if let Some(path) =
+                Self::account_state_file(&crate::profile_client::active_identifier())
+            {
                 let _ = self.save_to(&path);
             }
         }
@@ -3143,7 +3899,6 @@ impl LiyuState {
 
 #[cfg(test)]
 pub(crate) const TEST_TODAY: i64 = 20_720; // 2026-09-24
-
 
 // ---- vCard ----
 
@@ -3253,11 +4008,19 @@ mod tests {
     }
 
     fn friend_list(s: &LiyuState, owner: &str) -> u64 {
-        s.wishlists.iter().find(|w| w.owner == owner).map(|w| w.id).unwrap()
+        s.wishlists
+            .iter()
+            .find(|w| w.owner == owner)
+            .map(|w| w.id)
+            .unwrap()
     }
 
     fn my_list(s: &LiyuState) -> u64 {
-        s.wishlists.iter().find(|w| w.is_mine()).map(|w| w.id).unwrap()
+        s.wishlists
+            .iter()
+            .find(|w| w.is_mine())
+            .map(|w| w.id)
+            .unwrap()
     }
 
     // ---- 日期 ----
@@ -3290,14 +4053,23 @@ mod tests {
         }
         assert_eq!(catalog_in(None).len(), 33);
         for k in WISH_KINDS {
-            assert!(CATALOG.iter().any(|c| c.kind == k), "心愿品类「{k}」在目录里没有商品");
+            assert!(
+                CATALOG.iter().any(|c| c.kind == k),
+                "心愿品类「{k}」在目录里没有商品"
+            );
         }
         for c in &CATALOG {
             assert!(c.price >= 2900, "{} 太便宜", c.name);
-            assert!(!c.desc.is_empty() && !c.tags.is_empty(), "{} 缺描述或标签", c.name);
+            assert!(
+                !c.desc.is_empty() && !c.tags.is_empty(),
+                "{} 缺描述或标签",
+                c.name
+            );
         }
         assert_eq!(related_items(12, 3).len(), 3);
-        assert!(related_items(12, 3).iter().all(|&j| item(j).cat == Category::Digital));
+        assert!(related_items(12, 3)
+            .iter()
+            .all(|&j| item(j).cat == Category::Digital));
         assert_eq!(item(0).price, 10900);
         assert_eq!(item(999).name, CATALOG[0].name, "越界退回第一件");
     }
@@ -3336,15 +4108,25 @@ mod tests {
     fn answers_are_normalized() {
         assert!(answer_matches("星际穿越", " 星际 穿越！", false));
         assert!(answer_matches("Interstellar", "interstellar.", false));
-        assert!(answer_matches("ABC123", "ａｂｃ１２３", false), "全角转半角");
-        assert!(answer_matches("月亮不睡我不睡", "月亮不睡，我不睡。", false));
+        assert!(
+            answer_matches("ABC123", "ａｂｃ１２３", false),
+            "全角转半角"
+        );
+        assert!(answer_matches(
+            "月亮不睡我不睡",
+            "月亮不睡，我不睡。",
+            false
+        ));
         assert!(!answer_matches("星际穿越", "", false));
         assert!(!answer_matches("星际穿越", " ！ ", false));
     }
 
     #[test]
     fn guess_who_accepts_any_alias() {
-        assert_eq!(split_aliases("林舟 / 舟舟、阿舟，Zhou"), vec!["林舟", "舟舟", "阿舟", "Zhou"]);
+        assert_eq!(
+            split_aliases("林舟 / 舟舟、阿舟，Zhou"),
+            vec!["林舟", "舟舟", "阿舟", "Zhou"]
+        );
         assert!(answer_matches("林舟/舟舟", "林舟", true));
         assert!(answer_matches("林舟/舟舟", "舟舟", true));
         assert!(!answer_matches("林舟/舟舟", "陈晓", true));
@@ -3370,8 +4152,14 @@ mod tests {
         s.open(id, T);
         assert_eq!(s.submit_answer(id, "   ", T), AnswerOutcome::Empty);
         assert_eq!(s.gift(id).unwrap().attempts, 0, "空答案不扣机会");
-        assert_eq!(s.submit_answer(id, "泰坦尼克号", T), AnswerOutcome::Wrong { left: 2 });
-        assert_eq!(s.submit_answer(id, "盗梦空间", T), AnswerOutcome::Wrong { left: 1 });
+        assert_eq!(
+            s.submit_answer(id, "泰坦尼克号", T),
+            AnswerOutcome::Wrong { left: 2 }
+        );
+        assert_eq!(
+            s.submit_answer(id, "盗梦空间", T),
+            AnswerOutcome::Wrong { left: 1 }
+        );
         assert_eq!(s.submit_answer(id, "阿凡达", T), AnswerOutcome::Exhausted);
         let g = s.gift(id).unwrap();
         assert_eq!(g.state(), GiftState::Revealed);
@@ -3423,13 +4211,19 @@ mod tests {
 
     #[test]
     fn pact_validation() {
-        assert_eq!(validate_pact("  下周请我喝咖啡 ").unwrap(), "下周请我喝咖啡");
+        assert_eq!(
+            validate_pact("  下周请我喝咖啡 ").unwrap(),
+            "下周请我喝咖啡"
+        );
         assert!(validate_pact("").is_err());
         let long: String = "约".repeat(25);
         assert_eq!(validate_pact(&long), Err("契约最多 24 个字"));
         assert!(validate_pact(&"约".repeat(24)).is_ok());
-        assert_eq!(validate_pact("收下要给我发个红包"), Err("契约只写轻约定，不涉及钱"));
-        for (_, text) in PACT_PRESETS {
+        assert_eq!(
+            validate_pact("收下要给我发个红包"),
+            Err("契约只写轻约定，不涉及钱")
+        );
+        for text in ["下周找时间回请我喝一杯咖啡", "周末陪我看一场电影"] {
             assert!(validate_pact(text).is_ok(), "{text}");
         }
     }
@@ -3441,8 +4235,14 @@ mod tests {
         s.open(id, T);
         s.submit_answer(id, "星际穿越", T);
         let pacts = s.pacts.len();
-        assert_eq!(s.accept(id, &AcceptForm::default(), T), Err("先打开「我同意」，才能收下"));
-        let f = AcceptForm { agree: true, ..Default::default() };
+        assert_eq!(
+            s.accept(id, &AcceptForm::default(), T),
+            Err("先打开「我同意」，才能收下")
+        );
+        let f = AcceptForm {
+            agree: true,
+            ..Default::default()
+        };
         s.accept(id, &f, T).unwrap();
         let g = s.gift(id).unwrap();
         assert_eq!(g.state(), GiftState::Accepted);
@@ -3479,8 +4279,16 @@ mod tests {
         let mut s = LiyuState::for_tests();
         let id = received_by_unlock(&s, Unlock::Passphrase);
         s.open(id, T);
-        assert_eq!(s.submit_answer(id, "月亮不睡 我不睡！", T), AnswerOutcome::Right);
-        let mut f = AcceptForm { agree: true, name: "阿岚".into(), phone: "1380013800".into(), addr: "某地".into() };
+        assert_eq!(
+            s.submit_answer(id, "月亮不睡 我不睡！", T),
+            AnswerOutcome::Right
+        );
+        let mut f = AcceptForm {
+            agree: true,
+            name: "阿岚".into(),
+            phone: "1380013800".into(),
+            addr: "某地".into(),
+        };
         assert_eq!(s.accept(id, &f, T), Err("手机号要 11 位数字"));
         f.phone = "13800138000".into();
         f.addr = " ".into();
@@ -3548,7 +4356,14 @@ mod tests {
         let id = reveal(&mut s, Unlock::GuessWho);
         let before = s.balance();
         let r = s.exchange(id, 1, &AcceptForm::default(), T).unwrap();
-        assert_eq!(r, ExchangeResult { diff: 6800, from_balance: 0, external: 0 });
+        assert_eq!(
+            r,
+            ExchangeResult {
+                diff: 6800,
+                from_balance: 0,
+                external: 0
+            }
+        );
         assert_eq!(s.balance(), before + 6800);
         let g = s.gift(id).unwrap();
         assert_eq!(g.state(), GiftState::Exchanged);
@@ -3560,7 +4375,14 @@ mod tests {
         assert_eq!(s.balance(), 0);
         let id = reveal(&mut s, Unlock::Question);
         let r = s.exchange(id, 10, &AcceptForm::default(), T).unwrap();
-        assert_eq!(r, ExchangeResult { diff: -3500, from_balance: 0, external: 3500 });
+        assert_eq!(
+            r,
+            ExchangeResult {
+                diff: -3500,
+                from_balance: 0,
+                external: 3500
+            }
+        );
         assert_eq!(s.balance(), 0, "余额永不为负");
 
         // 余额部分够：先扣余额，不够的模拟支付。
@@ -3568,7 +4390,14 @@ mod tests {
         s.push_ledger(T, 2000, 0, "测试", "");
         let id = reveal(&mut s, Unlock::Question);
         let r = s.exchange(id, 10, &AcceptForm::default(), T).unwrap();
-        assert_eq!(r, ExchangeResult { diff: -3500, from_balance: 2000, external: 1500 });
+        assert_eq!(
+            r,
+            ExchangeResult {
+                diff: -3500,
+                from_balance: 2000,
+                external: 1500
+            }
+        );
         assert_eq!(s.balance(), 0);
     }
 
@@ -3576,8 +4405,14 @@ mod tests {
     fn exchange_to_physical_needs_address() {
         let mut s = LiyuState::for_tests();
         let id = reveal(&mut s, Unlock::Question);
-        assert_eq!(s.exchange(id, 4, &AcceptForm::default(), T), Err("换一件不一样的吧"));
-        assert_eq!(s.exchange(id, 11, &AcceptForm::default(), T), Err("收件人还没填"));
+        assert_eq!(
+            s.exchange(id, 4, &AcceptForm::default(), T),
+            Err("换一件不一样的吧")
+        );
+        assert_eq!(
+            s.exchange(id, 11, &AcceptForm::default(), T),
+            Err("收件人还没填")
+        );
         assert_eq!(s.exchange_options(s.gift(id).unwrap()).len(), 11);
     }
 
@@ -3662,7 +4497,10 @@ mod tests {
         let passphrase = received_by_unlock(&s, Unlock::Passphrase); // today − 5
         assert_eq!(s.sweep(T), 0);
         assert_eq!(s.sweep(T + 2), 1, "收到的暗号礼物第 7 天过期");
-        assert_eq!(s.gift(passphrase).unwrap().status_text(T + 2), "已过期，已退回给 TA");
+        assert_eq!(
+            s.gift(passphrase).unwrap().status_text(T + 2),
+            "已过期，已退回给 TA"
+        );
         let before = s.balance();
         let n = s.sweep(T + EXPIRE_DAYS);
         assert!(n >= 1);
@@ -3679,11 +4517,16 @@ mod tests {
     #[test]
     fn simulator_reaches_terminal_in_three_steps() {
         let mut s = LiyuState::for_tests();
-        for (k, unlock) in [Unlock::GuessWho, Unlock::Question, Unlock::Passphrase, Unlock::Free]
-            .into_iter()
-            .cycle()
-            .take(24)
-            .enumerate()
+        for (k, unlock) in [
+            Unlock::GuessWho,
+            Unlock::Question,
+            Unlock::Passphrase,
+            Unlock::Free,
+        ]
+        .into_iter()
+        .cycle()
+        .take(24)
+        .enumerate()
         {
             let mut d = draft((k % 12) as u16);
             d.unlock = unlock;
@@ -3796,14 +4639,20 @@ mod tests {
         let mut s = LiyuState::for_tests();
         assert_eq!(s.add_contact(" "), Err(AddContactError::Empty));
         assert_eq!(s.add_contact("林舟"), Err(AddContactError::Duplicate));
-        assert_eq!(s.add_contact(&"长".repeat(17)), Err(AddContactError::TooLong));
+        assert_eq!(
+            s.add_contact(&"长".repeat(17)),
+            Err(AddContactError::TooLong)
+        );
         let id = s.add_contact("周子墨").unwrap();
         assert!(!s.directory.contains(&"周子墨".to_string()));
         let snap = s.remove_contact(id).unwrap();
         assert!(s.contact(id).is_none());
         s.restore(snap);
         assert!(s.contact(id).is_some());
-        assert_eq!(s.adopt_names(vec!["林小满".into(), "林舟".into(), "".into()]), 1);
+        assert_eq!(
+            s.adopt_names(vec!["林小满".into(), "林舟".into(), "".into()]),
+            1
+        );
     }
 
     #[test]
@@ -3823,7 +4672,8 @@ mod tests {
         let mut s = LiyuState::for_tests();
         let id = reveal(&mut s, Unlock::GuessWho);
         s.cash_out(id, T).unwrap();
-        s.settings.set_theme_mode(crate::theme::ThemeMode::default());
+        s.settings
+            .set_theme_mode(crate::theme::ThemeMode::default());
         let json = s.persisted().serialize_json();
         let back = PersistedState::deserialize_json_lenient(&json).unwrap();
         assert_eq!(back, s.persisted());
@@ -3843,7 +4693,11 @@ mod tests {
         let p = LiyuState::load_from(&path).expect("能读回来");
         assert_eq!(p.gifts.as_ref().map(|g| g.len()), Some(s.gifts.len()));
         // 不是礼遇格式的文件（旧版偶遇存档）算读不出来。
-        std::fs::write(&path, r#"{"contacts":[{"id":0,"label":"林舟"}],"encounters":[]}"#).unwrap();
+        std::fs::write(
+            &path,
+            r#"{"contacts":[{"id":0,"label":"林舟"}],"encounters":[]}"#,
+        )
+        .unwrap();
         assert!(LiyuState::load_from(&path).is_none());
         std::fs::write(&path, "not json").unwrap();
         assert!(LiyuState::load_from(&path).is_none());
@@ -3892,7 +4746,11 @@ mod tests {
         gift.revealed_on = T;
         let original_title = gift.catalog().name;
         let mut displays = Vec::new();
-        for state in [GiftState::Accepted, GiftState::Exchanged, GiftState::CashedOut] {
+        for state in [
+            GiftState::Accepted,
+            GiftState::Exchanged,
+            GiftState::CashedOut,
+        ] {
             gift.set_state(state);
             gift.swap_item = 1;
             gift.refund = 10_000;
@@ -3924,14 +4782,22 @@ mod tests {
 
     #[test]
     fn vcard_parsing() {
-        assert_eq!(parse_vcard(SAMPLE_VCARD), vec!["周子墨", "林小满", "黄一诺", "吴凯文"]);
+        assert_eq!(
+            parse_vcard(SAMPLE_VCARD),
+            vec!["周子墨", "林小满", "黄一诺", "吴凯文"]
+        );
     }
 
     // ---- 心愿单 ----
 
     #[test]
     fn vague_wish_picks_matching_goods() {
-        let ids = |w: &WishItem| wish_candidates(w).iter().map(|m| m.item).collect::<Vec<_>>();
+        let ids = |w: &WishItem| {
+            wish_candidates(w)
+                .iter()
+                .map(|m| m.item)
+                .collect::<Vec<_>>()
+        };
         // 55 寸以上、¥3000 以内：43 寸的不要，贵的 65/75 寸超预算；剩下的便宜的在前。
         let tv = WishItem::vague("电视", 300_000, "55 寸以上");
         assert_eq!(ids(&tv), vec![31, 12, 32]);
@@ -3940,7 +4806,9 @@ mod tests {
         // 不限预算、65 寸以上还要 120Hz：两台都命中的排前面（便宜的在前），只够尺寸的排后面。
         let tv = WishItem::vague("电视", 0, "65寸以上 120Hz");
         assert_eq!(ids(&tv), vec![13, 15, 32]);
-        assert!(wish_candidates(&tv)[..2].iter().all(|m| m.hits.contains(&"120Hz".to_string())));
+        assert!(wish_candidates(&tv)[..2]
+            .iter()
+            .all(|m| m.hits.contains(&"120Hz".to_string())));
         // 什么要求都没写：同类全给，便宜的在前。
         assert_eq!(ids(&WishItem::vague("绿植", 0, "")), vec![25, 24]);
         // 命中要求多的排前面。
@@ -3954,30 +4822,50 @@ mod tests {
         // 具体的心愿只有那一件。
         assert_eq!(ids(&WishItem::exact(6)), vec![6]);
         assert_eq!(WishItem::vague("电视", 0, "").title(), "一台电视");
-        assert_eq!(WishItem::vague("耳机", 100_000, "降噪").sub(), "¥1000 以内 · 降噪");
+        assert_eq!(
+            WishItem::vague("耳机", 100_000, "降噪").sub(),
+            "¥1000 以内 · 降噪"
+        );
     }
 
     #[test]
     fn demo_wishlists_are_sorted_and_described() {
         let s = LiyuState::for_tests();
-        let f: Vec<&str> = s.friend_wishlists(T).iter().map(|w| w.owner.as_str()).collect();
-        assert_eq!(f, vec!["林舟", "陈晓", "许宁"], "进行中的按日子近的在前，结束的在后");
+        let f: Vec<&str> = s
+            .friend_wishlists(T)
+            .iter()
+            .map(|w| w.owner.as_str())
+            .collect();
+        assert_eq!(
+            f,
+            vec!["林舟", "陈晓", "许宁"],
+            "进行中的按日子近的在前，结束的在后"
+        );
         let lin = s.wishlist(friend_list(&s, "林舟")).unwrap();
-        assert_eq!(lin.when_text(T), format!("{} · 还有 3 天", {
-            let (_, m, d) = days_to_civil(T + 3);
-            format!("{m} 月 {d} 日")
-        }));
+        assert_eq!(
+            lin.when_text(T),
+            format!("{} · 还有 3 天", {
+                let (_, m, d) = days_to_civil(T + 3);
+                format!("{m} 月 {d} 日")
+            })
+        );
         assert_eq!(lin.progress_text(), "5 件心愿 · 1 件已有人送");
         assert_eq!(s.wish_item_status(lin, 0, T), "还没人送");
         assert_eq!(s.wish_item_status(lin, 1, T), "已有人送");
         let xu = s.wishlist(friend_list(&s, "许宁")).unwrap();
         assert!(!xu.is_open(T));
         assert_eq!(xu.countdown(T), "已结束");
-        assert_eq!(s.wish_hint("陈晓", T).as_deref(), Some("乔迁心愿单 · 还有 12 天 · 3 件没人送"));
+        assert_eq!(
+            s.wish_hint("陈晓", T).as_deref(),
+            Some("乔迁心愿单 · 还有 12 天 · 3 件没人送")
+        );
         assert_eq!(s.wish_hint("许宁", T), None, "结束了的不提");
         // 我的心愿单：林舟那份咖啡还没拆，不透露是谁。
         let mine = s.wishlist(my_list(&s)).unwrap();
-        assert_eq!(s.wish_item_status(mine, 0, T), "已被认领 · 礼物在礼盒里等你拆");
+        assert_eq!(
+            s.wish_item_status(mine, 0, T),
+            "已被认领 · 礼物在礼盒里等你拆"
+        );
         assert_eq!(s.wish_item_status(mine, 1, T), "还没人认领");
         assert_eq!(s.current_my_wishlist(T), Some(mine.id));
     }
@@ -3996,7 +4884,11 @@ mod tests {
         assert_eq!(g.peer, "林舟", "收礼人就是心愿单的主人");
         assert_eq!(g.wish_id, Some(lid));
         assert_eq!(s.ledger.len(), before + 1);
-        assert!(s.ledger.last().unwrap().note.contains("支付宝"), "{}", s.ledger.last().unwrap().note);
+        assert!(
+            s.ledger.last().unwrap().note.contains("支付宝"),
+            "{}",
+            s.ledger.last().unwrap().note
+        );
         let w = s.wishlist(lid).unwrap();
         assert_eq!(w.items[0].state, WISH_BY_ME);
         assert_eq!(w.items[0].gift_id, id);
@@ -4014,7 +4906,10 @@ mod tests {
         d.item = 1;
         assert_eq!(s.send_gift(&d, T), Err("要送心愿单上说的那一类"));
         d.item = 9;
-        assert!(s.send_gift(&d, T).is_ok(), "文具盲盒也是盲盒，超出「潮玩」要求也能送");
+        assert!(
+            s.send_gift(&d, T).is_ok(),
+            "文具盲盒也是盲盒，超出「潮玩」要求也能送"
+        );
         // 撤回：心愿放开，别人还能送。
         s.withdraw(id, T).unwrap();
         assert_eq!(s.wishlist(lid).unwrap().items[0].state, WISH_OPEN);
@@ -4040,7 +4935,11 @@ mod tests {
         let g = s.gift(id).unwrap();
         assert!(g.is_scheduled(T));
         assert_eq!(g.booked_on, Some(T));
-        assert!(g.status_text(T).starts_with("待送达"), "{}", g.status_text(T));
+        assert!(
+            g.status_text(T).starts_with("待送达"),
+            "{}",
+            g.status_text(T)
+        );
         assert_eq!(g.timeline(T).len(), 1, "还没送到，只有下单");
         // 过了 7 天也不会过期：过期从送到那天算。
         s.sweep(T + 8);
@@ -4063,7 +4962,11 @@ mod tests {
         d.wish = Some((lid, 4));
         s.send_gift(&d, T).unwrap();
         assert!(s.sweep(T + EXPIRE_DAYS) >= 1);
-        assert_eq!(s.wishlist(lid).unwrap().items[4].state, WISH_OPEN, "没拆开退回了，心愿放开");
+        assert_eq!(
+            s.wishlist(lid).unwrap().items[4].state,
+            WISH_OPEN,
+            "没拆开退回了，心愿放开"
+        );
     }
 
     #[test]
@@ -4100,7 +5003,10 @@ mod tests {
         assert!(s.wishlist(id).is_none());
         // 有人认领的：只能结束，编辑时也不能拿掉认领的那件。
         let mine = my_list(&s);
-        assert_eq!(s.delete_wish(mine), Err("已经有人认领了，只能结束，不能删除"));
+        assert_eq!(
+            s.delete_wish(mine),
+            Err("已经有人认领了，只能结束，不能删除")
+        );
         let mut e = WishDraft::from_list(s.wishlist(mine).unwrap());
         e.items.remove(0);
         assert_eq!(s.publish_wish(&e, T), Err("已经有人认领的心愿不能删"));
@@ -4144,7 +5050,10 @@ mod tests {
         assert_eq!(s.received(T).len(), n);
         assert_eq!(s.received(T + 5).len(), n + 1);
         let w = s.wishlist(id).unwrap();
-        assert_eq!(s.wish_item_status(w, 0, T), format!("已被认领 · {} 送到", md_cn(T + 5)));
+        assert_eq!(
+            s.wish_item_status(w, 0, T),
+            format!("已被认领 · {} 送到", md_cn(T + 5))
+        );
         assert_eq!(s.simulate_wish_claim(id, T), Err("心愿都有人送啦"));
     }
 

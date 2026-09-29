@@ -630,6 +630,29 @@ fn get(path: &str) -> Option<Value> {
     }
 }
 
+/// Preset pact text is administered by liyu-server; an offline app still lets
+/// the user type a custom pact, but does not substitute local preset copy.
+pub fn contract_templates() -> Vec<(String, String)> {
+    let Some(Value::Array(rows)) = get("contract-templates") else {
+        return Vec::new();
+    };
+    rows.into_iter()
+        .filter_map(|row| {
+            let label = row.get("label")?.as_str()?.trim();
+            let body = row.get("body")?.as_str()?.trim();
+            if label.is_empty()
+                || label.chars().count() > 20
+                || body.is_empty()
+                || body.chars().count() > 24
+            {
+                return None;
+            }
+            Some((label.to_owned(), body.to_owned()))
+        })
+        .take(4)
+        .collect()
+}
+
 /// 已上传头像的图像字节回显:GET 服务端返回的 avatar_url 路径(如
 /// /api/v1/media/avatars/<32hex>),取原始字节供界面解码显示。断网/401/无会话返回 None。
 pub fn fetch_avatar_bytes(avatar_url: &str) -> Option<Vec<u8>> {
@@ -667,26 +690,43 @@ pub fn lookup_contact_avatars(
     contacts: &[(String, String)],
 ) -> Result<std::collections::HashMap<String, String>, &'static str> {
     let (url, token) = api().ok_or("尚未连接礼遇服务器")?;
-    let contacts: Vec<Value> = contacts.iter().map(|(kind, value)| json!({"kind":kind,"value":value})).collect();
+    let contacts: Vec<Value> = contacts
+        .iter()
+        .map(|(kind, value)| json!({"kind":kind,"value":value}))
+        .collect();
     let reply = match agent()
         .post(&format!("{url}/api/v1/contacts/avatars"))
         .set("Authorization", &format!("Bearer {token}"))
         .send_json(json!({"contacts":contacts}))
     {
         Ok(reply) => reply.into_json::<Value>().map_err(|_| "头像查询响应无效")?,
-        Err(ureq::Error::Status(401, _)) => { mark_expired(); return Err("登录已过期，请重新登录"); }
+        Err(ureq::Error::Status(401, _)) => {
+            mark_expired();
+            return Err("登录已过期，请重新登录");
+        }
         Err(_) => return Err("暂时无法查询熟人头像"),
     };
     let mut found = std::collections::HashMap::new();
-    let rows = reply.get("avatars").and_then(Value::as_array).ok_or("头像查询响应无效")?;
+    let rows = reply
+        .get("avatars")
+        .and_then(Value::as_array)
+        .ok_or("头像查询响应无效")?;
     for row in rows {
         let (Some(kind), Some(value), Some(avatar_url)) = (
             row.get("kind").and_then(Value::as_str),
             row.get("value").and_then(Value::as_str),
             row.get("avatar_url").and_then(Value::as_str),
-        ) else { continue };
-        let valid_path = avatar_url.strip_prefix("/api/v1/media/avatars/")
-            .is_some_and(|id| id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()));
+        ) else {
+            continue;
+        };
+        let valid_path = avatar_url
+            .strip_prefix("/api/v1/media/avatars/")
+            .is_some_and(|id| {
+                id.len() == 32
+                    && id
+                        .bytes()
+                        .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+            });
         if valid_path {
             found.insert(format!("{kind}:{value}"), avatar_url.to_string());
         }
@@ -1062,8 +1102,7 @@ pub fn request_contact_code(
     kind: &str,
     value: &str,
 ) -> Result<Option<String>, &'static str> {
-    let value = crate::contacts::normalize(kind, value)
-        .ok_or("请输入有效手机号或邮箱")?;
+    let value = crate::contacts::normalize(kind, value).ok_or("请输入有效手机号或邮箱")?;
     let mut req = agent().post(&format!("{}/api/v1/auth/challenges", api_url()));
     let owner = if purpose == "bind" {
         let (_, token) = session().ok_or("请先登录")?;

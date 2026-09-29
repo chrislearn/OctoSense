@@ -1612,8 +1612,20 @@ impl Widget for LiyuShareCard {
         let px = move |x: f64| r.pos.x + x * sx;
         let py = move |y: f64| r.pos.y + y * sy;
         let (bg, fg, sub, accent, ring) = match self.scene.style {
-            ShareStyle::Warm => (self.warm_bg, self.warm_fg, self.warm_sub, self.warm_accent, self.warm_ring),
-            ShareStyle::Night => (self.night_bg, self.night_fg, self.night_sub, self.night_accent, self.night_ring),
+            ShareStyle::Warm => (
+                self.warm_bg,
+                self.warm_fg,
+                self.warm_sub,
+                self.warm_accent,
+                self.warm_ring,
+            ),
+            ShareStyle::Night => (
+                self.night_bg,
+                self.night_fg,
+                self.night_sub,
+                self.night_accent,
+                self.night_ring,
+            ),
         };
         self.draw_bg.color = bg;
         self.draw_bg.draw_abs(cx, r);
@@ -1624,39 +1636,95 @@ impl Widget for LiyuShareCard {
             let rr = rad * (sx + sy) * 0.5;
             self.draw_ring.draw_abs(
                 cx,
-                Rect { pos: dvec2(px(450.0) - rr, py(330.0) - rr), size: dvec2(rr * 2.0, rr * 2.0) },
+                Rect {
+                    pos: dvec2(px(450.0) - rr, py(330.0) - rr),
+                    size: dvec2(rr * 2.0, rr * 2.0),
+                },
             );
         }
         self.draw_big.color = accent;
         self.draw_big.text_style.font_size = (170.0 * sy * PT_PER_PX).max(5.0) as f32;
-        self.draw_big.draw_abs(cx, dvec2(px(450.0 - 170.0 * 0.28), py(390.0 - 170.0 * ASCENT)), "?");
+        self.draw_big.draw_abs(
+            cx,
+            dvec2(px(450.0 - 170.0 * 0.28), py(390.0 - 170.0 * ASCENT)),
+            "?",
+        );
 
         let scene = self.scene.clone();
-        let line = |cx: &mut Cx2d, d: &mut DrawText, x: f64, y: f64, size: f64, color: Vec4f, text: &str| {
+        let line = |cx: &mut Cx2d,
+                    d: &mut DrawText,
+                    x: f64,
+                    y: f64,
+                    size: f64,
+                    color: Vec4f,
+                    text: &str| {
             d.color = color;
             d.text_style.font_size = (size * sy * PT_PER_PX).max(4.0) as f32;
             d.draw_abs(cx, dvec2(px(x), py(y - size * ASCENT)), text);
         };
-        line(cx, &mut self.draw_head, 64.0, 92.0, 22.0, sub, "LIYU / 神秘礼卡");
-        line(cx, &mut self.draw_text, 64.0, 600.0, 52.0, fg, "一份神秘礼物 · 等你来拆");
+        line(
+            cx,
+            &mut self.draw_head,
+            64.0,
+            92.0,
+            22.0,
+            sub,
+            "LIYU / 神秘礼卡",
+        );
+        line(
+            cx,
+            &mut self.draw_text,
+            64.0,
+            600.0,
+            52.0,
+            fg,
+            "一份神秘礼物 · 等你来拆",
+        );
         line(cx, &mut self.draw_head, 64.0, 656.0, 26.0, sub, &scene.play);
         if !scene.prompt_lines.is_empty() {
             let mut y = 740.0;
-            line(cx, &mut self.draw_head, 64.0, y, 24.0, sub, &scene.prompt_title);
+            line(
+                cx,
+                &mut self.draw_head,
+                64.0,
+                y,
+                24.0,
+                sub,
+                &scene.prompt_title,
+            );
             y += 58.0;
             for l in &scene.prompt_lines {
                 line(cx, &mut self.draw_text, 64.0, y, 40.0, fg, l);
                 y += 54.0;
             }
         }
-        line(cx, &mut self.draw_big, 64.0, 1010.0, 36.0, accent, crate::share::CARD_SECRET);
+        line(
+            cx,
+            &mut self.draw_big,
+            64.0,
+            1010.0,
+            36.0,
+            accent,
+            crate::share::CARD_SECRET,
+        );
         self.draw_rule.color = ring;
         self.draw_rule.draw_abs(
             cx,
-            Rect { pos: dvec2(px(64.0), py(1080.0)), size: dvec2(px(836.0) - px(64.0), 1.0) },
+            Rect {
+                pos: dvec2(px(64.0), py(1080.0)),
+                size: dvec2(px(836.0) - px(64.0), 1.0),
+            },
         );
         line(cx, &mut self.draw_head, 64.0, 1130.0, 26.0, fg, "礼遇 LiYu");
-        line(cx, &mut self.draw_head, 530.0, 1130.0, 18.0, sub, crate::share::CARD_FOOT);
+        line(
+            cx,
+            &mut self.draw_head,
+            530.0,
+            1130.0,
+            18.0,
+            sub,
+            crate::share::CARD_FOOT,
+        );
         DrawStep::done()
     }
 

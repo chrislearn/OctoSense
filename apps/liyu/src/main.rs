@@ -1,9 +1,9 @@
 //! 「礼遇 LiYu」的独立窗口入口（模块形态由 lib.rs 的 LiyuModule 承载）。
 //! 注册三个只读 AI 工具（礼物目录 / 预算挑礼 / 礼盒摘要，见 ai.rs）：
 //! 应答经 LiyuView::ai_answer 取礼盒的匿名汇总，结构上不含送礼人、答案与暗号。
-pub use makepad_widgets;
 use makepad_app_module::makepad_ai_services::port::{AiServicePort, PortEvent};
 use makepad_app_module::makepad_ai_services::wire::{HostedDown, ServiceDown, ToolResult};
+pub use makepad_widgets;
 use makepad_widgets::*;
 use octosense_liyu::theme::ThemeMode;
 use octosense_liyu::LiyuView;
@@ -48,7 +48,11 @@ pub struct App {
 }
 
 impl App {
-    fn answer_ai(&self, cx: &mut Cx, call: &makepad_app_module::makepad_ai_services::wire::ServiceCall) -> ToolResult {
+    fn answer_ai(
+        &self,
+        cx: &mut Cx,
+        call: &makepad_app_module::makepad_ai_services::wire::ServiceCall,
+    ) -> ToolResult {
         // ui 是 Root，LiyuView 在 main_window.body——直接 borrow Root 永远落空。
         self.ui
             .widget(cx, ids!(main_window.body))
@@ -85,11 +89,18 @@ impl App {
         // OctoSense 宿主收到 Register 只存 manifest、不回 Registered, port 学不到
         // endpoint, 地址过滤会把所有 Call 帧丢掉。endpoint 未知时直接按帧应答;
         // 在会回 Registered 的宿主（makepad WM）下仍走 port 的正常路径。
-        if self.ai_port.as_ref().is_some_and(|p| p.endpoint().is_none()) {
+        if self
+            .ai_port
+            .as_ref()
+            .is_some_and(|p| p.endpoint().is_none())
+        {
             if let Event::Custom(json) = event {
                 if let Some(down) = HostedDown::parse(json) {
                     if let ServiceDown::Call(call) = down.msg {
-                        log!("liyu: answering {} via endpoint-unknown fallback", call.tool);
+                        log!(
+                            "liyu: answering {} via endpoint-unknown fallback",
+                            call.tool
+                        );
                         let result = self.answer_ai(cx, &call);
                         if let Some(port) = self.ai_port.as_ref() {
                             port.reply(result);

@@ -89,13 +89,19 @@ pub fn scene_for(g: &Gift, style: ShareStyle) -> ShareCardScene {
         style,
         play,
         prompt_title: u.clue_title().to_string(),
-        prompt_lines: if prompt.is_empty() { Vec::new() } else { wrap_chars(&prompt, LINE_CHARS) },
+        prompt_lines: if prompt.is_empty() {
+            Vec::new()
+        } else {
+            wrap_chars(&prompt, LINE_CHARS)
+        },
         id: g.id,
     }
 }
 
 fn esc(s: &str) -> String {
-    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 fn text(x: f64, y: f64, size: u32, color: &str, weight: &str, body: &str) -> String {
@@ -129,7 +135,14 @@ pub fn render_svg(s: &ShareCardScene) -> String {
         r#"<text x="450" y="390" text-anchor="middle" font-family="system-ui, sans-serif" font-size="170" fill="{accent}" font-weight="bold">?</text>"#
     ));
     out.push_str(&text(64.0, 92.0, 22, sub, "normal", "LIYU / 神秘礼卡"));
-    out.push_str(&text(64.0, 600.0, 52, fg, "bold", "一份神秘礼物 · 等你来拆"));
+    out.push_str(&text(
+        64.0,
+        600.0,
+        52,
+        fg,
+        "bold",
+        "一份神秘礼物 · 等你来拆",
+    ));
     out.push_str(&text(64.0, 656.0, 26, sub, "normal", &s.play));
     let mut y = 740.0;
     if !s.prompt_lines.is_empty() {
@@ -230,7 +243,11 @@ mod tests {
     #[test]
     fn card_shows_play_and_clue() {
         let s = LiyuState::for_tests();
-        let g = s.gifts.iter().find(|g| g.unlock() == Unlock::Question).unwrap();
+        let g = s
+            .gifts
+            .iter()
+            .find(|g| g.unlock() == Unlock::Question)
+            .unwrap();
         let sc = scene_for(g, ShareStyle::Night);
         assert_eq!(sc.play, "玩法：私密问答 · 3 次机会");
         assert_eq!(sc.prompt_title, "TA 的问题");
@@ -244,7 +261,12 @@ mod tests {
     #[test]
     fn free_and_hintless_cards() {
         let mut s = LiyuState::for_tests();
-        let mut d = SendDraft { item: 1, unlock: Unlock::Passphrase, answer: "芝麻开门".into(), ..Default::default() };
+        let mut d = SendDraft {
+            item: 1,
+            unlock: Unlock::Passphrase,
+            answer: "芝麻开门".into(),
+            ..Default::default()
+        };
         let id = s.send_gift(&d, TEST_TODAY).unwrap();
         let sc = scene_for(s.gift(id).unwrap(), ShareStyle::Warm);
         assert_eq!(sc.prompt_lines, vec!["TA 说：你知道的".to_string()]);
@@ -264,7 +286,11 @@ mod tests {
 
     #[test]
     fn text_is_escaped() {
-        let sc = ShareCardScene { prompt_lines: vec!["<b>&".into()], prompt_title: "t".into(), ..Default::default() };
+        let sc = ShareCardScene {
+            prompt_lines: vec!["<b>&".into()],
+            prompt_title: "t".into(),
+            ..Default::default()
+        };
         let svg = render_svg(&sc);
         assert!(svg.contains("&lt;b&gt;&amp;"));
         assert!(!svg.contains("<b>"));
@@ -274,7 +300,10 @@ mod tests {
     fn save_writes_svg_file() {
         let dir = std::env::temp_dir().join(format!("liyu-card-{}", std::process::id()));
         let path = dir.join("cards").join("gift-7.svg");
-        let sc = ShareCardScene { id: 7, ..Default::default() };
+        let sc = ShareCardScene {
+            id: 7,
+            ..Default::default()
+        };
         save_card_to(&path, &sc).unwrap();
         let text = std::fs::read_to_string(&path).unwrap();
         assert!(text.contains("礼遇 LiYu"));

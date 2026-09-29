@@ -31,7 +31,9 @@
 //!   待本人确认」，结果文案与 JSON 里不会出现「已送出 / 已下单 / 已扣款」。
 
 use crate::data::{item, yuan, CATALOG};
-use makepad_app_module::makepad_ai_services::wire::{Risk, ServiceCall, ServiceManifest, ToolDef, ToolResult};
+use makepad_app_module::makepad_ai_services::wire::{
+    Risk, ServiceCall, ServiceManifest, ToolDef, ToolResult,
+};
 use std::sync::Mutex;
 
 /// 本轮注册的工具列表。只有一个草稿工具——没有任何提交/下单工具。
@@ -83,7 +85,10 @@ impl DraftStatus {
     }
 
     pub fn is_terminal(self) -> bool {
-        matches!(self, DraftStatus::Confirmed | DraftStatus::Cancelled | DraftStatus::Expired)
+        matches!(
+            self,
+            DraftStatus::Confirmed | DraftStatus::Cancelled | DraftStatus::Expired
+        )
     }
 }
 
@@ -108,13 +113,20 @@ impl GiftDraft {
     /// 一句话摘要：只描述「草稿」，绝不声称已送出。
     pub fn summary(&self) -> String {
         let it = item(self.item_index);
-        let mut s = format!("送礼草稿 {}：{}（{}）", self.draft_id, it.name, yuan(it.price));
+        let mut s = format!(
+            "送礼草稿 {}：{}（{}）",
+            self.draft_id,
+            it.name,
+            yuan(it.price)
+        );
         if !self.note.is_empty() {
             s.push_str(&format!("，寄语「{}」", self.note));
         }
         s.push_str(match self.status {
             DraftStatus::AwaitingConfirm => "——已在本机打开，等本人确认；尚未发送、未扣款",
-            DraftStatus::Confirmed => "——本人已在界面确认；提交依赖在线送礼下单 API（未接入），尚未发送",
+            DraftStatus::Confirmed => {
+                "——本人已在界面确认；提交依赖在线送礼下单 API（未接入），尚未发送"
+            }
             DraftStatus::Cancelled => "——已取消，未发送",
             DraftStatus::Expired => "——已超时作废，未发送",
             DraftStatus::Draft => "——填写中，未发送",
@@ -129,7 +141,11 @@ pub enum GateOutcome {
     /// 转换成功：草稿进入终态 `Confirmed`。
     Confirmed { draft_id: String, summary: String },
     /// 转换被拒绝：草稿保持或进入相应终态，reason 如实说明。
-    Refused { draft_id: String, status: DraftStatus, reason: String },
+    Refused {
+        draft_id: String,
+        status: DraftStatus,
+        reason: String,
+    },
 }
 
 impl GateOutcome {
@@ -157,7 +173,9 @@ impl Default for DraftGate {
 
 impl DraftGate {
     pub fn new() -> Self {
-        DraftGate { inner: Mutex::new(DraftState::default()) }
+        DraftGate {
+            inner: Mutex::new(DraftState::default()),
+        }
     }
 
     /// AI 工具分发。只认 `prepare_gift_draft`；任何提交/下单名字一律拒绝。
@@ -181,7 +199,11 @@ impl DraftGate {
         if index < 0.0 || index.fract() != 0.0 || index as u64 >= CATALOG.len() as u64 {
             return ToolResult::refused(
                 &call.call_id,
-                format!("`item_index` 要在 0..{} 之间（目录只有 {} 件）", CATALOG.len() - 1, CATALOG.len()),
+                format!(
+                    "`item_index` 要在 0..{} 之间（目录只有 {} 件）",
+                    CATALOG.len() - 1,
+                    CATALOG.len()
+                ),
             );
         }
         let note = arg_str(&call.args, "note").unwrap_or_default();
@@ -235,12 +257,22 @@ impl DraftGate {
 
     /// 本机用户在礼遇界面取消。
     pub fn cancel(&self, account_id: &str, draft_id: &str, now_ms: u64) -> GateOutcome {
-        self.transition(account_id, draft_id, now_ms, Transition::Cancel("本人已取消".into()))
+        self.transition(
+            account_id,
+            draft_id,
+            now_ms,
+            Transition::Cancel("本人已取消".into()),
+        )
     }
 
     /// 礼遇窗口关闭：未确认的草稿作废，旧确认不可复用。
     pub fn window_closed(&self, account_id: &str, draft_id: &str, now_ms: u64) -> GateOutcome {
-        self.transition(account_id, draft_id, now_ms, Transition::Cancel("礼遇窗口已关闭，本次确认作废".into()))
+        self.transition(
+            account_id,
+            draft_id,
+            now_ms,
+            Transition::Cancel("礼遇窗口已关闭，本次确认作废".into()),
+        )
     }
 
     /// 账号切换：旧账号所有未终态草稿置为 `Cancelled`，返回作废品数。
@@ -259,11 +291,23 @@ impl DraftGate {
     }
 
     pub fn status(&self, draft_id: &str) -> Option<DraftStatus> {
-        self.inner.lock().unwrap().drafts.iter().find(|d| d.draft_id == draft_id).map(|d| d.status)
+        self.inner
+            .lock()
+            .unwrap()
+            .drafts
+            .iter()
+            .find(|d| d.draft_id == draft_id)
+            .map(|d| d.status)
     }
 
     pub fn draft(&self, draft_id: &str) -> Option<GiftDraft> {
-        self.inner.lock().unwrap().drafts.iter().find(|d| d.draft_id == draft_id).cloned()
+        self.inner
+            .lock()
+            .unwrap()
+            .drafts
+            .iter()
+            .find(|d| d.draft_id == draft_id)
+            .cloned()
     }
 
     /// 草稿总数（测试/诊断用）。
@@ -271,7 +315,13 @@ impl DraftGate {
         self.inner.lock().unwrap().drafts.len()
     }
 
-    fn transition(&self, account_id: &str, draft_id: &str, now_ms: u64, t: Transition) -> GateOutcome {
+    fn transition(
+        &self,
+        account_id: &str,
+        draft_id: &str,
+        now_ms: u64,
+        t: Transition,
+    ) -> GateOutcome {
         let mut st = self.inner.lock().unwrap();
         let Some(d) = st.drafts.iter_mut().find(|d| d.draft_id == draft_id) else {
             return GateOutcome::Refused {
@@ -300,13 +350,23 @@ impl DraftGate {
         match (t, d.status) {
             (Transition::Confirm, DraftStatus::AwaitingConfirm) => {
                 d.status = DraftStatus::Confirmed;
-                GateOutcome::Confirmed { draft_id: draft_id.into(), summary: d.summary() }
+                GateOutcome::Confirmed {
+                    draft_id: draft_id.into(),
+                    summary: d.summary(),
+                }
             }
-            (Transition::Cancel(reason), s @ (DraftStatus::Draft | DraftStatus::AwaitingConfirm)) => {
+            (
+                Transition::Cancel(reason),
+                s @ (DraftStatus::Draft | DraftStatus::AwaitingConfirm),
+            ) => {
                 d.status = DraftStatus::Cancelled;
                 d.terminal_reason = Some(reason.clone());
                 let _ = s;
-                GateOutcome::Refused { draft_id: draft_id.into(), status: DraftStatus::Cancelled, reason }
+                GateOutcome::Refused {
+                    draft_id: draft_id.into(),
+                    status: DraftStatus::Cancelled,
+                    reason,
+                }
             }
             (Transition::Confirm, s) => GateOutcome::Refused {
                 draft_id: draft_id.into(),
@@ -393,7 +453,11 @@ fn arg_str(args: &str, key: &str) -> Option<String> {
                 't' => out.push('\t'),
                 'u' => {
                     let hex: String = chars.by_ref().take(4).collect();
-                    out.push(u32::from_str_radix(&hex, 16).ok().and_then(char::from_u32)?);
+                    out.push(
+                        u32::from_str_radix(&hex, 16)
+                            .ok()
+                            .and_then(char::from_u32)?,
+                    );
                 }
                 c => out.push(c),
             },
@@ -422,11 +486,23 @@ mod tests {
     const T0: u64 = 1_000_000;
 
     fn call(call_id: &str, tool: &str, args: &str) -> ServiceCall {
-        ServiceCall { call_id: call_id.into(), tool: tool.into(), args: args.into() }
+        ServiceCall {
+            call_id: call_id.into(),
+            tool: tool.into(),
+            args: args.into(),
+        }
     }
 
     fn prepare_ok(gate: &DraftGate, account: &str, call_id: &str) -> (String, String) {
-        let r = gate.answer(account, &call(call_id, "prepare_gift_draft", r#"{"item_index":1,"note":"生日快乐"}"#), T0);
+        let r = gate.answer(
+            account,
+            &call(
+                call_id,
+                "prepare_gift_draft",
+                r#"{"item_index":1,"note":"生日快乐"}"#,
+            ),
+            T0,
+        );
         assert_eq!(r.outcome, ToolOutcome::Ok, "{}", r.text);
         let d = (0..gate.draft_count())
             .filter_map(|i| gate.draft(&format!("liyu-draft-{:06}", i + 1)))
@@ -442,7 +518,13 @@ mod tests {
         assert_eq!(m.tools.len(), 1);
         let t = m.tool("prepare_gift_draft").expect("草稿工具应在清单里");
         assert_eq!(t.risk, Risk::Act);
-        for name in ["send_gift", "submit_gift", "place_order", "confirm_gift", "pay"] {
+        for name in [
+            "send_gift",
+            "submit_gift",
+            "place_order",
+            "confirm_gift",
+            "pay",
+        ] {
             assert!(m.tool(name).is_none(), "不得注册提交工具 {name}");
         }
     }
@@ -452,9 +534,21 @@ mod tests {
         let gate = DraftGate::new();
         let (id, text) = prepare_ok(&gate, "alice", "c1");
         assert_eq!(gate.status(&id), Some(DraftStatus::AwaitingConfirm));
-        assert!(text.contains("\"status\":\"awaiting_user_confirm\""), "{}", text);
-        assert!(text.contains("星巴克中杯拿铁电子券") && text.contains("\"price\":35"), "{}", text);
-        assert!(text.contains("未发送") && text.contains("未扣款"), "{}", text);
+        assert!(
+            text.contains("\"status\":\"awaiting_user_confirm\""),
+            "{}",
+            text
+        );
+        assert!(
+            text.contains("星巴克中杯拿铁电子券") && text.contains("\"price\":35"),
+            "{}",
+            text
+        );
+        assert!(
+            text.contains("未发送") && text.contains("未扣款"),
+            "{}",
+            text
+        );
         // 真实性：结果绝不能声称已送出/已下单/已扣款。
         for banned in ["已送出", "已下单", "已扣款", "sent", "order_placed"] {
             assert!(!text.contains(banned), "结果不得包含 `{banned}`: {text}");
@@ -466,10 +560,17 @@ mod tests {
         let gate = DraftGate::new();
         let (id, _) = prepare_ok(&gate, "alice", "c1");
         // 双击/重试/重放：同一 call_id 再调两次，参数不同也不得新建。
-        for args in [r#"{"item_index":1,"note":"生日快乐"}"#, r#"{"item_index":9}"#] {
+        for args in [
+            r#"{"item_index":1,"note":"生日快乐"}"#,
+            r#"{"item_index":9}"#,
+        ] {
             let r = gate.answer("alice", &call("c1", "prepare_gift_draft", args), T0 + 1);
             assert_eq!(r.outcome, ToolOutcome::Ok);
-            assert!(r.text.contains(&format!("\"draft_id\":\"{id}\"")), "{}", r.text);
+            assert!(
+                r.text.contains(&format!("\"draft_id\":\"{id}\"")),
+                "{}",
+                r.text
+            );
             assert!(r.text.contains("\"idempotent_replay\":true"), "{}", r.text);
         }
         assert_eq!(gate.draft_count(), 1, "重复 call_id 不得重复创建");
@@ -480,20 +581,53 @@ mod tests {
         let gate = DraftGate::new();
         // alice 用 call_id=c-shared 开了草稿(含寄语 note)。
         let (id, alice_text) = prepare_ok(&gate, "alice", "c-shared");
-        assert!(alice_text.contains("生日快乐"), "alice 草稿含寄语: {}", alice_text);
+        assert!(
+            alice_text.contains("生日快乐"),
+            "alice 草稿含寄语: {}",
+            alice_text
+        );
         // bob 用同一 call_id 重放:必须拒绝,且不得泄漏 alice 的草稿内容/draft_id/寄语。
-        let r = gate.answer("bob", &call("c-shared", "prepare_gift_draft", r#"{"item_index":1}"#), T0 + 1);
-        assert_eq!(r.outcome, ToolOutcome::Refused, "跨账号同 call_id 应拒绝: {}", r.text);
-        assert!(!r.text.contains(&id), "不得泄漏 alice 的 draft_id: {}", r.text);
-        assert!(!r.text.contains("生日快乐"), "不得泄漏 alice 的寄语: {}", r.text);
+        let r = gate.answer(
+            "bob",
+            &call("c-shared", "prepare_gift_draft", r#"{"item_index":1}"#),
+            T0 + 1,
+        );
+        assert_eq!(
+            r.outcome,
+            ToolOutcome::Refused,
+            "跨账号同 call_id 应拒绝: {}",
+            r.text
+        );
+        assert!(
+            !r.text.contains(&id),
+            "不得泄漏 alice 的 draft_id: {}",
+            r.text
+        );
+        assert!(
+            !r.text.contains("生日快乐"),
+            "不得泄漏 alice 的寄语: {}",
+            r.text
+        );
         // bob 不能用拒绝的 call_id 重放,但可以用自己的 call_id 正常开草稿。
         let (bob_id, _) = prepare_ok(&gate, "bob", "c-bob-own");
         assert_ne!(bob_id, id, "bob 应得到独立草稿");
-        assert_eq!(gate.draft_count(), 2, "拒绝重放不新建,但 bob 自有 call_id 可建");
+        assert_eq!(
+            gate.draft_count(),
+            2,
+            "拒绝重放不新建,但 bob 自有 call_id 可建"
+        );
         // 同账号 alice 重放仍正常返回既有草稿。
-        let r2 = gate.answer("alice", &call("c-shared", "prepare_gift_draft", r#"{"item_index":1}"#), T0 + 2);
+        let r2 = gate.answer(
+            "alice",
+            &call("c-shared", "prepare_gift_draft", r#"{"item_index":1}"#),
+            T0 + 2,
+        );
         assert_eq!(r2.outcome, ToolOutcome::Ok);
-        assert!(r2.text.contains("\"idempotent_replay\":true"), "{}", r2.text);
+        assert!(
+            r2.text.contains("\"idempotent_replay\":true"),
+            "{}",
+            r2.text
+        );
     }
 
     #[test]
@@ -504,10 +638,17 @@ mod tests {
         for _ in 0..8 {
             let g = gate.clone();
             handles.push(std::thread::spawn(move || {
-                g.answer("alice", &call("c-race", "prepare_gift_draft", r#"{"item_index":2}"#), T0)
+                g.answer(
+                    "alice",
+                    &call("c-race", "prepare_gift_draft", r#"{"item_index":2}"#),
+                    T0,
+                )
             }));
         }
-        let texts: Vec<String> = handles.into_iter().map(|h| h.join().unwrap().text).collect();
+        let texts: Vec<String> = handles
+            .into_iter()
+            .map(|h| h.join().unwrap().text)
+            .collect();
         assert_eq!(gate.draft_count(), 1, "并发同 call_id 只建一份");
         let id = &gate.draft("liyu-draft-000001").unwrap().draft_id;
         assert!(texts.iter().all(|t| t.contains(id)), "{texts:?}");
@@ -522,9 +663,28 @@ mod tests {
         assert_eq!(gate.status(&id), Some(DraftStatus::Confirmed));
         // 终态不可再变：再确认、再取消都拒绝，状态不变。
         let out = gate.confirm("alice", &id, T0 + 2000);
-        assert!(!out.is_confirmed() && matches!(out, GateOutcome::Refused { status: DraftStatus::Confirmed, .. }), "{out:?}");
+        assert!(
+            !out.is_confirmed()
+                && matches!(
+                    out,
+                    GateOutcome::Refused {
+                        status: DraftStatus::Confirmed,
+                        ..
+                    }
+                ),
+            "{out:?}"
+        );
         let out = gate.cancel("alice", &id, T0 + 3000);
-        assert!(matches!(out, GateOutcome::Refused { status: DraftStatus::Confirmed, .. }), "{out:?}");
+        assert!(
+            matches!(
+                out,
+                GateOutcome::Refused {
+                    status: DraftStatus::Confirmed,
+                    ..
+                }
+            ),
+            "{out:?}"
+        );
         assert_eq!(gate.status(&id), Some(DraftStatus::Confirmed));
     }
 
@@ -533,9 +693,27 @@ mod tests {
         let gate = DraftGate::new();
         let (id, _) = prepare_ok(&gate, "alice", "c1");
         let out = gate.cancel("alice", &id, T0 + 1000);
-        assert!(matches!(out, GateOutcome::Refused { status: DraftStatus::Cancelled, .. }), "{out:?}");
+        assert!(
+            matches!(
+                out,
+                GateOutcome::Refused {
+                    status: DraftStatus::Cancelled,
+                    ..
+                }
+            ),
+            "{out:?}"
+        );
         let out = gate.confirm("alice", &id, T0 + 1001);
-        assert!(matches!(out, GateOutcome::Refused { status: DraftStatus::Cancelled, .. }), "{out:?}");
+        assert!(
+            matches!(
+                out,
+                GateOutcome::Refused {
+                    status: DraftStatus::Cancelled,
+                    ..
+                }
+            ),
+            "{out:?}"
+        );
         assert_eq!(gate.status(&id), Some(DraftStatus::Cancelled));
     }
 
@@ -545,13 +723,33 @@ mod tests {
         let (id, _) = prepare_ok(&gate, "alice", "c1");
         // TTL 边界内可以确认。
         let (id2, _) = prepare_ok(&gate, "alice", "c2");
-        assert!(gate.confirm("alice", &id2, T0 + DEFAULT_TTL_MS - 1).is_confirmed());
+        assert!(gate
+            .confirm("alice", &id2, T0 + DEFAULT_TTL_MS - 1)
+            .is_confirmed());
         // 过 TTL：确认被拒绝，草稿落 Expired，旧确认不可复用。
         let out = gate.confirm("alice", &id, T0 + DEFAULT_TTL_MS);
-        assert!(matches!(out, GateOutcome::Refused { status: DraftStatus::Expired, .. }), "{out:?}");
+        assert!(
+            matches!(
+                out,
+                GateOutcome::Refused {
+                    status: DraftStatus::Expired,
+                    ..
+                }
+            ),
+            "{out:?}"
+        );
         assert_eq!(gate.status(&id), Some(DraftStatus::Expired));
         let out = gate.confirm("alice", &id, T0 + DEFAULT_TTL_MS + 1);
-        assert!(matches!(out, GateOutcome::Refused { status: DraftStatus::Expired, .. }), "{out:?}");
+        assert!(
+            matches!(
+                out,
+                GateOutcome::Refused {
+                    status: DraftStatus::Expired,
+                    ..
+                }
+            ),
+            "{out:?}"
+        );
     }
 
     #[test]
@@ -567,7 +765,16 @@ mod tests {
         assert_eq!(gate.status(&id), Some(DraftStatus::Cancelled));
         // 原账号也复用不了旧确认。
         let out = gate.confirm("alice", &id, T0 + 3000);
-        assert!(matches!(out, GateOutcome::Refused { status: DraftStatus::Cancelled, .. }), "{out:?}");
+        assert!(
+            matches!(
+                out,
+                GateOutcome::Refused {
+                    status: DraftStatus::Cancelled,
+                    ..
+                }
+            ),
+            "{out:?}"
+        );
     }
 
     #[test]
@@ -575,9 +782,27 @@ mod tests {
         let gate = DraftGate::new();
         let (id, _) = prepare_ok(&gate, "alice", "c1");
         let out = gate.window_closed("alice", &id, T0 + 500);
-        assert!(matches!(out, GateOutcome::Refused { status: DraftStatus::Cancelled, .. }), "{out:?}");
+        assert!(
+            matches!(
+                out,
+                GateOutcome::Refused {
+                    status: DraftStatus::Cancelled,
+                    ..
+                }
+            ),
+            "{out:?}"
+        );
         let out = gate.confirm("alice", &id, T0 + 600);
-        assert!(matches!(out, GateOutcome::Refused { status: DraftStatus::Cancelled, .. }), "{out:?}");
+        assert!(
+            matches!(
+                out,
+                GateOutcome::Refused {
+                    status: DraftStatus::Cancelled,
+                    ..
+                }
+            ),
+            "{out:?}"
+        );
         // 不存在的草稿（窗口关掉后 UI 拿着旧 ID 来）也是真实拒绝。
         let out = gate.confirm("alice", "liyu-draft-999999", T0 + 700);
         assert!(!out.is_confirmed(), "{out:?}");
@@ -587,7 +812,13 @@ mod tests {
     fn bad_args_and_submit_tools_are_refused() {
         let gate = DraftGate::new();
         // 缺 item_index / 越界 / 非整数：拒绝且不建草稿。
-        for args in ["{}", r#"{"item_index":33}"#, r#"{"item_index":-1}"#, r#"{"item_index":1.5}"#, r#"{"item_index":"abc"}"#] {
+        for args in [
+            "{}",
+            r#"{"item_index":33}"#,
+            r#"{"item_index":-1}"#,
+            r#"{"item_index":1.5}"#,
+            r#"{"item_index":"abc"}"#,
+        ] {
             let r = gate.answer("alice", &call("cx", "prepare_gift_draft", args), T0);
             assert_eq!(r.outcome, ToolOutcome::Refused, "{args}: {}", r.text);
         }
@@ -607,7 +838,11 @@ mod tests {
         let (id, _) = prepare_ok(&gate, "alice", "c1");
         assert!(gate.confirm("alice", &id, T0 + 100).is_confirmed());
         // 确认后的重放结果仍然如实：确认 ≠ 已送出。
-        let r = gate.answer("alice", &call("c1", "prepare_gift_draft", r#"{"item_index":1}"#), T0 + 200);
+        let r = gate.answer(
+            "alice",
+            &call("c1", "prepare_gift_draft", r#"{"item_index":1}"#),
+            T0 + 200,
+        );
         assert!(r.text.contains("\"status\":\"confirmed\""), "{}", r.text);
         assert!(r.text.contains("尚未发送"), "{}", r.text);
         for banned in ["已送出", "已下单", "已扣款"] {

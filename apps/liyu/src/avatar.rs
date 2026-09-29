@@ -115,7 +115,9 @@ pub struct AvatarEditSession {
 
 impl Clone for AvatarEditSession {
     fn clone(&self) -> Self {
-        Self { image: self.image.clone() }
+        Self {
+            image: self.image.clone(),
+        }
     }
 }
 
@@ -157,8 +159,8 @@ impl AvatarEditSession {
         if hw > MAX_INPUT_DIM || hh > MAX_INPUT_DIM {
             return Err(AvatarError::DimensionsTooLarge);
         }
-        let image = load_from_memory_with_format(bytes, format)
-            .map_err(|_| AvatarError::CorruptImage)?;
+        let image =
+            load_from_memory_with_format(bytes, format).map_err(|_| AvatarError::CorruptImage)?;
         let corrected = apply_orientation(image, orientation);
         Ok(Self {
             image: corrected.to_rgba8(),
@@ -240,12 +242,8 @@ impl AvatarEditSession {
         let scale = max_dim as f64 / longest as f64;
         let nw = ((w as f64) * scale).round().max(1.0) as u32;
         let nh = ((h as f64) * scale).round().max(1.0) as u32;
-        self.image = image::imageops::resize(
-            &self.image,
-            nw,
-            nh,
-            image::imageops::FilterType::Lanczos3,
-        );
+        self.image =
+            image::imageops::resize(&self.image, nw, nh, image::imageops::FilterType::Lanczos3);
         self
     }
 
@@ -253,7 +251,11 @@ impl AvatarEditSession {
     /// [`MAX_OUTPUT_BYTES`] 时自动降质量重试。
     pub fn encode_final(&self, format: AvatarFormat) -> Result<EncodedAvatar, AvatarError> {
         let (w, h) = self.image.dimensions();
-        let qualities: &[u8] = if format.is_lossy() { &[85, 70, 50] } else { &[0] };
+        let qualities: &[u8] = if format.is_lossy() {
+            &[85, 70, 50]
+        } else {
+            &[0]
+        };
         for &q in qualities {
             let bytes = self.encode_with(format, q)?;
             if bytes.len() <= MAX_OUTPUT_BYTES {
@@ -302,7 +304,7 @@ impl AvatarEditSession {
 
 /// 应用 EXIF orientation(1–8),返回视觉正向图像。未知值按 1 处理。
 fn apply_orientation(img: DynamicImage, orientation: u8) -> DynamicImage {
-    use image::imageops::{flip_horizontal, flip_vertical, rotate90, rotate180, rotate270};
+    use image::imageops::{flip_horizontal, flip_vertical, rotate180, rotate270, rotate90};
     match orientation {
         2 => DynamicImage::ImageRgba8(flip_horizontal(&img.to_rgba8())),
         3 => DynamicImage::ImageRgba8(rotate180(&img.to_rgba8())),
@@ -372,8 +374,12 @@ fn find_webp_exif_tiff(bytes: &[u8]) -> Option<&[u8]> {
     let mut pos = 12usize;
     while pos + 8 <= bytes.len() {
         let fourcc = &bytes[pos..pos + 4];
-        let size = u32::from_le_bytes([bytes[pos + 4], bytes[pos + 5], bytes[pos + 6], bytes[pos + 7]])
-            as usize;
+        let size = u32::from_le_bytes([
+            bytes[pos + 4],
+            bytes[pos + 5],
+            bytes[pos + 6],
+            bytes[pos + 7],
+        ]) as usize;
         let body = pos + 8;
         if body + size > bytes.len() {
             return None;
@@ -466,7 +472,12 @@ mod tests {
         }
         let mut out = Vec::new();
         JpegEncoder::new_with_quality(&mut out, 90)
-            .write_image(rgb.as_raw(), img.width(), img.height(), ExtendedColorType::Rgb8)
+            .write_image(
+                rgb.as_raw(),
+                img.width(),
+                img.height(),
+                ExtendedColorType::Rgb8,
+            )
             .expect("test jpeg encode");
         out
     }
@@ -516,7 +527,9 @@ mod tests {
         }
         let mut out = Vec::new();
         out.extend_from_slice(b"RIFF");
-        out.extend_from_slice(&(riff_size + 8 + tiff.len() as u32 + (tiff.len() as u32 & 1)).to_le_bytes());
+        out.extend_from_slice(
+            &(riff_size + 8 + tiff.len() as u32 + (tiff.len() as u32 & 1)).to_le_bytes(),
+        );
         out.extend_from_slice(&body);
         out
     }
@@ -619,8 +632,14 @@ mod tests {
         let left = session.image.get_pixel(0, 0);
         let right = session.image.get_pixel(1, 0);
         // JPEG 有损,允许色差。
-        assert!(left[2] > 150 && left[0] < 100, "left should be blue: {left:?}");
-        assert!(right[0] > 150 && right[2] < 100, "right should be red: {right:?}");
+        assert!(
+            left[2] > 150 && left[0] < 100,
+            "left should be blue: {left:?}"
+        );
+        assert!(
+            right[0] > 150 && right[2] < 100,
+            "right should be red: {right:?}"
+        );
     }
 
     #[test]
@@ -704,14 +723,34 @@ mod tests {
         let bytes = png_bytes(&img);
         let session = AvatarEditSession::load_bytes(&bytes).unwrap();
         // 原图保留:连续两次锚点裁切都从原图取,不是在上一次结果上再裁。
-        let left = session.crop_anchor(0).expect("左上").encode_final(AvatarFormat::Png).unwrap().bytes;
-        let right = session.crop_anchor(2).expect("右上").encode_final(AvatarFormat::Png).unwrap().bytes;
-        let center = session.crop_anchor(4).expect("居中").encode_final(AvatarFormat::Png).unwrap().bytes;
+        let left = session
+            .crop_anchor(0)
+            .expect("左上")
+            .encode_final(AvatarFormat::Png)
+            .unwrap()
+            .bytes;
+        let right = session
+            .crop_anchor(2)
+            .expect("右上")
+            .encode_final(AvatarFormat::Png)
+            .unwrap()
+            .bytes;
+        let center = session
+            .crop_anchor(4)
+            .expect("居中")
+            .encode_final(AvatarFormat::Png)
+            .unwrap()
+            .bytes;
         assert_ne!(left, right, "左上与右上裁切像素应不同");
         assert_ne!(left, center, "左上与居中裁切像素应不同");
         assert_ne!(right, center, "右上与居中裁切像素应不同");
         // 同一锚点重复裁切结果一致(原图未被破坏)。
-        let left2 = session.crop_anchor(0).expect("左上再裁").encode_final(AvatarFormat::Png).unwrap().bytes;
+        let left2 = session
+            .crop_anchor(0)
+            .expect("左上再裁")
+            .encode_final(AvatarFormat::Png)
+            .unwrap()
+            .bytes;
         assert_eq!(left, left2, "同一锚点重复裁切应从原图得到相同结果");
     }
 
@@ -749,9 +788,18 @@ mod tests {
     fn crop_rejects_out_of_bounds_and_empty() {
         let bytes = png_bytes(&solid(10, 10, [0, 0, 0, 255]));
         let s = || AvatarEditSession::load_bytes(&bytes).unwrap();
-        assert!(matches!(s().crop(9, 0, 2, 2), Err(AvatarError::InvalidCrop)));
-        assert!(matches!(s().crop(0, 0, 0, 5), Err(AvatarError::InvalidCrop)));
-        assert!(matches!(s().crop(10, 0, 1, 1), Err(AvatarError::InvalidCrop)));
+        assert!(matches!(
+            s().crop(9, 0, 2, 2),
+            Err(AvatarError::InvalidCrop)
+        ));
+        assert!(matches!(
+            s().crop(0, 0, 0, 5),
+            Err(AvatarError::InvalidCrop)
+        ));
+        assert!(matches!(
+            s().crop(10, 0, 1, 1),
+            Err(AvatarError::InvalidCrop)
+        ));
     }
 
     // ---------- 旋转 ----------

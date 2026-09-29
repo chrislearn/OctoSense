@@ -501,7 +501,15 @@ mod tests {
         let titles: Vec<&str> = ACCOUNT_CATEGORIES.iter().map(|c| c.title()).collect();
         assert_eq!(
             titles,
-            vec!["个人资料", "账号与联系方式", "收货地址", "通用", "通知", "数据管理", "关于"]
+            vec![
+                "个人资料",
+                "账号与联系方式",
+                "收货地址",
+                "通用",
+                "通知",
+                "数据管理",
+                "关于"
+            ]
         );
         for c in ACCOUNT_CATEGORIES {
             assert!(!c.subtitle().is_empty(), "{:?} 缺副标题", c);
@@ -582,8 +590,11 @@ mod tests {
     #[test]
     fn dsl_edit_actions_use_the_unified_ids() {
         let src = module_source();
-        assert!(src.contains("acc_edit_cancel := mod.widgets.LiyuBtn { width: Fit text: \"取消\" }"));
-        assert!(src.contains("acc_edit_save := mod.widgets.LiyuBtnPrimary { width: Fit text: \"保存\" }"));
+        assert!(
+            src.contains("acc_edit_cancel := mod.widgets.LiyuBtn { width: Fit text: \"取消\" }")
+        );
+        assert!(src
+            .contains("acc_edit_save := mod.widgets.LiyuBtnPrimary { width: Fit text: \"保存\" }"));
         // 操作区在编辑页里挂着。
         assert!(src.contains("acc_edit_actions := mod.widgets.AccountEditActions"));
     }
@@ -592,7 +603,13 @@ mod tests {
     fn dsl_reuses_theme_roles_and_existing_widgets_only() {
         let src = module_source();
         // 主题色角色引用（不许硬编码新色值；#0000 透明是全应用既有的例外）。
-        for role in ["liyu.ink", "liyu.ink_2", "liyu.ink_3", "liyu.hl", "liyu.ink_arrow"] {
+        for role in [
+            "liyu.ink",
+            "liyu.ink_2",
+            "liyu.ink_3",
+            "liyu.hl",
+            "liyu.ink_arrow",
+        ] {
             assert!(src.contains(role), "应引用主题角色 {role}");
         }
         for radius in ["r.button"] {
@@ -650,7 +667,10 @@ mod tests {
     fn detail_areas_are_placeholder_containers_with_stable_ids() {
         let src = module_source();
         for id in ["acc_detail_body", "acc_mdetail_body"] {
-            assert!(src.contains(&format!("{id} := mod.widgets.View")), "详情占位容器 {id} 缺失");
+            assert!(
+                src.contains(&format!("{id} := mod.widgets.View")),
+                "详情占位容器 {id} 缺失"
+            );
         }
         // 分屏前进 / 返回的钩子：详情头里带返回钮（窄屏露出）。
         assert!(src.contains("acc_back := mod.widgets.LiyuBtnSm"));
@@ -674,13 +694,34 @@ mod tests {
                 let errors = vm.take_errors();
                 assert!(errors.is_empty(), "{mode:?} 下账号预设求值出错: {errors:?}");
                 for (preset, got) in [
-                    ("AccountSplitView", script_eval!(vm, { mod.widgets.AccountSplitView }).as_object()),
-                    ("AccountListView", script_eval!(vm, { mod.widgets.AccountListView }).as_object()),
-                    ("AccountDetailView", script_eval!(vm, { mod.widgets.AccountDetailView }).as_object()),
-                    ("AccountEditView", script_eval!(vm, { mod.widgets.AccountEditView }).as_object()),
-                    ("AccountInfoRow", script_eval!(vm, { mod.widgets.AccountInfoRow }).as_object()),
-                    ("AccountAvatarRow", script_eval!(vm, { mod.widgets.AccountAvatarRow }).as_object()),
-                    ("AccountEditActions", script_eval!(vm, { mod.widgets.AccountEditActions }).as_object()),
+                    (
+                        "AccountSplitView",
+                        script_eval!(vm, { mod.widgets.AccountSplitView }).as_object(),
+                    ),
+                    (
+                        "AccountListView",
+                        script_eval!(vm, { mod.widgets.AccountListView }).as_object(),
+                    ),
+                    (
+                        "AccountDetailView",
+                        script_eval!(vm, { mod.widgets.AccountDetailView }).as_object(),
+                    ),
+                    (
+                        "AccountEditView",
+                        script_eval!(vm, { mod.widgets.AccountEditView }).as_object(),
+                    ),
+                    (
+                        "AccountInfoRow",
+                        script_eval!(vm, { mod.widgets.AccountInfoRow }).as_object(),
+                    ),
+                    (
+                        "AccountAvatarRow",
+                        script_eval!(vm, { mod.widgets.AccountAvatarRow }).as_object(),
+                    ),
+                    (
+                        "AccountEditActions",
+                        script_eval!(vm, { mod.widgets.AccountEditActions }).as_object(),
+                    ),
                 ] {
                     assert!(got.is_some(), "{mode:?} 下 mod.widgets.{preset} 没注册");
                 }

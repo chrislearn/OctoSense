@@ -21,7 +21,9 @@
 
 use crate::data::{item, yuan, Category, LiyuState, PactState, CATALOG};
 use crate::{commerce_client, profile_client};
-use makepad_app_module::makepad_ai_services::wire::{Risk, ServiceCall, ServiceManifest, ToolDef, ToolResult};
+use makepad_app_module::makepad_ai_services::wire::{
+    Risk, ServiceCall, ServiceManifest, ToolDef, ToolResult,
+};
 
 /// 本轮注册的工具列表。
 pub const TOOL_NAMES: [&str; 5] = [
@@ -99,7 +101,10 @@ pub struct BoxSummary {
 
 impl BoxSummary {
     pub fn from_state(s: &LiyuState) -> Self {
-        let mut out = BoxSummary { balance: s.balance(), ..Default::default() };
+        let mut out = BoxSummary {
+            balance: s.balance(),
+            ..Default::default()
+        };
         for g in s.received(crate::data::today_days()) {
             out.received[g.state().id() as usize] += 1;
         }
@@ -257,7 +262,9 @@ fn source_note(src: Source) -> &'static str {
     match src {
         Source::Server => "名称、描述、价格、可订状态为服务端当前数据（source=server）",
         Source::Demo => "离线或服务端无此项：使用内置演示目录（source=demo），价格可能与线上不一致",
-        Source::Mixed => "部分商品用了服务端数据、部分回退演示目录（source=mixed），逐件 source 为准",
+        Source::Mixed => {
+            "部分商品用了服务端数据、部分回退演示目录（source=mixed），逐件 source 为准"
+        }
     }
 }
 
@@ -403,7 +410,10 @@ pub fn parse_category(s: &str) -> Option<Category> {
             Category::Home => "home",
             Category::Baby => "baby",
         };
-        s == en || c.label() == s || c.label().starts_with(&s) || (s.chars().count() >= 2 && c.label().contains(&s))
+        s == en
+            || c.label() == s
+            || c.label().starts_with(&s)
+            || (s.chars().count() >= 2 && c.label().contains(&s))
     })
 }
 
@@ -435,15 +445,51 @@ fn yuan_num(cents: i64) -> String {
 /// 场合 → 优先品类 + 一句话。认不出的场合按价格挑。
 fn occasion_hint(occasion: &str) -> (&'static [Category], &'static str) {
     const RULES: [(&[&str], &[Category], &str); 9] = [
-        (&["生日", "birthday"], &[Category::Sweet, Category::Blind], "生日配点甜的，或者拆盲盒的惊喜"),
-        (&["感谢", "谢谢", "thanks"], &[Category::Coffee, Category::Sweet], "一杯咖啡的谢意刚刚好，不让对方有负担"),
-        (&["道歉", "对不起", "sorry"], &[Category::Sweet, Category::Coffee], "先递一份甜的，话更好说"),
-        (&["约会", "电影", "date"], &[Category::Movie, Category::Sweet], "票在手里，下一次见面就有了理由"),
-        (&["加油", "考试", "上班", "打气"], &[Category::Coffee, Category::Blind], "提神的咖啡，或者一点小期待"),
-        (&["乔迁", "搬家", "新家"], &[Category::Home, Category::Digital], "新家缺的往往是用得上的东西，每天都会想起你"),
-        (&["结婚", "婚礼", "新婚", "wedding"], &[Category::Home, Category::Sweet], "两个人过日子用得上的，再配一束花"),
-        (&["宝宝", "满月", "出生", "baby"], &[Category::Baby, Category::Sweet], "给小朋友的第一份礼物，也照顾到新手爸妈"),
-        (&["纪念", "毕业"], &[Category::Trendy, Category::Digital], "能留下来的小物件，看到就会想起你"),
+        (
+            &["生日", "birthday"],
+            &[Category::Sweet, Category::Blind],
+            "生日配点甜的，或者拆盲盒的惊喜",
+        ),
+        (
+            &["感谢", "谢谢", "thanks"],
+            &[Category::Coffee, Category::Sweet],
+            "一杯咖啡的谢意刚刚好，不让对方有负担",
+        ),
+        (
+            &["道歉", "对不起", "sorry"],
+            &[Category::Sweet, Category::Coffee],
+            "先递一份甜的，话更好说",
+        ),
+        (
+            &["约会", "电影", "date"],
+            &[Category::Movie, Category::Sweet],
+            "票在手里，下一次见面就有了理由",
+        ),
+        (
+            &["加油", "考试", "上班", "打气"],
+            &[Category::Coffee, Category::Blind],
+            "提神的咖啡，或者一点小期待",
+        ),
+        (
+            &["乔迁", "搬家", "新家"],
+            &[Category::Home, Category::Digital],
+            "新家缺的往往是用得上的东西，每天都会想起你",
+        ),
+        (
+            &["结婚", "婚礼", "新婚", "wedding"],
+            &[Category::Home, Category::Sweet],
+            "两个人过日子用得上的，再配一束花",
+        ),
+        (
+            &["宝宝", "满月", "出生", "baby"],
+            &[Category::Baby, Category::Sweet],
+            "给小朋友的第一份礼物，也照顾到新手爸妈",
+        ),
+        (
+            &["纪念", "毕业"],
+            &[Category::Trendy, Category::Digital],
+            "能留下来的小物件，看到就会想起你",
+        ),
     ];
     let o = occasion.to_lowercase();
     RULES
@@ -479,11 +525,18 @@ fn suggest_json(budget_cents: i64, occasion: &str) -> String {
         let cheapest = CATALOG.iter().map(|c| c.price).min().unwrap_or(0);
         return format!(
             "{{\"items\":[],\"reason\":{}}}",
-            json_str(&format!("预算 {} 内没有合适的礼物，目录里最便宜的是 {}", yuan(budget_cents), yuan(cheapest)))
+            json_str(&format!(
+                "预算 {} 内没有合适的礼物，目录里最便宜的是 {}",
+                yuan(budget_cents),
+                yuan(cheapest)
+            ))
         );
     }
     let (_, why) = occasion_hint(occasion);
-    let items: Vec<String> = picks.iter().map(|&i| PubGiftDetail::from_catalog(i).row_json()).collect();
+    let items: Vec<String> = picks
+        .iter()
+        .map(|&i| PubGiftDetail::from_catalog(i).row_json())
+        .collect();
     format!(
         "{{\"items\":[{}],\"budget\":{},\"reason\":{}}}",
         items.join(","),
@@ -517,7 +570,10 @@ fn summary_json(s: &BoxSummary) -> String {
 /// 顶层不是 object。
 fn parse_args(args: &str) -> Result<serde_json::Map<String, serde_json::Value>, String> {
     if args.len() > MAX_ARGS_BYTES {
-        return Err(format!("参数太长（{} 字节，上限 {MAX_ARGS_BYTES}）", args.len()));
+        return Err(format!(
+            "参数太长（{} 字节，上限 {MAX_ARGS_BYTES}）",
+            args.len()
+        ));
     }
     // 先独立扫一遍结构：嵌套深度超限、重复键都在这里拒掉（serde_json 的默认
     // 递归上限更宽松，且重复键是后者静默覆盖前者，会绕过语义检查）。
@@ -651,7 +707,12 @@ fn scan_structure(args: &str) -> Scan {
                 b'"' => self.string().map(|_| ()),
                 _ => {
                     // 数字 / true / false / null：扫到定界符。
-                    while self.i < self.s.len() && !matches!(self.s[self.i], b',' | b'}' | b']' | b' ' | b'\t' | b'\n' | b'\r') {
+                    while self.i < self.s.len()
+                        && !matches!(
+                            self.s[self.i],
+                            b',' | b'}' | b']' | b' ' | b'\t' | b'\n' | b'\r'
+                        )
+                    {
                         self.i += 1;
                     }
                     Some(())
@@ -698,7 +759,11 @@ fn scan_structure(args: &str) -> Scan {
             }
         }
     }
-    let mut sc = Scanner { s: args.as_bytes(), i: 0, dup: false };
+    let mut sc = Scanner {
+        s: args.as_bytes(),
+        i: 0,
+        dup: false,
+    };
     sc.ws();
     match sc.s.get(sc.i) {
         Some(b'{') => {
@@ -710,7 +775,11 @@ fn scan_structure(args: &str) -> Scan {
                 Some(()) if sc.dup => Scan::DuplicateKey,
                 Some(()) => {
                     sc.ws();
-                    if sc.i == sc.s.len() { Scan::Clean } else { Scan::Bad }
+                    if sc.i == sc.s.len() {
+                        Scan::Clean
+                    } else {
+                        Scan::Bad
+                    }
                 }
                 None if sc.dup => Scan::DuplicateKey,
                 None => Scan::Bad,
@@ -753,7 +822,8 @@ fn arg_budget(
         Some(serde_json::Value::Number(n)) => n.as_f64().ok_or("`budget` 数值超出表示范围")?,
         Some(serde_json::Value::String(s)) => {
             let t = s.trim().trim_start_matches('¥');
-            t.parse::<f64>().map_err(|_| format!("`{key}` 字符串不是数字"))?
+            t.parse::<f64>()
+                .map_err(|_| format!("`{key}` 字符串不是数字"))?
         }
         Some(_) => return Err(format!("`{key}` 必须是数字")),
     };
@@ -798,7 +868,11 @@ mod tests {
     use makepad_app_module::makepad_ai_services::wire::ToolOutcome;
 
     fn call(tool: &str, args: &str) -> ServiceCall {
-        ServiceCall { call_id: "t1".into(), tool: tool.into(), args: args.into() }
+        ServiceCall {
+            call_id: "t1".into(),
+            tool: tool.into(),
+            args: args.into(),
+        }
     }
 
     #[test]
@@ -815,8 +889,18 @@ mod tests {
     #[test]
     fn unknown_or_write_tools_are_refused() {
         let s = BoxSummary::default();
-        for tool in ["send_gift", "submit_answer", "cash_out", "who_sent_this", "list_wishes_of"] {
-            assert_eq!(answer(&s, &call(tool, "{}")).outcome, ToolOutcome::Refused, "{tool}");
+        for tool in [
+            "send_gift",
+            "submit_answer",
+            "cash_out",
+            "who_sent_this",
+            "list_wishes_of",
+        ] {
+            assert_eq!(
+                answer(&s, &call(tool, "{}")).outcome,
+                ToolOutcome::Refused,
+                "{tool}"
+            );
         }
     }
 
@@ -832,10 +916,18 @@ mod tests {
         // 测试环境未登录：如实标注演示目录。
         assert!(r.text.contains("\"source\":\"demo\""), "{}", r.text);
         let r = answer(&s, &call("list_gift_catalog", r#"{"category":"电影演出"}"#));
-        assert!(r.text.contains("电影通兑票") && r.text.contains("电影双人套票"), "{}", r.text);
+        assert!(
+            r.text.contains("电影通兑票") && r.text.contains("电影双人套票"),
+            "{}",
+            r.text
+        );
         assert!(!r.text.contains("香薰蜡烛"), "{}", r.text);
         let r = answer(&s, &call("list_gift_catalog", r#"{"category": "sweet"}"#));
-        assert!(r.text.contains("向日葵花束") && !r.text.contains("电影"), "{}", r.text);
+        assert!(
+            r.text.contains("向日葵花束") && !r.text.contains("电影"),
+            "{}",
+            r.text
+        );
         let r = answer(&s, &call("list_gift_catalog", r#"{"category":"火箭"}"#));
         assert_eq!(r.outcome, ToolOutcome::Refused);
     }
@@ -845,7 +937,10 @@ mod tests {
         for budget in [30, 50, 100, 200] {
             let picks = suggest(budget * 100, "");
             assert!(!picks.is_empty() && picks.len() <= 3, "{budget}: {picks:?}");
-            assert!(picks.iter().all(|&i| item(i).price <= budget * 100), "{budget}: {picks:?}");
+            assert!(
+                picks.iter().all(|&i| item(i).price <= budget * 100),
+                "{budget}: {picks:?}"
+            );
             let cats: Vec<_> = picks.iter().map(|&i| item(i).cat).collect();
             let mut uniq = cats.clone();
             uniq.dedup();
@@ -855,11 +950,17 @@ mod tests {
         let picks = suggest(100_00, "朋友生日");
         assert_eq!(item(picks[0]).cat, Category::Sweet);
         // 预算太低：空列表 + 说明。
-        let r = answer(&BoxSummary::default(), &call("suggest_gift", r#"{"budget":10}"#));
+        let r = answer(
+            &BoxSummary::default(),
+            &call("suggest_gift", r#"{"budget":10}"#),
+        );
         assert_eq!(r.outcome, ToolOutcome::Ok);
         assert!(r.text.contains("\"items\":[]"), "{}", r.text);
         // 预算可以是字符串数字。
-        let r = answer(&BoxSummary::default(), &call("suggest_gift", r#"{"budget":"60","occasion":"感谢"}"#));
+        let r = answer(
+            &BoxSummary::default(),
+            &call("suggest_gift", r#"{"budget":"60","occasion":"感谢"}"#),
+        );
         assert!(r.text.contains("星巴克中杯拿铁电子券"), "{}", r.text);
         assert!(!r.text.contains("三顿半"), "超预算: {}", r.text);
         // 没预算：拒绝。
@@ -871,14 +972,22 @@ mod tests {
     fn summary_counts_states_and_pacts() {
         let s = LiyuState::for_tests();
         let sum = BoxSummary::from_state(&s);
-        assert_eq!(sum.received.iter().sum::<u32>() as usize, s.received(crate::data::today_days()).len());
+        assert_eq!(
+            sum.received.iter().sum::<u32>() as usize,
+            s.received(crate::data::today_days()).len()
+        );
         assert_eq!(sum.sent.iter().sum::<u32>() as usize, s.sent().len());
         assert_eq!((sum.pacts_mine + sum.pacts_theirs) as usize, s.open_pacts());
         assert_eq!(STATE_KEYS[GiftState::CashedOut.id() as usize], "cashed_out");
         let r = answer(&sum, &call("get_gift_box_summary", "{}"));
         assert_eq!(r.outcome, ToolOutcome::Ok);
         assert!(r.text.contains("\"received\":{\"sealed\":"), "{}", r.text);
-        assert!(r.text.contains(&format!("\"balance\":{}", yuan_num(s.balance()))), "{}", r.text);
+        assert!(
+            r.text
+                .contains(&format!("\"balance\":{}", yuan_num(s.balance()))),
+            "{}",
+            r.text
+        );
     }
 
     #[test]
@@ -887,11 +996,20 @@ mod tests {
         let r = answer(&s, &call("get_gift_detail", r#"{"id":0}"#));
         assert_eq!(r.outcome, ToolOutcome::Ok, "{}", r.text);
         let it = item(0);
-        assert!(r.text.contains(it.name) && r.text.contains(it.brand), "{}", r.text);
+        assert!(
+            r.text.contains(it.name) && r.text.contains(it.brand),
+            "{}",
+            r.text
+        );
         assert!(r.text.contains(it.desc), "{}", r.text);
         assert!(r.text.contains("\"available\":true"), "{}", r.text);
         assert!(r.text.contains("\"source\":\"demo\""), "{}", r.text);
-        assert!(r.text.contains(&format!("\"price\":{}", yuan_num(it.price))), "{}", r.text);
+        assert!(
+            r.text
+                .contains(&format!("\"price\":{}", yuan_num(it.price))),
+            "{}",
+            r.text
+        );
         // 字符串 id 也认。
         let r2 = answer(&s, &call("get_gift_detail", r#"{"id":"1"}"#));
         assert_eq!(r2.outcome, ToolOutcome::Ok, "{}", r2.text);
@@ -902,15 +1020,19 @@ mod tests {
     fn detail_rejects_bad_ids() {
         let s = BoxSummary::default();
         for args in [
-            r#"{}"#,                       // 缺 id
-            r#"{"id":-1}"#,                // 负数
-            r#"{"id":1.5}"#,               // 非整数
-            r#"{"id":999}"#,               // 越界
-            r#"{"id":true}"#,              // 错误类型
-            r#"{"id":null}"#,              // null
-            r#"{"id":"0","id":1}"#,        // 重复键
+            r#"{}"#,                // 缺 id
+            r#"{"id":-1}"#,         // 负数
+            r#"{"id":1.5}"#,        // 非整数
+            r#"{"id":999}"#,        // 越界
+            r#"{"id":true}"#,       // 错误类型
+            r#"{"id":null}"#,       // null
+            r#"{"id":"0","id":1}"#, // 重复键
         ] {
-            assert_eq!(answer(&s, &call("get_gift_detail", args)).outcome, ToolOutcome::Refused, "{args}");
+            assert_eq!(
+                answer(&s, &call("get_gift_detail", args)).outcome,
+                ToolOutcome::Refused,
+                "{args}"
+            );
         }
     }
 
@@ -929,7 +1051,13 @@ mod tests {
         assert!(r.text.contains("喜茶多肉葡萄兑换券"), "{}", r.text);
         assert!(!r.text.contains("三顿半精品咖啡礼盒"), "{}", r.text);
         // 品类 + 预算组合。
-        let r = answer(&s, &call("list_gift_candidates", r#"{"category":"电影演出","budget":50}"#));
+        let r = answer(
+            &s,
+            &call(
+                "list_gift_candidates",
+                r#"{"category":"电影演出","budget":50}"#,
+            ),
+        );
         assert!(r.text.contains("电影通兑票"), "{}", r.text);
         assert!(!r.text.contains("电影双人套票"), "{}", r.text);
         // 无命中：空列表也是 Ok。
@@ -944,10 +1072,10 @@ mod tests {
         let refused = [
             // 语法错误。
             r#"{"budget":}"#,
-            r#"{"budget":50"#,           // 截断
-            r#"[1,2,3]"#,                // 顶层数组
-            r#"50"#,                     // 顶层数字
-            r#"{"budget":50}}"#,         // 多余括号
+            r#"{"budget":50"#,   // 截断
+            r#"[1,2,3]"#,        // 顶层数组
+            r#"50"#,             // 顶层数字
+            r#"{"budget":50}}"#, // 多余括号
             // 重复键绕过（后者覆盖前者会静默放大预算）。
             r#"{"budget":1,"budget":99999}"#,
             r#"{"category":"sweet","category":"盲盒"}"#,
@@ -957,34 +1085,66 @@ mod tests {
             r#"{"budget":{"x":1}}"#,
             r#"{"occasion":42}"#,
             // 超限。
-            r#"{"budget":200000}"#,      // 超预算上限
-            r#"{"budget":-5}"#,          // 非正数
-            r#"{"budget":"abc"}"#,       // 字符串不是数字
+            r#"{"budget":200000}"#, // 超预算上限
+            r#"{"budget":-5}"#,     // 非正数
+            r#"{"budget":"abc"}"#,  // 字符串不是数字
         ];
         for args in refused {
-            assert_eq!(answer(&s, &call("suggest_gift", args)).outcome, ToolOutcome::Refused, "{args}");
-            assert_eq!(answer(&s, &call("list_gift_catalog", args)).outcome, ToolOutcome::Refused, "{args}");
-            assert_eq!(answer(&s, &call("list_gift_candidates", args)).outcome, ToolOutcome::Refused, "{args}");
+            assert_eq!(
+                answer(&s, &call("suggest_gift", args)).outcome,
+                ToolOutcome::Refused,
+                "{args}"
+            );
+            assert_eq!(
+                answer(&s, &call("list_gift_catalog", args)).outcome,
+                ToolOutcome::Refused,
+                "{args}"
+            );
+            assert_eq!(
+                answer(&s, &call("list_gift_candidates", args)).outcome,
+                ToolOutcome::Refused,
+                "{args}"
+            );
         }
         // 超长字符串参数。
         let long = format!(r#"{{"occasion":"{}"}}"#, "长".repeat(200));
-        assert_eq!(answer(&s, &call("suggest_gift", &long)).outcome, ToolOutcome::Refused);
+        assert_eq!(
+            answer(&s, &call("suggest_gift", &long)).outcome,
+            ToolOutcome::Refused
+        );
         let long = format!(r#"{{"keyword":"{}"}}"#, "长".repeat(200));
-        assert_eq!(answer(&s, &call("list_gift_candidates", &long)).outcome, ToolOutcome::Refused);
+        assert_eq!(
+            answer(&s, &call("list_gift_candidates", &long)).outcome,
+            ToolOutcome::Refused
+        );
         // 超长整体输入（>4KiB）。
         let huge = format!(r#"{{"occasion":"{}"}}"#, "长".repeat(5000));
-        assert_eq!(answer(&s, &call("suggest_gift", &huge)).outcome, ToolOutcome::Refused);
+        assert_eq!(
+            answer(&s, &call("suggest_gift", &huge)).outcome,
+            ToolOutcome::Refused
+        );
         // 超深嵌套（顶层 object 里塞深数组），不崩溃且拒绝。
         let deep = format!("{{\"x\":{}1{}}}", "[".repeat(200), "]".repeat(200));
-        assert_eq!(answer(&s, &call("get_gift_box_summary", &deep)).outcome, ToolOutcome::Refused);
+        assert_eq!(
+            answer(&s, &call("get_gift_box_summary", &deep)).outcome,
+            ToolOutcome::Refused
+        );
         // 空参数、带空白都正常。
-        assert_eq!(answer(&s, &call("suggest_gift", r#"{ "budget" : 88.5 }"#)).outcome, ToolOutcome::Ok);
-        assert_eq!(answer(&s, &call("get_gift_box_summary", "  {}  ")).outcome, ToolOutcome::Ok);
+        assert_eq!(
+            answer(&s, &call("suggest_gift", r#"{ "budget" : 88.5 }"#)).outcome,
+            ToolOutcome::Ok
+        );
+        assert_eq!(
+            answer(&s, &call("get_gift_box_summary", "  {}  ")).outcome,
+            ToolOutcome::Ok
+        );
     }
 
     #[test]
     fn duplicate_key_scanner() {
-        fn dup(args: &str) -> bool { matches!(scan_structure(args), Scan::DuplicateKey) }
+        fn dup(args: &str) -> bool {
+            matches!(scan_structure(args), Scan::DuplicateKey)
+        }
         assert!(dup(r#"{"a":1,"a":2}"#));
         assert!(dup(r#"{"a":{"b":1,"b":2}}"#));
         assert!(dup(r#"{"a":1,"b":{"c":1,"c":2}}"#));
@@ -995,7 +1155,10 @@ mod tests {
         assert!(dup(r#"{"bud\u0067et":1,"budget":2}"#));
         // 坏语法 / 过深：报 Bad 而不是误判重复键（serde 那边也会拒）。
         assert!(matches!(scan_structure(r#"{"a":"unclosed"#), Scan::Bad));
-        assert!(matches!(scan_structure(&format!("{{\"x\":{}1{}}}", "[".repeat(40), "]".repeat(40))), Scan::Bad));
+        assert!(matches!(
+            scan_structure(&format!("{{\"x\":{}1{}}}", "[".repeat(40), "]".repeat(40))),
+            Scan::Bad
+        ));
         assert!(matches!(scan_structure("{}"), Scan::Clean));
     }
 
@@ -1071,7 +1234,9 @@ mod tests {
         // 目录下标而不是状态——任何隐私字段都无从流入。这里静态确认字段集合。
         let d = PubGiftDetail::from_catalog(0);
         let json = d.detail_json();
-        for banned in ["peer", "answer", "clue", "addr", "phone", "voucher", "wish", "message", "contract"] {
+        for banned in [
+            "peer", "answer", "clue", "addr", "phone", "voucher", "wish", "message", "contract",
+        ] {
             assert!(!json.contains(banned), "投影里出现敏感键 {banned}");
         }
     }

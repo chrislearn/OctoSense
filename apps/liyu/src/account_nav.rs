@@ -199,7 +199,12 @@ impl AccountNavModel {
     }
 
     /// 宿主同步已提交值(如打开页面时从数据源灌入),供后续取消编辑时还原。
-    pub fn set_committed(&mut self, cat: AccountCategory, field: impl Into<String>, value: impl Into<String>) {
+    pub fn set_committed(
+        &mut self,
+        cat: AccountCategory,
+        field: impl Into<String>,
+        value: impl Into<String>,
+    ) {
         self.committed.insert((cat, field.into()), value.into());
     }
 
@@ -465,10 +470,16 @@ mod tests {
         assert!(m.update_draft("大牛"));
         assert!(m.has_unsaved_changes());
         let saved = m.commit_edit().expect("should save");
-        assert_eq!(saved, (AccountCategory::Profile, "nickname".into(), "大牛".into()));
+        assert_eq!(
+            saved,
+            (AccountCategory::Profile, "nickname".into(), "大牛".into())
+        );
         assert!(!m.has_unsaved_changes());
         assert_eq!(m.level(), &NavLevel::L2(AccountCategory::Profile));
-        assert_eq!(m.committed_value(AccountCategory::Profile, "nickname"), Some("大牛"));
+        assert_eq!(
+            m.committed_value(AccountCategory::Profile, "nickname"),
+            Some("大牛")
+        );
     }
 
     #[test]
@@ -496,7 +507,7 @@ mod tests {
         assert!(!m.select(AccountCategory::General)); // 被拒绝
         assert!(!m.pop()); // 被拒绝
         assert_eq!(m.depth(), 3); // 仍在 L3
-        // 显式丢弃后可以离开
+                                  // 显式丢弃后可以离开
         m.discard_edit();
         assert_eq!(m.level(), &NavLevel::L2(AccountCategory::Profile));
         assert!(m.select(AccountCategory::General));

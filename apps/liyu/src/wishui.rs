@@ -12,7 +12,10 @@ const WEEKDAYS: [&str; 7] = ["一", "二", "三", "四", "五", "六", "日"];
 impl LiyuView {
     /// 心愿单上说「阿岚的生日」时用的名字（昵称里的第一个）。
     fn me_name(&self) -> String {
-        split_aliases(&self.state.settings.nickname).into_iter().next().unwrap_or_else(|| "我".into())
+        split_aliases(&self.state.settings.nickname)
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| "我".into())
     }
 
     /// 心愿单上的一件和它所在的单子（都是拷贝，方便边读边改界面）。
@@ -26,7 +29,8 @@ impl LiyuView {
     /// 这条心愿眼下还能不能认领（单子开着、这件没人送、单子不是我自己的）。
     fn wish_claimable(&self, at: Option<WishAt>) -> Option<(Wishlist, WishItem)> {
         let today = today_days();
-        self.wish_at(at).filter(|(l, wi)| !l.is_mine() && l.is_open(today) && wi.is_open())
+        self.wish_at(at)
+            .filter(|(l, wi)| !l.is_mine() && l.is_open(today) && wi.is_open())
     }
 
     // ---- 挑礼页：熟人的心愿单 ----
@@ -34,7 +38,12 @@ impl LiyuView {
     pub(crate) fn refresh_friend_wishes(&mut self, cx: &mut Cx) {
         let today = today_days();
         self.my_wish_row(cx, ids!(row_mywish));
-        let lists: Vec<Wishlist> = self.state.friend_wishlists(today).into_iter().cloned().collect();
+        let lists: Vec<Wishlist> = self
+            .state
+            .friend_wishlists(today)
+            .into_iter()
+            .cloned()
+            .collect();
         self.friend_rows = lists.iter().map(|w| w.id).collect();
         for (j, card) in WISH_CARDS.iter().enumerate() {
             let hit = lists.get(j);
@@ -53,12 +62,21 @@ impl LiyuView {
         let (count, sub) = {
             let mine = self.state.my_wishlists(today);
             let sub = match mine.iter().find(|w| w.is_open(today)) {
-                Some(w) => format!("{} · {} · {}", w.title, w.countdown(today), w.progress_text()),
+                Some(w) => format!(
+                    "{} · {} · {}",
+                    w.title,
+                    w.countdown(today),
+                    w.progress_text()
+                ),
                 None => "生日、结婚、乔迁…… 把想要的列出来".to_string(),
             };
             (mine.len(), sub)
         };
-        let v = if count == 0 { String::new() } else { format!("{count} 张") };
+        let v = if count == 0 {
+            String::new()
+        } else {
+            format!("{count} 张")
+        };
         self.set_row(cx, row, "我的心愿单", &sub, &v);
     }
 
@@ -66,7 +84,11 @@ impl LiyuView {
     fn fill_wish_card(&mut self, cx: &mut Cx, card: LiveId, w: &Wishlist, today: i64) {
         let open = w.is_open(today);
         let initial: String = if w.is_mine() {
-            w.occasion_label().chars().next().map(String::from).unwrap_or_default()
+            w.occasion_label()
+                .chars()
+                .next()
+                .map(String::from)
+                .unwrap_or_default()
         } else {
             w.owner.chars().next().map(String::from).unwrap_or_default()
         };
@@ -78,7 +100,15 @@ impl LiyuView {
             format!("{} · {}", w.owner, w.when_text(today))
         };
         self.set_text(cx, &[card, live_id!(wc_when)], &when);
-        self.set_text(cx, &[card, live_id!(wc_badge)], if open { w.occasion_label() } else { "已结束" });
+        self.set_text(
+            cx,
+            &[card, live_id!(wc_badge)],
+            if open {
+                w.occasion_label()
+            } else {
+                "已结束"
+            },
+        );
         for (k, t) in WISH_THUMBS.iter().enumerate() {
             let wi = w.items.get(k);
             self.show(cx, &[card, *t], wi.is_some());
@@ -90,7 +120,11 @@ impl LiyuView {
             }
         }
         let more = w.items.len().saturating_sub(WISH_THUMBS.len());
-        let more = if more > 0 { format!("+{more}") } else { String::new() };
+        let more = if more > 0 {
+            format!("+{more}")
+        } else {
+            String::new()
+        };
         self.set_text(cx, &[card, live_id!(wc_more)], &more);
         let prog = if !w.is_mine() && open {
             match w.open_count() {
@@ -125,13 +159,31 @@ impl LiyuView {
         self.set_text(cx, ids!(pd_price), &yuan(it.price));
         self.set_text(cx, ids!(pd_tags), &it.tags.join(" · "));
         self.show(cx, ids!(pd_tags), !it.tags.is_empty());
-        let server_note = self.pd_remote.as_ref().map(|p| {
-            format!("服务器目录 · {} · {} · {}{}\n{}", p.name, p.brand, yuan(p.price_cents),
-                if p.available { "" } else { " · 暂不可购买" }, p.description)
-        }).unwrap_or_else(|| "商品信息加载失败，请检查服务器连接后重试".into());
+        let server_note = self
+            .pd_remote
+            .as_ref()
+            .map(|p| {
+                format!(
+                    "服务器目录 · {} · {} · {}{}\n{}",
+                    p.name,
+                    p.brand,
+                    yuan(p.price_cents),
+                    if p.available {
+                        ""
+                    } else {
+                        " · 暂不可购买"
+                    },
+                    p.description
+                )
+            })
+            .unwrap_or_else(|| "商品信息加载失败，请检查服务器连接后重试".into());
         self.set_text(cx, ids!(pd_server_note), &server_note);
         self.set_text(cx, ids!(pd_desc), it.desc);
-        let form = if it.physical { "实物 · 包邮到家" } else { "电子券 · 券码直接进礼盒" };
+        let form = if it.physical {
+            "实物 · 包邮到家"
+        } else {
+            "电子券 · 券码直接进礼盒"
+        };
         self.set_kv(cx, ids!(pd_kv_kind), "形态", form, "");
         self.set_kv(cx, ids!(pd_kv_spec), "规格", it.spec, "");
         let ship = if it.physical {
@@ -142,7 +194,9 @@ impl LiyuView {
         self.set_kv(cx, ids!(pd_kv_ship), "送达", ship, "");
 
         // 心愿单上下文：只有这条心愿还能认领、而且这件对得上时才算数。
-        let ctx = self.wish_claimable(self.pd_wish).filter(|(_, wi)| wi.fits(i));
+        let ctx = self
+            .wish_claimable(self.pd_wish)
+            .filter(|(_, wi)| wi.fits(i));
         self.show(cx, ids!(pd_ctx), ctx.is_some());
         self.show(cx, ids!(pd_addwish), ctx.is_none());
         self.show(cx, ids!(pd_direct), ctx.is_none());
@@ -150,14 +204,31 @@ impl LiyuView {
         match &ctx {
             Some((l, wi)) => {
                 let me = self.me_name();
-                self.set_text(cx, ids!(pd_ctx_t), &format!("{} · 想要{}", l.event_name(&me), wi.title()));
+                self.set_text(
+                    cx,
+                    ids!(pd_ctx_t),
+                    &format!("{} · 想要{}", l.event_name(&me), wi.title()),
+                );
                 let cands = wish_candidates(wi);
                 let r = if wi.is_exact() {
                     "就是心愿单上的这一件".to_string()
                 } else {
-                    let why = cands.iter().find(|m| m.item == i).map(|m| m.reason()).unwrap_or_default();
-                    let wants = if wi.wants.is_empty() { "没说具体要求".to_string() } else { wi.wants.clone() };
-                    format!("TA 说：{} · {}。这件：{}", wants, budget_text(wi.max_price), why)
+                    let why = cands
+                        .iter()
+                        .find(|m| m.item == i)
+                        .map(|m| m.reason())
+                        .unwrap_or_default();
+                    let wants = if wi.wants.is_empty() {
+                        "没说具体要求".to_string()
+                    } else {
+                        wi.wants.clone()
+                    };
+                    format!(
+                        "TA 说：{} · {}。这件：{}",
+                        wants,
+                        budget_text(wi.max_price),
+                        why
+                    )
                 };
                 self.set_text(cx, ids!(pd_ctx_r), &r);
                 self.set_text(cx, ids!(pd_send), "送给TA");
@@ -165,7 +236,11 @@ impl LiyuView {
                 let others: Vec<&WishMatch> = if wi.is_exact() {
                     Vec::new()
                 } else {
-                    cands.iter().filter(|m| m.item != i).take(REL_CARDS.len()).collect()
+                    cands
+                        .iter()
+                        .filter(|m| m.item != i)
+                        .take(REL_CARDS.len())
+                        .collect()
                 };
                 self.rel_rows = others.iter().map(|m| m.item).collect();
                 notes = others.iter().map(|m| m.reason()).collect();
@@ -186,7 +261,10 @@ impl LiyuView {
     /// 日子还没到就默认约在那天送到。
     fn send_from_product(&mut self, cx: &mut Cx) {
         let i = self.pd_item;
-        match self.wish_claimable(self.pd_wish).filter(|(_, wi)| wi.fits(i)) {
+        match self
+            .wish_claimable(self.pd_wish)
+            .filter(|(_, wi)| wi.fits(i))
+        {
             Some((l, _)) => {
                 self.open_send(cx, i, l.owner.clone(), None);
                 self.draft.wish = self.pd_wish;
@@ -205,7 +283,11 @@ impl LiyuView {
         match self.state.current_my_wishlist(today) {
             Some(id) => match self.state.add_to_wishlist(id, i, today) {
                 Ok(()) => {
-                    let title = self.state.wishlist(id).map(|w| w.title.clone()).unwrap_or_default();
+                    let title = self
+                        .state
+                        .wishlist(id)
+                        .map(|w| w.title.clone())
+                        .unwrap_or_default();
                     self.after_data_change(cx);
                     self.toast(cx, &format!("已加到「{title}」"));
                 }
@@ -234,7 +316,11 @@ impl LiyuView {
         // 订单：是什么、给谁、怎么玩、什么时候到
         self.set_img(cx, ids!(co_img), Some(d.item));
         self.set_text(cx, ids!(co_name), it.name);
-        self.set_text(cx, ids!(co_sub), &format!("{} · {}", it.brand, item_sub(it)));
+        self.set_text(
+            cx,
+            ids!(co_sub),
+            &format!("{} · {}", it.brand, item_sub(it)),
+        );
         self.set_text(cx, ids!(co_price), &yuan(it.price));
         let wish = self.wish_at(d.wish);
         let to = match &wish {
@@ -261,7 +347,13 @@ impl LiyuView {
         self.set_kv(cx, ids!(co_when), "送达", &when, "");
         self.show(cx, ids!(co_wish), wish.is_some());
         if let Some((l, wi)) = &wish {
-            self.set_kv(cx, ids!(co_wish), "心愿", &format!("{} · {}", l.title, wi.title()), "");
+            self.set_kv(
+                cx,
+                ids!(co_wish),
+                "心愿",
+                &format!("{} · {}", l.title, wi.title()),
+                "",
+            );
         }
 
         // 付完了：页面变成功页。
@@ -276,10 +368,16 @@ impl LiyuView {
             } else if g.peer_name().is_empty() {
                 b.push_str("还没指定送给谁：把礼卡链接分享给想送的人，谁点开谁来拆。");
             } else {
-                b.push_str(&format!("礼卡已经发给{}，也可以把它分享出去。", spaced(&g.shown_recipient())));
+                b.push_str(&format!(
+                    "礼卡已经发给{}，也可以把它分享出去。",
+                    spaced(&g.shown_recipient())
+                ));
             }
             if let Some((_, wi)) = &wish {
-                b.push_str(&format!("其他熟人看到「{}」已有人送，不会撞礼。", wi.title()));
+                b.push_str(&format!(
+                    "其他熟人看到「{}」已有人送，不会撞礼。",
+                    wi.title()
+                ));
             }
             self.set_text(cx, ids!(co_ok_b), &b);
             self.show(cx, ids!(co_err), false);
@@ -289,7 +387,13 @@ impl LiyuView {
         // 付款：余额抵扣 + 还需支付 + 付款方式
         let bal = self.state.balance();
         self.show(cx, ids!(co_bal_row), bal > 0);
-        self.set_switch(cx, ids!(co_bal_row), "用余额抵扣", &format!("礼遇余额 {}", yuan(bal)), d.use_balance && bal > 0);
+        self.set_switch(
+            cx,
+            ids!(co_bal_row),
+            "用余额抵扣",
+            &format!("礼遇余额 {}", yuan(bal)),
+            d.use_balance && bal > 0,
+        );
         let (a, b) = self.state.pay_split(it.price, d.use_balance);
         self.set_kv(cx, ids!(co_l1), "商品金额", "", &yuan(it.price));
         self.show(cx, ids!(co_l2), a > 0);
@@ -299,7 +403,11 @@ impl LiyuView {
         let p = d.pay.unwrap_or(0) as usize;
         self.set_chip_group(cx, &PAY_CHIPS, p);
         let go = if b > 0 {
-            format!("确认支付 {}（{}）", yuan(b), PAY_METHODS.get(p).copied().unwrap_or("模拟支付"))
+            format!(
+                "确认支付 {}（{}）",
+                yuan(b),
+                PAY_METHODS.get(p).copied().unwrap_or("模拟支付")
+            )
         } else {
             format!("用余额支付 {}", yuan(a))
         };
@@ -348,7 +456,12 @@ impl LiyuView {
 
     pub(crate) fn refresh_wishes(&mut self, cx: &mut Cx) {
         let today = today_days();
-        let lists: Vec<Wishlist> = self.state.my_wishlists(today).into_iter().cloned().collect();
+        let lists: Vec<Wishlist> = self
+            .state
+            .my_wishlists(today)
+            .into_iter()
+            .cloned()
+            .collect();
         self.my_rows = lists.iter().map(|w| w.id).collect();
         for (j, card) in MY_WISH_CARDS.iter().enumerate() {
             let hit = lists.get(j);
@@ -359,7 +472,13 @@ impl LiyuView {
                 self.show(cx, &[*card, live_id!(wc_badge)], false);
             }
         }
-        self.apply_list_state(cx, ids!(mw_empty), "还没有发布过心愿单", "发布一张", lists.len());
+        self.apply_list_state(
+            cx,
+            ids!(mw_empty),
+            "还没有发布过心愿单",
+            "发布一张",
+            lists.len(),
+        );
     }
 
     // ---- 一张心愿单 ----
@@ -383,19 +502,39 @@ impl LiyuView {
         let open = w.is_open(today);
         let mine = w.is_mine();
         let initial: String = if mine {
-            w.occasion_label().chars().next().map(String::from).unwrap_or_default()
+            w.occasion_label()
+                .chars()
+                .next()
+                .map(String::from)
+                .unwrap_or_default()
         } else {
             w.owner.chars().next().map(String::from).unwrap_or_default()
         };
         self.set_text(cx, ids!(wd_initial), &initial);
         self.set_text(cx, ids!(wd_title), &w.title);
-        let when = if mine { w.when_text(today) } else { format!("{} · {}", w.owner, w.when_text(today)) };
+        let when = if mine {
+            w.when_text(today)
+        } else {
+            format!("{} · {}", w.owner, w.when_text(today))
+        };
         self.set_text(cx, ids!(wd_when), &when);
-        self.set_text(cx, ids!(wd_badge), if open { w.occasion_label() } else { "已结束" });
+        self.set_text(
+            cx,
+            ids!(wd_badge),
+            if open {
+                w.occasion_label()
+            } else {
+                "已结束"
+            },
+        );
         self.show(cx, ids!(wd_note), !w.note.is_empty());
         self.set_text(cx, ids!(wd_note), &w.note);
         self.set_text(cx, ids!(wd_prog), &w.progress_text());
-        self.wish_frac = if w.items.is_empty() { 0.0 } else { w.claimed_count() as f64 / w.items.len() as f64 };
+        self.wish_frac = if w.items.is_empty() {
+            0.0
+        } else {
+            w.claimed_count() as f64 / w.items.len() as f64
+        };
         self.layout_wish_fill(cx);
         let meta = if mine {
             w.audience_text()
@@ -461,7 +600,11 @@ impl LiyuView {
         let Some(id) = self.wish_id else { return };
         let today = today_days();
         let armed = std::mem::take(&mut self.wish_armed);
-        let r = if armed == 1 { self.state.close_wish(id, today) } else { self.state.delete_wish(id) };
+        let r = if armed == 1 {
+            self.state.close_wish(id, today)
+        } else {
+            self.state.delete_wish(id)
+        };
         match r {
             Ok(()) => {
                 self.after_data_change(cx);
@@ -519,9 +662,18 @@ impl LiyuView {
             n if n > 1 => format!("还有 {n} 天"),
             n => format!("已过 {} 天", -n),
         };
-        self.set_text(cx, ids!(we_date_l), &format!("{} · 周{} · {}", md_cn(e), WEEKDAYS[weekday(e)], rel));
-        let ph = format!("标题（不写就叫「{}」）", d.default_title(&self.state.settings.nickname));
-        self.view.text_input(cx, ids!(we_title)).set_empty_text(cx, ph);
+        self.set_text(
+            cx,
+            ids!(we_date_l),
+            &format!("{} · 周{} · {}", md_cn(e), WEEKDAYS[weekday(e)], rel),
+        );
+        let ph = format!(
+            "标题（不写就叫「{}」）",
+            d.default_title(&self.state.settings.nickname)
+        );
+        self.view
+            .text_input(cx, ids!(we_title))
+            .set_empty_text(cx, ph);
 
         // 已经放进去的
         for (k, row) in EDIT_ROWS.iter().enumerate() {
@@ -533,7 +685,11 @@ impl LiyuView {
             self.set_img(cx, &[*row, live_id!(wr_img)], Some(wi.thumb()));
             self.set_text(cx, &[*row, live_id!(wr_name)], &wish_item_name(wi));
             self.set_text(cx, &[*row, live_id!(wr_sub)], &wi.sub());
-            let state = if wi.is_open() { "" } else { "已有人认领，不能移除" };
+            let state = if wi.is_open() {
+                ""
+            } else {
+                "已有人认领，不能移除"
+            };
             self.show(cx, &[*row, live_id!(wr_state)], !state.is_empty());
             self.set_text(cx, &[*row, live_id!(wr_state)], state);
             self.tint_text(cx, &[*row, live_id!(wr_state)], self.pal.good);
@@ -550,7 +706,11 @@ impl LiyuView {
             self.set_chip_group(cx, &KIND_CHIPS, self.vague_kind);
             self.set_chip_group(cx, &BUDGET_CHIPS, self.vague_budget);
             let wants = self.input_text(cx, ids!(we_wants));
-            let probe = WishItem::vague(WISH_KINDS[self.vague_kind], WISH_BUDGETS[self.vague_budget] * 100, &wants);
+            let probe = WishItem::vague(
+                WISH_KINDS[self.vague_kind],
+                WISH_BUDGETS[self.vague_budget] * 100,
+                &wants,
+            );
             let cands = wish_candidates(&probe);
             let within = cands.iter().filter(|m| m.within).count();
             let prev = if within == 1 {
@@ -558,7 +718,10 @@ impl LiyuView {
             } else if within > 1 {
                 format!("目录里有 {within} 件符合，送礼的人会从这些里挑")
             } else if !cands.is_empty() {
-                format!("预算内暂时没有，送礼的人会看到最接近的 {} 件（超出预算）", cands.len())
+                format!(
+                    "预算内暂时没有，送礼的人会看到最接近的 {} 件（超出预算）",
+                    cands.len()
+                )
             } else {
                 "目录里暂时没有这一类".to_string()
             };
@@ -573,8 +736,16 @@ impl LiyuView {
         }
 
         // 给谁看
-        self.aud_names = self.state.contacts.iter().take(AUD_CHIPS.len()).map(|c| c.label.clone()).collect();
-        self.view.check_box(cx, ids!(aa0)).set_active(cx, d.audience.is_empty(), Animate::Yes);
+        self.aud_names = self
+            .state
+            .contacts
+            .iter()
+            .take(AUD_CHIPS.len())
+            .map(|c| c.label.clone())
+            .collect();
+        self.view
+            .check_box(cx, ids!(aa0))
+            .set_active(cx, d.audience.is_empty(), Animate::Yes);
         let names = self.aud_names.clone();
         for (j, id) in AUD_CHIPS.iter().enumerate() {
             let name = names.get(j);
@@ -582,7 +753,9 @@ impl LiyuView {
             if let Some(n) = name {
                 self.set_text(cx, &[*id], n);
                 let on = d.audience.contains(n);
-                self.view.check_box(cx, &[*id]).set_active(cx, on, Animate::Yes);
+                self.view
+                    .check_box(cx, &[*id])
+                    .set_active(cx, on, Animate::Yes);
             }
         }
         let aud = if d.audience.is_empty() {
@@ -596,7 +769,15 @@ impl LiyuView {
         if let Some(e) = self.wish_err {
             self.set_text(cx, ids!(we_err), e);
         }
-        self.set_text(cx, ids!(we_go), if d.id.is_some() { "保存修改" } else { "发布心愿单" });
+        self.set_text(
+            cx,
+            ids!(we_go),
+            if d.id.is_some() {
+                "保存修改"
+            } else {
+                "发布心愿单"
+            },
+        );
     }
 
     fn submit_wish(&mut self, cx: &mut Cx) {
@@ -665,7 +846,11 @@ impl LiyuView {
             }
             None => {
                 self.set_text(cx, ids!(wp_t), "点一件，就放进心愿单");
-                let s = format!("已经放了 {} 件，最多 {} 件", self.wish_draft.items.len(), WISH_MAX_ITEMS);
+                let s = format!(
+                    "已经放了 {} 件，最多 {} 件",
+                    self.wish_draft.items.len(),
+                    WISH_MAX_ITEMS
+                );
                 self.set_text(cx, ids!(wp_s), &s);
                 self.show(cx, ids!(wp_chips), true);
                 self.set_chip_group(cx, &PICK_CHIPS, self.wp_cat);
@@ -674,9 +859,19 @@ impl LiyuView {
                 notes = self
                     .wp_rows
                     .iter()
-                    .map(|&i| if self.wish_draft.has_item(i) { "已在心愿单上".to_string() } else { String::new() })
+                    .map(|&i| {
+                        if self.wish_draft.has_item(i) {
+                            "已在心愿单上".to_string()
+                        } else {
+                            String::new()
+                        }
+                    })
                     .collect();
-                self.set_text(cx, ids!(wp_note), "没有想要的那一款？回上一页点「说个大概」，只写品类、预算和要求。");
+                self.set_text(
+                    cx,
+                    ids!(wp_note),
+                    "没有想要的那一款？回上一页点「说个大概」，只写品类、预算和要求。",
+                );
             }
         }
         let rows = self.wp_rows.clone();
@@ -762,7 +957,10 @@ impl LiyuView {
                         self.open_overlay(cx, Overlay::Card);
                     }
                     if self.clicked(cx, ids!(co_home), actions) {
-                        let wish = self.co_paid.and_then(|id| self.state.gift(id)).and_then(|g| g.wish_id);
+                        let wish = self
+                            .co_paid
+                            .and_then(|id| self.state.gift(id))
+                            .and_then(|g| g.wish_id);
                         match wish {
                             Some(w) => {
                                 self.gift_wish_seg = true;
@@ -778,9 +976,15 @@ impl LiyuView {
                 let id = self.wish_id.unwrap_or(0);
                 for (k, row) in WISH_ROWS.iter().enumerate() {
                     if self.clicked(cx, &[*row, live_id!(wr_go)], actions) {
-                        let wi = self.state.wishlist(id).and_then(|w| w.items.get(k)).cloned();
+                        let wi = self
+                            .state
+                            .wishlist(id)
+                            .and_then(|w| w.items.get(k))
+                            .cloned();
                         match wi {
-                            Some(wi) if wi.is_exact() => self.open_product(cx, wi.thumb(), Some((id, k))),
+                            Some(wi) if wi.is_exact() => {
+                                self.open_product(cx, wi.thumb(), Some((id, k)))
+                            }
                             Some(_) => self.open_wish_pick(cx, Some((id, k))),
                             None => {}
                         }
@@ -824,7 +1028,9 @@ impl LiyuView {
                 }
                 for (j, card) in PICK_CARDS.iter().enumerate() {
                     if self.clicked(cx, &[*card, live_id!(pk_hit)], actions) {
-                        let Some(i) = self.wp_rows.get(j).copied() else { continue };
+                        let Some(i) = self.wp_rows.get(j).copied() else {
+                            continue;
+                        };
                         match self.wp_wish {
                             Some(at) => self.open_product(cx, i, Some(at)),
                             None => self.pick_for_draft(cx, i),
@@ -880,16 +1086,29 @@ impl LiyuView {
                 dirty = true;
             }
         }
-        if self.view.text_input(cx, ids!(we_wants)).changed(actions).is_some() {
+        if self
+            .view
+            .text_input(cx, ids!(we_wants))
+            .changed(actions)
+            .is_some()
+        {
             dirty = true;
         }
         if self.clicked(cx, ids!(we_v_ok), actions) {
             if self.wish_draft.items.len() >= WISH_MAX_ITEMS {
                 self.wish_err = Some("一张心愿单最多 8 件");
             } else {
-                let wants: String = self.input_text(cx, ids!(we_wants)).chars().take(WISH_WANTS_MAX_CHARS).collect();
+                let wants: String = self
+                    .input_text(cx, ids!(we_wants))
+                    .chars()
+                    .take(WISH_WANTS_MAX_CHARS)
+                    .collect();
                 let max = WISH_BUDGETS[self.vague_budget] * 100;
-                self.wish_draft.items.push(WishItem::vague(WISH_KINDS[self.vague_kind], max, &wants));
+                self.wish_draft.items.push(WishItem::vague(
+                    WISH_KINDS[self.vague_kind],
+                    max,
+                    &wants,
+                ));
                 self.wish_err = None;
                 self.vague_open = false;
                 self.set_text(cx, ids!(we_wants), "");

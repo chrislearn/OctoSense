@@ -3,36 +3,36 @@
 //! 核心循环：挑礼物 → 设解密游戏与契约 → 生成神秘礼卡匿名发出 → 收礼人解谜
 //! → 开心收下（履约）或换购 / 折现（变现）→ 用余额回一份「反击礼物」。
 //! 规则与数据模型见 data.rs，页面规格见 liyu/docs/03-pages.md。
-pub use makepad_widgets;
-use makepad_widgets::*;
-use makepad_widgets::makepad_draw::turtle::RowAlign;
-use makepad_widgets::makepad_draw::image_cache::ImageBuffer;
 use makepad_app_module::{
-    AppModule, ExecOutcome, InstanceHandles, InstanceParts, OpenSchema,
-    ServiceExecutor, ValidatedOpen,
     makepad_ai_services::wire::{ServiceCall, ServiceManifest, ToolOutcome, ToolResult},
+    AppModule, ExecOutcome, InstanceHandles, InstanceParts, OpenSchema, ServiceExecutor,
+    ValidatedOpen,
 };
+pub use makepad_widgets;
+use makepad_widgets::makepad_draw::image_cache::ImageBuffer;
+use makepad_widgets::makepad_draw::turtle::RowAlign;
+use makepad_widgets::*;
 
-pub mod contacts;
+mod account_nav;
+mod account_ui;
 pub mod ai;
-mod avatar;
 pub mod ai_draft;
+mod avatar;
 pub mod canvas;
-pub mod data;
 mod commerce_client;
+pub mod contacts;
+pub mod data;
 mod gift_client;
 mod profile_client;
 pub mod share;
 pub mod theme;
 mod wishui;
-mod account_nav;
-mod account_ui;
 
 use canvas::LiyuShareCard;
-use data::*;
-use makepad_widgets::makepad_platform::file_dialogs::{FileDialog, FileDialogAction};
 use commerce_client::{Commerce, ProductDetail};
+use data::*;
 use gift_client::GiftClient;
+use makepad_widgets::makepad_platform::file_dialogs::{FileDialog, FileDialogAction};
 use profile_client::Profile;
 use share::ShareStyle;
 use theme::{Pal, ThemeMode};
@@ -1006,10 +1006,10 @@ script_mod! {
                                         flow: Right{wrap: true}
                                         wrap_spacing: 8.0
                                         spacing: 8.0
-                                        pp0 := LiyuChip { text: "回请咖啡" }
-                                        pp1 := LiyuChip { text: "晒一晒" }
-                                        pp2 := LiyuChip { text: "陪看电影" }
-                                        pp3 := LiyuChip { text: "见面拥抱" }
+                                        pp0 := LiyuChip { text: "" }
+                                        pp1 := LiyuChip { text: "" }
+                                        pp2 := LiyuChip { text: "" }
+                                        pp3 := LiyuChip { text: "" }
                                     }
                                     sd_pact_in := LiyuInput { empty_text: "自定义契约，最多 24 字" }
                                     sd_pact_note := LiyuMuted { text: "契约只写轻约定，不涉及钱。收下即答应，折现或换购作废。" }
@@ -2409,7 +2409,6 @@ script_mod! {
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // 文案与控件 id 表
 // ---------------------------------------------------------------------------
@@ -2468,56 +2467,159 @@ const ASIDES: [LiveId; 5] = [
 
 /// 0 = 全部，其余是 Category::ALL 的下标 + 1。
 const CAT_CHIPS: [LiveId; 9] = [
-    live_id!(k0), live_id!(k1), live_id!(k2), live_id!(k3), live_id!(k4), live_id!(k5),
-    live_id!(k6), live_id!(k7), live_id!(k8),
+    live_id!(k0),
+    live_id!(k1),
+    live_id!(k2),
+    live_id!(k3),
+    live_id!(k4),
+    live_id!(k5),
+    live_id!(k6),
+    live_id!(k7),
+    live_id!(k8),
 ];
 const GIFT_SEGS: [LiveId; 2] = [live_id!(gs_shop), live_id!(gs_wish)];
 /// 挑礼宫格：目录里一件一张卡。
 const GRID_CARDS: [LiveId; 33] = [
-    live_id!(pc0), live_id!(pc1), live_id!(pc2), live_id!(pc3), live_id!(pc4), live_id!(pc5),
-    live_id!(pc6), live_id!(pc7), live_id!(pc8), live_id!(pc9), live_id!(pc10), live_id!(pc11),
-    live_id!(pc12), live_id!(pc13), live_id!(pc14), live_id!(pc15), live_id!(pc16), live_id!(pc17),
-    live_id!(pc18), live_id!(pc19), live_id!(pc20), live_id!(pc21), live_id!(pc22), live_id!(pc23),
-    live_id!(pc24), live_id!(pc25), live_id!(pc26), live_id!(pc27), live_id!(pc28), live_id!(pc29),
-    live_id!(pc30), live_id!(pc31), live_id!(pc32),
+    live_id!(pc0),
+    live_id!(pc1),
+    live_id!(pc2),
+    live_id!(pc3),
+    live_id!(pc4),
+    live_id!(pc5),
+    live_id!(pc6),
+    live_id!(pc7),
+    live_id!(pc8),
+    live_id!(pc9),
+    live_id!(pc10),
+    live_id!(pc11),
+    live_id!(pc12),
+    live_id!(pc13),
+    live_id!(pc14),
+    live_id!(pc15),
+    live_id!(pc16),
+    live_id!(pc17),
+    live_id!(pc18),
+    live_id!(pc19),
+    live_id!(pc20),
+    live_id!(pc21),
+    live_id!(pc22),
+    live_id!(pc23),
+    live_id!(pc24),
+    live_id!(pc25),
+    live_id!(pc26),
+    live_id!(pc27),
+    live_id!(pc28),
+    live_id!(pc29),
+    live_id!(pc30),
+    live_id!(pc31),
+    live_id!(pc32),
 ];
 const PICK_ROWS: [LiveId; 12] = [
-    live_id!(q0), live_id!(q1), live_id!(q2), live_id!(q3), live_id!(q4), live_id!(q5),
-    live_id!(q6), live_id!(q7), live_id!(q8), live_id!(q9), live_id!(q10), live_id!(q11),
+    live_id!(q0),
+    live_id!(q1),
+    live_id!(q2),
+    live_id!(q3),
+    live_id!(q4),
+    live_id!(q5),
+    live_id!(q6),
+    live_id!(q7),
+    live_id!(q8),
+    live_id!(q9),
+    live_id!(q10),
+    live_id!(q11),
 ];
 const BOX_ROWS: [LiveId; 12] = [
-    live_id!(b0), live_id!(b1), live_id!(b2), live_id!(b3), live_id!(b4), live_id!(b5),
-    live_id!(b6), live_id!(b7), live_id!(b8), live_id!(b9), live_id!(b10), live_id!(b11),
+    live_id!(b0),
+    live_id!(b1),
+    live_id!(b2),
+    live_id!(b3),
+    live_id!(b4),
+    live_id!(b5),
+    live_id!(b6),
+    live_id!(b7),
+    live_id!(b8),
+    live_id!(b9),
+    live_id!(b10),
+    live_id!(b11),
 ];
 const BOX_SEGS: [LiveId; 2] = [live_id!(bs_recv), live_id!(bs_sent)];
 const PACT_ROWS: [LiveId; 8] = [
-    live_id!(p0), live_id!(p1), live_id!(p2), live_id!(p3),
-    live_id!(p4), live_id!(p5), live_id!(p6), live_id!(p7),
+    live_id!(p0),
+    live_id!(p1),
+    live_id!(p2),
+    live_id!(p3),
+    live_id!(p4),
+    live_id!(p5),
+    live_id!(p6),
+    live_id!(p7),
 ];
 const PACT_SEGS: [LiveId; 2] = [live_id!(ps_mine), live_id!(ps_theirs)];
 const CONTACT_ROWS: [LiveId; 10] = [
-    live_id!(c0), live_id!(c1), live_id!(c2), live_id!(c3), live_id!(c4),
-    live_id!(c5), live_id!(c6), live_id!(c7), live_id!(c8), live_id!(c9),
+    live_id!(c0),
+    live_id!(c1),
+    live_id!(c2),
+    live_id!(c3),
+    live_id!(c4),
+    live_id!(c5),
+    live_id!(c6),
+    live_id!(c7),
+    live_id!(c8),
+    live_id!(c9),
 ];
 const LEDGER_ROWS: [LiveId; 12] = [
-    live_id!(l0), live_id!(l1), live_id!(l2), live_id!(l3), live_id!(l4), live_id!(l5),
-    live_id!(l6), live_id!(l7), live_id!(l8), live_id!(l9), live_id!(l10), live_id!(l11),
+    live_id!(l0),
+    live_id!(l1),
+    live_id!(l2),
+    live_id!(l3),
+    live_id!(l4),
+    live_id!(l5),
+    live_id!(l6),
+    live_id!(l7),
+    live_id!(l8),
+    live_id!(l9),
+    live_id!(l10),
+    live_id!(l11),
 ];
-const STEP_ROWS: [LiveId; 5] = [live_id!(t0), live_id!(t1), live_id!(t2), live_id!(t3), live_id!(t4)];
+const STEP_ROWS: [LiveId; 5] = [
+    live_id!(t0),
+    live_id!(t1),
+    live_id!(t2),
+    live_id!(t3),
+    live_id!(t4),
+];
 const SWAP_ROWS: [LiveId; 11] = [
-    live_id!(x0), live_id!(x1), live_id!(x2), live_id!(x3), live_id!(x4), live_id!(x5),
-    live_id!(x6), live_id!(x7), live_id!(x8), live_id!(x9), live_id!(x10),
+    live_id!(x0),
+    live_id!(x1),
+    live_id!(x2),
+    live_id!(x3),
+    live_id!(x4),
+    live_id!(x5),
+    live_id!(x6),
+    live_id!(x7),
+    live_id!(x8),
+    live_id!(x9),
+    live_id!(x10),
 ];
 const SWAP_SEGS: [LiveId; 2] = [live_id!(ow_cash), live_id!(ow_swap)];
 const PEER_CHIPS: [LiveId; 6] = [
-    live_id!(sp0), live_id!(sp1), live_id!(sp2), live_id!(sp3), live_id!(sp4), live_id!(sp5),
+    live_id!(sp0),
+    live_id!(sp1),
+    live_id!(sp2),
+    live_id!(sp3),
+    live_id!(sp4),
+    live_id!(sp5),
 ];
 /// 送礼页前五枚熟人芯片，第六枚固定是「先不指定」。
 const PEER_SLOTS: usize = 5;
 const UNLOCK_SEGS: [LiveId; 4] = [live_id!(un0), live_id!(un1), live_id!(un2), live_id!(un3)];
 const PRESET_CHIPS: [LiveId; 4] = [live_id!(pp0), live_id!(pp1), live_id!(pp2), live_id!(pp3)];
 const CAND_BTNS: [LiveId; 6] = [
-    live_id!(cd0), live_id!(cd1), live_id!(cd2), live_id!(cd3), live_id!(cd4), live_id!(cd5),
+    live_id!(cd0),
+    live_id!(cd1),
+    live_id!(cd2),
+    live_id!(cd3),
+    live_id!(cd4),
+    live_id!(cd5),
 ];
 const STYLE_SEGS: [LiveId; 2] = [live_id!(cs_warm), live_id!(cs_night)];
 const THEME_SEGS: [LiveId; 2] = [live_id!(ap_dark), live_id!(ap_light)];
@@ -2533,69 +2635,153 @@ const STAGE_VIEWS: [LiveId; 5] = [
 
 // ---- 商品详情 / 结算 / 心愿单 ----
 /// 商品详情底部「同类还有」。
-const REL_CARDS: [LiveId; 4] = [
-    live_id!(pr0), live_id!(pr1), live_id!(pr2), live_id!(pr3),
-];
+const REL_CARDS: [LiveId; 4] = [live_id!(pr0), live_id!(pr1), live_id!(pr2), live_id!(pr3)];
 /// 挑礼页「熟人的心愿单」。
 const WISH_CARDS: [LiveId; 6] = [
-    live_id!(fw0), live_id!(fw1), live_id!(fw2), live_id!(fw3), live_id!(fw4), live_id!(fw5),
+    live_id!(fw0),
+    live_id!(fw1),
+    live_id!(fw2),
+    live_id!(fw3),
+    live_id!(fw4),
+    live_id!(fw5),
 ];
 /// 「我的心愿单」。
-const MY_WISH_CARDS: [LiveId; 4] = [
-    live_id!(mw0), live_id!(mw1), live_id!(mw2), live_id!(mw3),
-];
+const MY_WISH_CARDS: [LiveId; 4] = [live_id!(mw0), live_id!(mw1), live_id!(mw2), live_id!(mw3)];
 /// 心愿单详情的一件一行。
 const WISH_ROWS: [LiveId; 8] = [
-    live_id!(wr0), live_id!(wr1), live_id!(wr2), live_id!(wr3), live_id!(wr4), live_id!(wr5),
-    live_id!(wr6), live_id!(wr7),
+    live_id!(wr0),
+    live_id!(wr1),
+    live_id!(wr2),
+    live_id!(wr3),
+    live_id!(wr4),
+    live_id!(wr5),
+    live_id!(wr6),
+    live_id!(wr7),
 ];
 /// 发布 / 编辑页里已经放进去的几件。
 const EDIT_ROWS: [LiveId; 8] = [
-    live_id!(ei0), live_id!(ei1), live_id!(ei2), live_id!(ei3), live_id!(ei4), live_id!(ei5),
-    live_id!(ei6), live_id!(ei7),
+    live_id!(ei0),
+    live_id!(ei1),
+    live_id!(ei2),
+    live_id!(ei3),
+    live_id!(ei4),
+    live_id!(ei5),
+    live_id!(ei6),
+    live_id!(ei7),
 ];
 /// 心愿单卡片上的一排小图（LiyuWishCard 里）。
 const WISH_THUMBS: [LiveId; 5] = [
-    live_id!(wt0), live_id!(wt1), live_id!(wt2), live_id!(wt3), live_id!(wt4),
+    live_id!(wt0),
+    live_id!(wt1),
+    live_id!(wt2),
+    live_id!(wt3),
+    live_id!(wt4),
 ];
 const OCC_CHIPS: [LiveId; 6] = [
-    live_id!(oc0), live_id!(oc1), live_id!(oc2), live_id!(oc3), live_id!(oc4), live_id!(oc5),
+    live_id!(oc0),
+    live_id!(oc1),
+    live_id!(oc2),
+    live_id!(oc3),
+    live_id!(oc4),
+    live_id!(oc5),
 ];
 const KIND_CHIPS: [LiveId; 16] = [
-    live_id!(wk0), live_id!(wk1), live_id!(wk2), live_id!(wk3), live_id!(wk4), live_id!(wk5),
-    live_id!(wk6), live_id!(wk7), live_id!(wk8), live_id!(wk9), live_id!(wk10), live_id!(wk11),
-    live_id!(wk12), live_id!(wk13), live_id!(wk14), live_id!(wk15),
+    live_id!(wk0),
+    live_id!(wk1),
+    live_id!(wk2),
+    live_id!(wk3),
+    live_id!(wk4),
+    live_id!(wk5),
+    live_id!(wk6),
+    live_id!(wk7),
+    live_id!(wk8),
+    live_id!(wk9),
+    live_id!(wk10),
+    live_id!(wk11),
+    live_id!(wk12),
+    live_id!(wk13),
+    live_id!(wk14),
+    live_id!(wk15),
 ];
 const BUDGET_CHIPS: [LiveId; 7] = [
-    live_id!(bd0), live_id!(bd1), live_id!(bd2), live_id!(bd3), live_id!(bd4), live_id!(bd5),
+    live_id!(bd0),
+    live_id!(bd1),
+    live_id!(bd2),
+    live_id!(bd3),
+    live_id!(bd4),
+    live_id!(bd5),
     live_id!(bd6),
 ];
 /// 「给谁看」的熟人芯片（前面还有一枚「所有熟人」aa0）。
 const AUD_CHIPS: [LiveId; 10] = [
-    live_id!(au0), live_id!(au1), live_id!(au2), live_id!(au3), live_id!(au4), live_id!(au5),
-    live_id!(au6), live_id!(au7), live_id!(au8), live_id!(au9),
+    live_id!(au0),
+    live_id!(au1),
+    live_id!(au2),
+    live_id!(au3),
+    live_id!(au4),
+    live_id!(au5),
+    live_id!(au6),
+    live_id!(au7),
+    live_id!(au8),
+    live_id!(au9),
 ];
 /// 「说个大概」时预览的几件候选。
 const PREVIEW_THUMBS: [LiveId; 5] = [
-    live_id!(vp0), live_id!(vp1), live_id!(vp2), live_id!(vp3), live_id!(vp4),
+    live_id!(vp0),
+    live_id!(vp1),
+    live_id!(vp2),
+    live_id!(vp3),
+    live_id!(vp4),
 ];
 /// 「挑一件」页的宫格。
 const PICK_CARDS: [LiveId; 33] = [
-    live_id!(wp0), live_id!(wp1), live_id!(wp2), live_id!(wp3), live_id!(wp4), live_id!(wp5),
-    live_id!(wp6), live_id!(wp7), live_id!(wp8), live_id!(wp9), live_id!(wp10), live_id!(wp11),
-    live_id!(wp12), live_id!(wp13), live_id!(wp14), live_id!(wp15), live_id!(wp16), live_id!(wp17),
-    live_id!(wp18), live_id!(wp19), live_id!(wp20), live_id!(wp21), live_id!(wp22), live_id!(wp23),
-    live_id!(wp24), live_id!(wp25), live_id!(wp26), live_id!(wp27), live_id!(wp28), live_id!(wp29),
-    live_id!(wp30), live_id!(wp31), live_id!(wp32),
+    live_id!(wp0),
+    live_id!(wp1),
+    live_id!(wp2),
+    live_id!(wp3),
+    live_id!(wp4),
+    live_id!(wp5),
+    live_id!(wp6),
+    live_id!(wp7),
+    live_id!(wp8),
+    live_id!(wp9),
+    live_id!(wp10),
+    live_id!(wp11),
+    live_id!(wp12),
+    live_id!(wp13),
+    live_id!(wp14),
+    live_id!(wp15),
+    live_id!(wp16),
+    live_id!(wp17),
+    live_id!(wp18),
+    live_id!(wp19),
+    live_id!(wp20),
+    live_id!(wp21),
+    live_id!(wp22),
+    live_id!(wp23),
+    live_id!(wp24),
+    live_id!(wp25),
+    live_id!(wp26),
+    live_id!(wp27),
+    live_id!(wp28),
+    live_id!(wp29),
+    live_id!(wp30),
+    live_id!(wp31),
+    live_id!(wp32),
 ];
 const PICK_CHIPS: [LiveId; 9] = [
-    live_id!(wq0), live_id!(wq1), live_id!(wq2), live_id!(wq3), live_id!(wq4), live_id!(wq5),
-    live_id!(wq6), live_id!(wq7), live_id!(wq8),
+    live_id!(wq0),
+    live_id!(wq1),
+    live_id!(wq2),
+    live_id!(wq3),
+    live_id!(wq4),
+    live_id!(wq5),
+    live_id!(wq6),
+    live_id!(wq7),
+    live_id!(wq8),
 ];
 const DELIVER_SEGS: [LiveId; 2] = [live_id!(dv0), live_id!(dv1)];
-const PAY_CHIPS: [LiveId; 3] = [
-    live_id!(pm0), live_id!(pm1), live_id!(pm2),
-];
+const PAY_CHIPS: [LiveId; 3] = [live_id!(pm0), live_id!(pm1), live_id!(pm2)];
 
 /// 商品图，下标和 `CATALOG` 一一对应（400×400，圆角已经烤进 alpha）。
 const PRODUCT_PNGS: [&[u8]; 33] = [
@@ -2709,33 +2895,68 @@ const SIDE_PAD_VIEWS: [LiveId; 28] = [
     live_id!(page_wish_pick),
 ];
 
-const CART_FRIEND_CHIPS: [LiveId; 4] = [live_id!(ca_f0), live_id!(ca_f1), live_id!(ca_f2), live_id!(ca_f3)];
+const CART_FRIEND_CHIPS: [LiveId; 4] = [
+    live_id!(ca_f0),
+    live_id!(ca_f1),
+    live_id!(ca_f2),
+    live_id!(ca_f3),
+];
 const PROFILE_ADDRESS_ROWS: [LiveId; 6] = [
-    live_id!(pf_a0), live_id!(pf_a1), live_id!(pf_a2),
-    live_id!(pf_a3), live_id!(pf_a4), live_id!(pf_a5),
+    live_id!(pf_a0),
+    live_id!(pf_a1),
+    live_id!(pf_a2),
+    live_id!(pf_a3),
+    live_id!(pf_a4),
+    live_id!(pf_a5),
 ];
 const CONTACT_WISH_PREVIEW_ROWS: [LiveId; 3] = [
-    live_id!(fd_wish_0), live_id!(fd_wish_1), live_id!(fd_wish_2),
+    live_id!(fd_wish_0),
+    live_id!(fd_wish_1),
+    live_id!(fd_wish_2),
 ];
 const CONTACT_SECTION_ROWS: [LiveId; 10] = [
-    live_id!(cs0), live_id!(cs1), live_id!(cs2), live_id!(cs3), live_id!(cs4),
-    live_id!(cs5), live_id!(cs6), live_id!(cs7), live_id!(cs8), live_id!(cs9),
+    live_id!(cs0),
+    live_id!(cs1),
+    live_id!(cs2),
+    live_id!(cs3),
+    live_id!(cs4),
+    live_id!(cs5),
+    live_id!(cs6),
+    live_id!(cs7),
+    live_id!(cs8),
+    live_id!(cs9),
 ];
 const PROFILE_ADDRESS_TEXT: [LiveId; 6] = [
-    live_id!(pf_a0_text), live_id!(pf_a1_text), live_id!(pf_a2_text),
-    live_id!(pf_a3_text), live_id!(pf_a4_text), live_id!(pf_a5_text),
+    live_id!(pf_a0_text),
+    live_id!(pf_a1_text),
+    live_id!(pf_a2_text),
+    live_id!(pf_a3_text),
+    live_id!(pf_a4_text),
+    live_id!(pf_a5_text),
 ];
 const PROFILE_ADDRESS_ACTIONS: [LiveId; 6] = [
-    live_id!(pf_a0_actions), live_id!(pf_a1_actions), live_id!(pf_a2_actions),
-    live_id!(pf_a3_actions), live_id!(pf_a4_actions), live_id!(pf_a5_actions),
+    live_id!(pf_a0_actions),
+    live_id!(pf_a1_actions),
+    live_id!(pf_a2_actions),
+    live_id!(pf_a3_actions),
+    live_id!(pf_a4_actions),
+    live_id!(pf_a5_actions),
 ];
 const PROFILE_ADDRESS_EDIT: [LiveId; 6] = [
-    live_id!(pf_a0_edit), live_id!(pf_a1_edit), live_id!(pf_a2_edit),
-    live_id!(pf_a3_edit), live_id!(pf_a4_edit), live_id!(pf_a5_edit),
+    live_id!(pf_a0_edit),
+    live_id!(pf_a1_edit),
+    live_id!(pf_a2_edit),
+    live_id!(pf_a3_edit),
+    live_id!(pf_a4_edit),
+    live_id!(pf_a5_edit),
 ];
 const PROFILE_ADDRESS_DELETE: [LiveId; 6] = [
-    live_id!(pf_a0_del), live_id!(pf_a1_del), live_id!(pf_a2_del),
-    live_id!(pf_a3_del), live_id!(pf_a4_del), live_id!(pf_a5_del),
+    live_id!(pf_a0_del),
+    live_id!(pf_a1_del),
+    live_id!(pf_a2_del),
+    live_id!(pf_a3_del),
+    live_id!(pf_a4_del),
+    live_id!(pf_a5_del),
 ];
 
 /// 可用 surface 尺寸 → 布局形态。宿主把应用放进多大的 tile，这里就按多大
@@ -3139,6 +3360,8 @@ pub struct LiyuView {
     pact_theirs: bool,
     #[rust]
     pact_rows: Vec<u64>,
+    #[rust]
+    pact_presets: Vec<(String, String)>,
 
     // ---- 熟人 ----
     #[rust]
@@ -3266,40 +3489,64 @@ impl LiyuView {
 
     /// Keyboard navigation belongs to the app, so it works in both hosting modes.
     fn handle_keyboard_navigation(&mut self, cx: &mut Cx, event: &Event) -> bool {
-        let Event::KeyDown(key) = event else { return false };
+        let Event::KeyDown(key) = event else {
+            return false;
+        };
         if key.key_code == KeyCode::Escape && self.tab == 4 {
-            self.go_back(cx); return true;
+            self.go_back(cx);
+            return true;
         }
         if key.modifiers.control || key.modifiers.logo || key.modifiers.alt {
             return false;
         }
-        fn collect(widget: WidgetRef, parents: Vec<Area>, out: &mut Vec<(WidgetRef, Vec<Area>)>, cx: &Cx) {
-            if !widget.visible() { return; }
+        fn collect(
+            widget: WidgetRef,
+            parents: Vec<Area>,
+            out: &mut Vec<(WidgetRef, Vec<Area>)>,
+            cx: &Cx,
+        ) {
+            if !widget.visible() {
+                return;
+            }
             let area = widget.area();
             let focusable = widget.borrow::<TextInput>().is_some()
-                || widget.borrow::<Button>().is_some_and(|button| button.enabled())
+                || widget
+                    .borrow::<Button>()
+                    .is_some_and(|button| button.enabled())
                 || widget.borrow::<CheckBox>().is_some();
             if focusable && !area.is_empty() && area.is_valid(cx) {
                 out.push((widget.clone(), parents.clone()));
             }
             let mut next = parents;
-            if !area.is_empty() { next.push(area); }
+            if !area.is_empty() {
+                next.push(area);
+            }
             let mut children = Vec::new();
             widget.children(&mut |_, child| children.push(child));
-            for child in children { collect(child, next.clone(), out, cx); }
+            for child in children {
+                collect(child, next.clone(), out, cx);
+            }
         }
         let mut stops = Vec::new();
         if self.auth_gate || self.intro.is_some() {
-            let path = if self.auth_gate { ids!(page_auth) } else { ids!(page_intro) };
+            let path = if self.auth_gate {
+                ids!(page_auth)
+            } else {
+                ids!(page_intro)
+            };
             collect(self.view.widget(cx, path), Vec::new(), &mut stops, cx);
         } else {
             let mut children = Vec::new();
             self.view.children(&mut |_, child| children.push(child));
-            for child in children { collect(child, Vec::new(), &mut stops, cx); }
+            for child in children {
+                collect(child, Vec::new(), &mut stops, cx);
+            }
         }
         let focused = stops.iter().position(|(widget, _)| widget.key_focus(cx));
         if key.key_code == KeyCode::Tab {
-            if stops.is_empty() { return true; }
+            if stops.is_empty() {
+                return true;
+            }
             let index = focus_index(focused, stops.len(), key.modifiers.shift);
             let (widget, parents) = &stops[index];
             if let Some(mut input) = widget.borrow_mut::<TextInput>() {
@@ -3309,16 +3556,29 @@ impl LiyuView {
             }
             let mut from = widget.area();
             for parent in parents.iter().rev() {
-                cx.send_trigger(*parent, Trigger { id: live_id!(scroll_focus_nav), from });
+                cx.send_trigger(
+                    *parent,
+                    Trigger {
+                        id: live_id!(scroll_focus_nav),
+                        from,
+                    },
+                );
                 from = *parent;
             }
             widget.redraw(cx);
             return true;
         }
-        if self.auth_gate && key.is_repeat && matches!(key.key_code, KeyCode::ReturnKey | KeyCode::NumpadEnter) {
+        if self.auth_gate
+            && key.is_repeat
+            && matches!(key.key_code, KeyCode::ReturnKey | KeyCode::NumpadEnter)
+        {
             return true;
         }
-        if matches!(key.key_code, KeyCode::ReturnKey | KeyCode::NumpadEnter | KeyCode::Space) && !key.is_repeat {
+        if matches!(
+            key.key_code,
+            KeyCode::ReturnKey | KeyCode::NumpadEnter | KeyCode::Space
+        ) && !key.is_repeat
+        {
             if let Some(index) = focused {
                 let widget = &stops[index].0;
                 let actions = cx.capture_actions(|cx| {
@@ -3364,8 +3624,14 @@ impl LiyuView {
             self.tex.resize(CATALOG.len() + 1, None);
         }
         if self.tex[k].is_none() {
-            let bytes = if k < CATALOG.len() { PRODUCT_PNGS[k] } else { MYSTERY_PNG };
-            self.tex[k] = ImageBuffer::from_png(bytes).ok().map(|b| b.into_new_mip_texture(cx));
+            let bytes = if k < CATALOG.len() {
+                PRODUCT_PNGS[k]
+            } else {
+                MYSTERY_PNG
+            };
+            self.tex[k] = ImageBuffer::from_png(bytes)
+                .ok()
+                .map(|b| b.into_new_mip_texture(cx));
         }
         self.tex[k].clone()
     }
@@ -3413,12 +3679,21 @@ impl LiyuView {
 
     fn set_tab(&mut self, cx: &mut Cx, i: usize) {
         if self.account_has_unsaved_changes(cx) {
-            for root in [live_id!(sidebar),live_id!(tabbar)] {
-                for (j,id) in TABS.iter().enumerate() {self.view.check_box(cx,&[root,*id]).set_active(cx,j==self.tab,Animate::Yes);}
+            for root in [live_id!(sidebar), live_id!(tabbar)] {
+                for (j, id) in TABS.iter().enumerate() {
+                    self.view.check_box(cx, &[root, *id]).set_active(
+                        cx,
+                        j == self.tab,
+                        Animate::Yes,
+                    );
+                }
             }
-            self.toast(cx, "有未保存的修改，请保存或取消"); return;
+            self.toast(cx, "有未保存的修改，请保存或取消");
+            return;
         }
-        if self.account_edit.is_some() { self.cancel_account_edit(cx); }
+        if self.account_edit.is_some() {
+            self.cancel_account_edit(cx);
+        }
         // 切 Tab 即离开所有覆盖页；送礼草稿随之丢掉（它本来就不落盘）。
         self.overlay = None;
         self.back_stack.clear();
@@ -3437,7 +3712,8 @@ impl LiyuView {
             // A verified address may have changed owner or the owner may have
             // replaced their photo since the last visit.
             self.contact_avatar_cache.clear();
-            self.contact_avatar_textures.retain(|key, _| !key.starts_with("remote:"));
+            self.contact_avatar_textures
+                .retain(|key, _| !key.starts_with("remote:"));
             self.contact_avatar_receiver = None;
             cx.stop_timer(self.contact_avatar_poll);
             self.contact_avatar_poll = Timer::empty();
@@ -3450,7 +3726,11 @@ impl LiyuView {
                     .check_box(cx, &[root, *id])
                     .set_active(cx, j == i, Animate::Yes);
                 // DrawSvg 没有 active 通道，图标的选中色在这里逐个 apply。
-                let c = if j == i { self.pal.warm } else { self.pal.ink_2 };
+                let c = if j == i {
+                    self.pal.warm
+                } else {
+                    self.pal.ink_2
+                };
                 let mut tab = self.view.widget(cx, &[root, *id]);
                 script_apply_eval!(cx, tab, { draw_icon +: { color: #(c) } });
             }
@@ -3465,21 +3745,38 @@ impl LiyuView {
             3 => self.refresh_contacts(cx),
             _ => {
                 self.refresh_me(cx);
-                match self.account_nav.as_ref().and_then(|n| if n.depth()>1 {n.selected()} else {None}) {
-                    Some(account_nav::AccountCategory::Profile | account_nav::AccountCategory::AccountContact | account_nav::AccountCategory::ShippingAddress) => self.open_profile(cx),
-                    Some(account_nav::AccountCategory::General | account_nav::AccountCategory::Notifications | account_nav::AccountCategory::DataManagement) => self.open_settings(cx),
+                match self.account_nav.as_ref().and_then(|n| {
+                    if n.depth() > 1 {
+                        n.selected()
+                    } else {
+                        None
+                    }
+                }) {
+                    Some(
+                        account_nav::AccountCategory::Profile
+                        | account_nav::AccountCategory::AccountContact
+                        | account_nav::AccountCategory::ShippingAddress,
+                    ) => self.open_profile(cx),
+                    Some(
+                        account_nav::AccountCategory::General
+                        | account_nav::AccountCategory::Notifications
+                        | account_nav::AccountCategory::DataManagement,
+                    ) => self.open_settings(cx),
                     _ => {}
                 }
-            },
+            }
         }
         self.update_page_visibility(cx);
     }
 
     fn open_overlay(&mut self, cx: &mut Cx, o: Overlay) {
         if self.account_has_unsaved_changes(cx) {
-            self.toast(cx,"有未保存的修改，请保存或取消"); return;
+            self.toast(cx, "有未保存的修改，请保存或取消");
+            return;
         }
-        if self.account_edit.is_some() { self.cancel_account_edit(cx); }
+        if self.account_edit.is_some() {
+            self.cancel_account_edit(cx);
+        }
         self.overlay = Some(o);
         self.import_menu = false;
         // 覆盖页每次都从顶上看起：上一次滚到哪儿和这一次无关。
@@ -3567,27 +3864,44 @@ impl LiyuView {
             Overlay::WishEdit => live_id!(we_scroll),
             Overlay::WishPick => live_id!(page_wish_pick),
         };
-        self.view.view(cx, &[id]).set_scroll_pos(cx, Vec2d::default());
+        self.view
+            .view(cx, &[id])
+            .set_scroll_pos(cx, Vec2d::default());
     }
 
     /// 顶栏「返回」：礼卡、拆礼、送出详情、钱包、设置有固定的来处；
     /// 送礼、商品、结算和心愿单这几张按来路栈一层层退回去。
     fn go_back(&mut self, cx: &mut Cx) {
         if self.tab == 4 && self.account_has_unsaved_changes(cx) {
-            self.toast(cx, "有未保存的修改，请保存或点击取消"); return;
+            self.toast(cx, "有未保存的修改，请保存或点击取消");
+            return;
         }
         if self.tab == 4 && self.account_edit.is_some() {
-            self.cancel_account_edit(cx); return;
+            self.cancel_account_edit(cx);
+            return;
         }
-        if self.tab == 4 && self.account_nav.as_ref().and_then(|n| n.selected()).is_some() && matches!(self.overlay,None|Some(Overlay::Profile|Overlay::Settings)) {
+        if self.tab == 4
+            && self
+                .account_nav
+                .as_ref()
+                .and_then(|n| n.selected())
+                .is_some()
+            && matches!(
+                self.overlay,
+                None | Some(Overlay::Profile | Overlay::Settings)
+            )
+        {
             self.account_nav.as_mut().unwrap().pop_discarding();
             self.overlay = None;
-            self.update_page_visibility(cx); return;
+            self.update_page_visibility(cx);
+            return;
         }
         if self.tab == 4 && self.account_section.is_some() {
             if let Some(o) = self.back_stack.pop() {
                 self.overlay = Some(o);
-                if matches!(o, Overlay::ReceivedGifts | Overlay::SentGifts) { let _ = self.gift_client.refresh(); }
+                if matches!(o, Overlay::ReceivedGifts | Overlay::SentGifts) {
+                    let _ = self.gift_client.refresh();
+                }
                 self.refresh_overlay(cx, o);
             } else {
                 self.account_section = None;
@@ -3598,8 +3912,12 @@ impl LiyuView {
             return;
         }
         match self.overlay {
-            Some(Overlay::Sent) if self.back_stack.last() == Some(&Overlay::ContactSection) => self.pop_back(cx),
-            Some(Overlay::Open) if self.back_stack.last() == Some(&Overlay::ContactSection) => self.pop_back(cx),
+            Some(Overlay::Sent) if self.back_stack.last() == Some(&Overlay::ContactSection) => {
+                self.pop_back(cx)
+            }
+            Some(Overlay::Open) if self.back_stack.last() == Some(&Overlay::ContactSection) => {
+                self.pop_back(cx)
+            }
             Some(
                 Overlay::Send
                 | Overlay::Product
@@ -3632,7 +3950,9 @@ impl LiyuView {
                     self.set_tab(cx, 1);
                 }
             }
-            Some(Overlay::Wallet) | Some(Overlay::Settings) | Some(Overlay::Profile) => self.set_tab(cx, 4),
+            Some(Overlay::Wallet) | Some(Overlay::Settings) | Some(Overlay::Profile) => {
+                self.set_tab(cx, 4)
+            }
             None if self.tab == 0 => {
                 if let Some(id) = self.gift_return_contact_id.take() {
                     self.set_tab(cx, 3);
@@ -3651,7 +3971,16 @@ impl LiyuView {
         // 认证闸优先:gate 时隐藏所有主页面与 overlay,只留 page_auth 全屏,
         // 避免认证卡片盖在挑礼首页上被底部裁掉(默认小窗口登录/注册按钮不可见)。
         for (j, id) in PAGES.iter().enumerate() {
-            self.show(cx, &[*id], !gate && !intro && j == self.tab && (self.overlay.is_none() || (j == 4 && matches!(self.overlay, Some(Overlay::Profile | Overlay::Settings)))));
+            self.show(
+                cx,
+                &[*id],
+                !gate
+                    && !intro
+                    && j == self.tab
+                    && (self.overlay.is_none()
+                        || (j == 4
+                            && matches!(self.overlay, Some(Overlay::Profile | Overlay::Settings)))),
+            );
         }
         self.show(cx, ids!(account_workspace), !intro && !gate);
         let ov = if intro || gate { None } else { self.overlay };
@@ -3660,16 +3989,36 @@ impl LiyuView {
         self.show(cx, ids!(page_open), ov == Some(Overlay::Open));
         self.show(cx, ids!(page_sent), ov == Some(Overlay::Sent));
         self.show(cx, ids!(page_wallet), ov == Some(Overlay::Wallet));
-        self.show(cx, ids!(page_account_received), ov == Some(Overlay::ReceivedGifts));
+        self.show(
+            cx,
+            ids!(page_account_received),
+            ov == Some(Overlay::ReceivedGifts),
+        );
         self.show(cx, ids!(page_account_sent), ov == Some(Overlay::SentGifts));
         self.show(cx, ids!(page_settings), ov == Some(Overlay::Settings));
         self.show(cx, ids!(page_profile), ov == Some(Overlay::Profile));
         self.refresh_account_nav(cx);
-        self.show(cx, ids!(page_direct_order), ov == Some(Overlay::DirectOrder));
+        self.show(
+            cx,
+            ids!(page_direct_order),
+            ov == Some(Overlay::DirectOrder),
+        );
         self.show(cx, ids!(page_online_gift), ov == Some(Overlay::OnlineGift));
-        self.show(cx, ids!(page_contact_detail), ov == Some(Overlay::ContactDetail));
-        self.show(cx, ids!(page_contact_section), ov == Some(Overlay::ContactSection));
-        self.show(cx, ids!(page_contact_form), ov == Some(Overlay::ContactForm));
+        self.show(
+            cx,
+            ids!(page_contact_detail),
+            ov == Some(Overlay::ContactDetail),
+        );
+        self.show(
+            cx,
+            ids!(page_contact_section),
+            ov == Some(Overlay::ContactSection),
+        );
+        self.show(
+            cx,
+            ids!(page_contact_form),
+            ov == Some(Overlay::ContactForm),
+        );
         self.show(cx, ids!(page_product), ov == Some(Overlay::Product));
         self.show(cx, ids!(page_checkout), ov == Some(Overlay::Checkout));
         self.show(cx, ids!(page_wishes), ov == Some(Overlay::Wishes));
@@ -3687,14 +4036,31 @@ impl LiyuView {
 
     fn refresh_topbar(&mut self, cx: &mut Cx) {
         let account_title = if self.tab == 4 {
-            self.account_edit.map(|field| match field {
-                0 => "修改显示名", 1 => "修改手机号", 2 => "修改邮箱",
-                3 => "编辑收货地址", _ => "修改称呼",
-            }).or_else(|| self.account_nav.as_ref().and_then(|nav| nav.selected()).map(account_nav::AccountCategory::label))
-        } else { None };
+            self.account_edit
+                .map(|field| match field {
+                    0 => "修改显示名",
+                    1 => "修改手机号",
+                    2 => "修改邮箱",
+                    3 => "编辑收货地址",
+                    _ => "修改称呼",
+                })
+                .or_else(|| {
+                    self.account_nav
+                        .as_ref()
+                        .and_then(|nav| nav.selected())
+                        .map(account_nav::AccountCategory::label)
+                })
+        } else {
+            None
+        };
         let title: String = match self.overlay {
-            None => account_title.unwrap_or_else(|| self.account_section.filter(|_| self.tab == 4)
-                .map_or(TAB_TITLES[self.tab], AccountSection::label)).into(),
+            None => account_title
+                .unwrap_or_else(|| {
+                    self.account_section
+                        .filter(|_| self.tab == 4)
+                        .map_or(TAB_TITLES[self.tab], AccountSection::label)
+                })
+                .into(),
             Some(Overlay::Send) => {
                 if self.draft.wish.is_some() {
                     "认领心愿".into()
@@ -3710,7 +4076,13 @@ impl LiyuView {
                 Stage::Decrypt => "神秘礼物".into(),
                 Stage::Reveal => "礼物揭晓".into(),
                 Stage::Accept => "收下礼物".into(),
-                Stage::Swap => if self.swap_exchange { "换一份".into() } else { "折成余额".into() },
+                Stage::Swap => {
+                    if self.swap_exchange {
+                        "换一份".into()
+                    } else {
+                        "折成余额".into()
+                    }
+                }
                 Stage::Done => "完成".into(),
             },
             Some(Overlay::Sent) => "送出详情".into(),
@@ -3721,12 +4093,25 @@ impl LiyuView {
             Some(Overlay::Profile) => account_title.unwrap_or("账户资料").into(),
             Some(Overlay::DirectOrder) => "直接送礼".into(),
             Some(Overlay::OnlineGift) => "服务器礼物".into(),
-            Some(Overlay::ContactDetail) => self.contact_detail_id.and_then(|id| self.state.contact(id)).map_or("熟人详情", |c| c.label.as_str()).into(),
+            Some(Overlay::ContactDetail) => self
+                .contact_detail_id
+                .and_then(|id| self.state.contact(id))
+                .map_or("熟人详情", |c| c.label.as_str())
+                .into(),
             Some(Overlay::ContactSection) => self.contact_section.title().into(),
-            Some(Overlay::ContactForm) => if self.editing_contact.is_some() { "修改熟人" } else { "添加熟人" }.into(),
+            Some(Overlay::ContactForm) => if self.editing_contact.is_some() {
+                "修改熟人"
+            } else {
+                "添加熟人"
+            }
+            .into(),
             Some(Overlay::Product) => "商品详情".into(),
             Some(Overlay::Checkout) => {
-                if self.co_paid.is_some() { "支付成功".into() } else { "确认订单".into() }
+                if self.co_paid.is_some() {
+                    "支付成功".into()
+                } else {
+                    "确认订单".into()
+                }
             }
             Some(Overlay::Wishes) => "我的心愿单".into(),
             Some(Overlay::Wish) => match self.wish_id.and_then(|id| self.state.wishlist(id)) {
@@ -3735,23 +4120,54 @@ impl LiyuView {
                 None => "心愿单".into(),
             },
             Some(Overlay::WishEdit) => {
-                if self.wish_draft.id.is_some() { "编辑心愿单".into() } else { "发布心愿单".into() }
+                if self.wish_draft.id.is_some() {
+                    "编辑心愿单".into()
+                } else {
+                    "发布心愿单".into()
+                }
             }
             Some(Overlay::WishPick) => {
-                if self.wp_wish.is_some() { "送给TA".into() } else { "挑一件放进心愿单".into() }
+                if self.wp_wish.is_some() {
+                    "送给TA".into()
+                } else {
+                    "挑一件放进心愿单".into()
+                }
             }
         };
         self.set_text(cx, ids!(tb_title), &title);
         let overlay = self.overlay.is_some();
-        self.show(cx, ids!(tb_back), (overlay && !matches!(self.overlay,Some(Overlay::Profile|Overlay::Settings)))
-            || (self.tab == 4 && (self.account_edit.is_some()
-                || self.account_nav.as_ref().and_then(|nav| nav.selected()).is_some()
-                || self.account_section.is_some()))
-            || (!overlay && self.tab == 0 && self.gift_return_contact_id.is_some()));
+        self.show(
+            cx,
+            ids!(tb_back),
+            (overlay && !matches!(self.overlay, Some(Overlay::Profile | Overlay::Settings)))
+                || (self.tab == 4
+                    && (self.account_edit.is_some()
+                        || self
+                            .account_nav
+                            .as_ref()
+                            .and_then(|nav| nav.selected())
+                            .is_some()
+                        || self.account_section.is_some()))
+                || (!overlay && self.tab == 0 && self.gift_return_contact_id.is_some()),
+        );
         let wish_seg = self.tab == 0 && self.gift_wish_seg;
         let my_wishes = self.overlay == Some(Overlay::Wishes);
-        self.show(cx, ids!(tb_action), my_wishes || (!overlay && (self.tab == 1 || wish_seg)));
-        self.set_text(cx, ids!(tb_action), if my_wishes { "+发布" } else if wish_seg { "发布心愿单" } else { "神秘送礼" });
+        self.show(
+            cx,
+            ids!(tb_action),
+            my_wishes || (!overlay && (self.tab == 1 || wish_seg)),
+        );
+        self.set_text(
+            cx,
+            ids!(tb_action),
+            if my_wishes {
+                "+发布"
+            } else if wish_seg {
+                "发布心愿单"
+            } else {
+                "神秘送礼"
+            },
+        );
         self.show(cx, ids!(tb_add), !overlay && self.tab == 3);
     }
 
@@ -3786,7 +4202,11 @@ impl LiyuView {
                 self.view
                     .check_box(cx, &[root, *id])
                     .set_active(cx, j == i, Animate::No);
-                let c = if j == i { self.pal.warm } else { self.pal.ink_2 };
+                let c = if j == i {
+                    self.pal.warm
+                } else {
+                    self.pal.ink_2
+                };
                 let mut tab = self.view.widget(cx, &[root, *id]);
                 script_apply_eval!(cx, tab, { draw_icon +: { color: #(c) } });
             }
@@ -3813,7 +4233,7 @@ impl LiyuView {
             Some(Overlay::Wallet) => self.refresh_wallet(cx),
             Some(Overlay::ReceivedGifts) => self.refresh_account_gifts(cx, false),
             Some(Overlay::SentGifts) => self.refresh_account_gifts(cx, true),
-            _ => {},
+            _ => {}
         }
     }
 
@@ -3878,7 +4298,11 @@ impl LiyuView {
         self.set_text(cx, ids!(in_title), title);
         self.set_text(cx, ids!(in_body), body);
         for (i, id) in INTRO_DOTS.iter().enumerate() {
-            let c = if i == step { self.pal.blue } else { self.pal.line_soft };
+            let c = if i == step {
+                self.pal.blue
+            } else {
+                self.pal.line_soft
+            };
             self.tint_bg(cx, &[*id], c);
         }
         let last = step + 1 == INTRO.len();
@@ -3888,7 +4312,15 @@ impl LiyuView {
         }
         self.show(cx, ids!(in_back), step > 0);
         self.show(cx, ids!(in_skip), !last);
-        self.set_text(cx, ids!(in_next), if last { "知道了，开始" } else { "下一步" });
+        self.set_text(
+            cx,
+            ids!(in_next),
+            if last {
+                "知道了，开始"
+            } else {
+                "下一步"
+            },
+        );
     }
 
     // ---- 通知 / toast ----
@@ -4004,22 +4436,47 @@ impl LiyuView {
         self.show(cx, ids!(aside), s.aside && !intro && self.tab != 4);
         if let Some(mut top) = self.view.view(cx, ids!(tb_bar)).borrow_mut() {
             top.layout.padding = if phone {
-                Inset { left: 18.0, right: 12.0, top: 0.0, bottom: 0.0 }
+                Inset {
+                    left: 18.0,
+                    right: 12.0,
+                    top: 0.0,
+                    bottom: 0.0,
+                }
             } else {
-                Inset { left: 20.0, right: 20.0, top: 0.0, bottom: 0.0 }
+                Inset {
+                    left: 20.0,
+                    right: 20.0,
+                    top: 0.0,
+                    bottom: 0.0,
+                }
             };
         }
         let side = if phone { 16.0 } else { 20.0 };
         if let Some(mut v) = self.view.view(cx, ids!(page_intro)).borrow_mut() {
             let col = ((self.last_size.x - INTRO_COL) * 0.5).max(side);
-            v.layout.padding = Inset { left: col, right: col, top: 0.0, bottom: 0.0 };
+            v.layout.padding = Inset {
+                left: col,
+                right: col,
+                top: 0.0,
+                bottom: 0.0,
+            };
         }
         self.show(cx, ids!(in_icons), !s.short);
         if let Some(mut main) = self.view.view(cx, ids!(main)).borrow_mut() {
             main.layout.padding = if phone {
-                Inset { left: 0.0, right: 0.0, top: 6.0, bottom: 10.0 }
+                Inset {
+                    left: 0.0,
+                    right: 0.0,
+                    top: 6.0,
+                    bottom: 10.0,
+                }
             } else {
-                Inset { left: 0.0, right: 0.0, top: 8.0, bottom: 16.0 }
+                Inset {
+                    left: 0.0,
+                    right: 0.0,
+                    top: 8.0,
+                    bottom: 16.0,
+                }
             };
         }
         for id in SIDE_PAD_VIEWS {
@@ -4040,21 +4497,37 @@ impl LiyuView {
         // 正文宽度：窗口减去侧栏、右列和页面自己的左右留白；再留 6px 给滚动条和取整，
         // 宁可每张卡窄一点，也别被挤掉一列。
         let nav_w = if phone || intro { 0.0 } else { SIDEBAR_W };
-        let aside_w = if s.aside && !intro && self.tab != 4 { ASIDE_COL + side } else { 0.0 };
-        let account_menu_w = if self.tab == 4 && self.last_size.x >= 820.0 && !intro { 200.0 + side } else { 0.0 };
-        self.content_w = (self.last_size.x - nav_w - aside_w - account_menu_w - 2.0 * side - 6.0).max(240.0);
+        let aside_w = if s.aside && !intro && self.tab != 4 {
+            ASIDE_COL + side
+        } else {
+            0.0
+        };
+        let account_menu_w = if self.tab == 4 && self.last_size.x >= 820.0 && !intro {
+            200.0 + side
+        } else {
+            0.0
+        };
+        self.content_w =
+            (self.last_size.x - nav_w - aside_w - account_menu_w - 2.0 * side - 6.0).max(240.0);
         let compact_content = phone || self.content_w < 640.0;
         // 礼卡页：宽屏左卡右操作，手机竖排。
         if let Some(mut row) = self.view.view(cx, ids!(cd_row)).borrow_mut() {
             row.layout.flow = if compact_content {
                 Flow::Down
             } else {
-                Flow::Right { row_align: RowAlign::Top, wrap: false }
+                Flow::Right {
+                    row_align: RowAlign::Top,
+                    wrap: false,
+                }
             };
         }
         // 竖排时卡片占整行并居中，不然贴左边、右侧空一块。
         if let Some(mut prev) = self.view.view(cx, ids!(cd_prev)).borrow_mut() {
-            prev.walk.width = if compact_content { Size::fill() } else { Size::fit() };
+            prev.walk.width = if compact_content {
+                Size::fill()
+            } else {
+                Size::fit()
+            };
             prev.layout.align.x = if compact_content { 0.5 } else { 0.0 };
         }
         if let Some(mut menu) = self.view.view(cx, ids!(me_list)).borrow_mut() {
@@ -4068,10 +4541,17 @@ impl LiyuView {
             top.layout.flow = if compact_content {
                 Flow::Down
             } else {
-                Flow::Right { row_align: RowAlign::Top, wrap: false }
+                Flow::Right {
+                    row_align: RowAlign::Top,
+                    wrap: false,
+                }
             };
         }
-        let pd = if compact_content { (self.content_w - 36.0).clamp(0.0, 360.0).floor() } else { 300.0 };
+        let pd = if compact_content {
+            (self.content_w - 36.0).clamp(0.0, 360.0).floor()
+        } else {
+            300.0
+        };
         self.set_img_size(cx, ids!(pd_img), pd);
         self.redraw(cx);
     }
@@ -4082,7 +4562,11 @@ impl LiyuView {
         let w = self.content_w;
         let cols = (((w + TILE_GAP) / (TILE_MIN + TILE_GAP)).floor() as usize).clamp(2, 5);
         let tile = ((w - TILE_GAP * (cols - 1) as f64) / cols as f64).floor();
-        for id in GRID_CARDS.iter().chain(PICK_CARDS.iter()).chain(REL_CARDS.iter()) {
+        for id in GRID_CARDS
+            .iter()
+            .chain(PICK_CARDS.iter())
+            .chain(REL_CARDS.iter())
+        {
             if let Some(mut v) = self.view.view(cx, &[*id]).borrow_mut() {
                 v.walk.width = Size::Fixed(tile);
             }
@@ -4114,7 +4598,6 @@ fn extract_draft_id(text: &str) -> Option<String> {
 /// id/label/brief 取只读投影的(主清单),tools/topics 取两清单并集。
 /// 同一 tool 名只保留只读投影版本(写工具 prepare_gift_draft 名唯一,不会撞)。
 pub fn merge_manifests(mut base: ServiceManifest, extra: ServiceManifest) -> ServiceManifest {
-
     for tool in extra.tools {
         if !base.tools.iter().any(|t| t.name == tool.name) {
             base.tools.push(tool);
@@ -4186,14 +4669,25 @@ impl LiyuView {
         self.set_text(cx, &join(row, live_id!(sw_name)), name);
         self.show(cx, &join(row, live_id!(sw_sub)), !sub.is_empty());
         self.set_text(cx, &join(row, live_id!(sw_sub)), sub);
-        let c = if on { self.pal.blue } else { self.pal.track_off };
+        let c = if on {
+            self.pal.blue
+        } else {
+            self.pal.track_off
+        };
         self.tint_bg(cx, &join(row, live_id!(sw_track)), c);
         self.show(cx, &join(row, live_id!(sw_off)), !on);
         self.show(cx, &join(row, live_id!(sw_on)), on);
     }
 
     /// 空态：列表没有内容时露出 LiyuEmpty，并写上文案与（可选的）动作。
-    fn apply_list_state(&mut self, cx: &mut Cx, slot: &[LiveId], text: &str, action: &str, n: usize) {
+    fn apply_list_state(
+        &mut self,
+        cx: &mut Cx,
+        slot: &[LiveId],
+        text: &str,
+        action: &str,
+        n: usize,
+    ) {
         self.show(cx, slot, n == 0);
         if n > 0 {
             return;
@@ -4261,7 +4755,12 @@ impl LiyuView {
         self.contract_on = false;
         self.pick_open = false;
         self.send_error = None;
-        for id in [live_id!(sd_clue), live_id!(sd_ans), live_id!(sd_pact_in), live_id!(sd_msg)] {
+        for id in [
+            live_id!(sd_clue),
+            live_id!(sd_ans),
+            live_id!(sd_pact_in),
+            live_id!(sd_msg),
+        ] {
             self.set_text(cx, &[id], "");
         }
         self.refresh_send(cx);
@@ -4329,16 +4828,30 @@ impl LiyuView {
         self.show(cx, ids!(sd_peers), !fixed);
         self.show(cx, ids!(sd_peer_fixed), fixed);
         if let Some((l, _)) = &wish {
-            self.set_text(cx, ids!(sd_peer_fixed), &format!("{}（心愿单的主人）", l.owner));
+            self.set_text(
+                cx,
+                ids!(sd_peer_fixed),
+                &format!("{}（心愿单的主人）", l.owner),
+            );
         }
         // 什么时候送到：只有心愿单、而且日子还没到，才能约在那一天。
-        let ahead = wish.as_ref().map(|(l, _)| l.event_on).filter(|&e| e > today);
+        let ahead = wish
+            .as_ref()
+            .map(|(l, _)| l.event_on)
+            .filter(|&e| e > today);
         self.show(cx, ids!(sd_dv), ahead.is_some());
         if let Some(e) = ahead {
             self.set_text(cx, ids!(dv0), &format!("{} 当天送到", md_cn(e)));
-            self.set_chip_group(cx, &DELIVER_SEGS, if d.deliver_on.is_some() { 0 } else { 1 });
+            self.set_chip_group(
+                cx,
+                &DELIVER_SEGS,
+                if d.deliver_on.is_some() { 0 } else { 1 },
+            );
             let n = if d.deliver_on.is_some() {
-                format!("礼卡 {} 才出现在 TA 的礼盒里。在那之前，TA 的心愿单上只显示这件「已被认领」。", md_cn(e))
+                format!(
+                    "礼卡 {} 才出现在 TA 的礼盒里。在那之前，TA 的心愿单上只显示这件「已被认领」。",
+                    md_cn(e)
+                )
             } else {
                 "礼卡现在就发出，TA 马上就能拆。".to_string()
             };
@@ -4367,7 +4880,10 @@ impl LiyuView {
         let active = if d.peer.is_empty() {
             PEER_SLOTS
         } else {
-            peers.iter().position(|p| *p == d.peer).unwrap_or(PEER_SLOTS)
+            peers
+                .iter()
+                .position(|p| *p == d.peer)
+                .unwrap_or(PEER_SLOTS)
         };
         self.send_peers = peers;
         self.set_chip_group(cx, &PEER_CHIPS, active);
@@ -4377,7 +4893,12 @@ impl LiyuView {
         self.set_chip_group(cx, &UNLOCK_SEGS, ui);
         let free = d.unlock == Unlock::Free;
         let (clue_l, clue_ph, ans_l, ans_ph) = match d.unlock {
-            Unlock::GuessWho => ("线索（会印在礼卡上）", "比如：上周一起喝咖啡的那个人", "", ""),
+            Unlock::GuessWho => (
+                "线索（会印在礼卡上）",
+                "比如：上周一起喝咖啡的那个人",
+                "",
+                "",
+            ),
             Unlock::Question => (
                 "问题（会印在礼卡上）",
                 "比如：我们第一次见面在哪个城市？",
@@ -4394,11 +4915,15 @@ impl LiyuView {
         };
         self.show(cx, ids!(sd_clue_box), !free);
         self.set_text(cx, ids!(sd_clue_l), clue_l);
-        self.view.text_input(cx, ids!(sd_clue)).set_empty_text(cx, clue_ph.to_string());
+        self.view
+            .text_input(cx, ids!(sd_clue))
+            .set_empty_text(cx, clue_ph.to_string());
         let has_ans = !ans_l.is_empty();
         self.show(cx, ids!(sd_ans_box), has_ans);
         self.set_text(cx, ids!(sd_ans_l), ans_l);
-        self.view.text_input(cx, ids!(sd_ans)).set_empty_text(cx, ans_ph.to_string());
+        self.view
+            .text_input(cx, ids!(sd_ans))
+            .set_empty_text(cx, ans_ph.to_string());
         let guess = d.unlock == Unlock::GuessWho;
         self.show(cx, ids!(sd_nick), guess);
         if guess {
@@ -4441,9 +4966,19 @@ impl LiyuView {
     /// 预设契约芯片：输入框里正好是哪一条，哪一枚就亮。
     fn refresh_presets(&mut self, cx: &mut Cx) {
         let text = self.input_text(cx, ids!(sd_pact_in));
-        let hit = PACT_PRESETS.iter().position(|(_, full)| text.trim() == *full);
+        let hit = self
+            .pact_presets
+            .iter()
+            .position(|(_, full)| text.trim() == full);
         for (j, id) in PRESET_CHIPS.iter().enumerate() {
-            self.view.check_box(cx, &[*id]).set_active(cx, Some(j) == hit, Animate::Yes);
+            let preset = self.pact_presets.get(j).cloned();
+            self.show(cx, &[*id], preset.is_some());
+            if let Some((label, _)) = preset {
+                self.set_text(cx, &[*id], &label);
+            }
+            self.view
+                .check_box(cx, &[*id])
+                .set_active(cx, Some(j) == hit, Animate::Yes);
         }
     }
 
@@ -4487,20 +5022,31 @@ impl LiyuView {
             return;
         };
         if let Some(scene) = self.card_scene() {
-            if let Some(mut card) = self.view.widget(cx, ids!(cd_share)).borrow_mut::<LiyuShareCard>() {
+            if let Some(mut card) = self
+                .view
+                .widget(cx, ids!(cd_share))
+                .borrow_mut::<LiyuShareCard>()
+            {
                 card.set_scene(scene);
             }
         }
         self.view.widget(cx, ids!(cd_share)).redraw(cx);
         let fresh = g.state() == GiftState::Sealed;
         let ok = if fresh {
-            format!("礼卡已生成。发给{}，等 TA 来拆。", spaced(&g.shown_recipient()))
+            format!(
+                "礼卡已生成。发给{}，等 TA 来拆。",
+                spaced(&g.shown_recipient())
+            )
         } else {
             format!("这张礼卡的状态：{}", g.status_text(today_days()))
         };
         self.set_text(cx, ids!(cd_ok), &ok);
         self.set_text(cx, ids!(cd_link), &gift_link(g.id));
-        let si = if self.card_style == ShareStyle::Warm { 0 } else { 1 };
+        let si = if self.card_style == ShareStyle::Warm {
+            0
+        } else {
+            1
+        };
         self.set_chip_group(cx, &STYLE_SEGS, si);
         self.show(cx, ids!(cd_saved), false);
     }
@@ -4519,42 +5065,103 @@ impl LiyuView {
         if self.gift_client.online {
             self.set_chip_group(cx, &BOX_SEGS, self.box_sent as usize);
             let rows = if self.box_sent {
-                self.gift_client.outbox.iter().map(|g| {
-                    let title = CATALOG.get(g.product_id as usize).map(|p| p.name).unwrap_or("商品");
-                    (g.id, Some(g.product_id), format!("{} · 送给 {}", title, g.recipient_name),
-                     "服务器送出礼物".to_string(), format!("{} · {} · 物流签收 {} · TA 确认 {}", g.state,g.delivery_text(),
-                        if g.carrier_delivered { "是" } else { "否" }, if g.recipient_confirmed { "是" } else { "否" }))
-                }).collect::<Vec<_>>()
+                self.gift_client
+                    .outbox
+                    .iter()
+                    .map(|g| {
+                        let title = CATALOG
+                            .get(g.product_id as usize)
+                            .map(|p| p.name)
+                            .unwrap_or("商品");
+                        (
+                            g.id,
+                            Some(g.product_id),
+                            format!("{} · 送给 {}", title, g.recipient_name),
+                            "服务器送出礼物".to_string(),
+                            format!(
+                                "{} · {} · 物流签收 {} · TA 确认 {}",
+                                g.state,
+                                g.delivery_text(),
+                                if g.carrier_delivered { "是" } else { "否" },
+                                if g.recipient_confirmed { "是" } else { "否" }
+                            ),
+                        )
+                    })
+                    .collect::<Vec<_>>()
             } else {
-                self.gift_client.inbox.iter().map(|g| {
-                    let revealed = g.product_id.is_some();
-                    let title = g.product_id.and_then(|i| CATALOG.get(i as usize)).map(|p| p.name)
-                        .unwrap_or("一份神秘礼物");
-                    (g.id, g.product_id, title.to_string(),
-                     if revealed { "已揭晓的礼物".into() } else { "拆开前不展示商品和送礼人".into() },
-                     g.state.clone())
-                }).collect::<Vec<_>>()
+                self.gift_client
+                    .inbox
+                    .iter()
+                    .map(|g| {
+                        let revealed = g.product_id.is_some();
+                        let title = g
+                            .product_id
+                            .and_then(|i| CATALOG.get(i as usize))
+                            .map(|p| p.name)
+                            .unwrap_or("一份神秘礼物");
+                        (
+                            g.id,
+                            g.product_id,
+                            title.to_string(),
+                            if revealed {
+                                "已揭晓的礼物".into()
+                            } else {
+                                "拆开前不展示商品和送礼人".into()
+                            },
+                            g.state.clone(),
+                        )
+                    })
+                    .collect::<Vec<_>>()
             };
             self.box_rows = rows.iter().map(|x| x.0 as u64).collect();
             for (j, row) in BOX_ROWS.iter().enumerate() {
-                let Some((_, pic, title, sub, state)) = rows.get(j) else { self.show(cx, &[*row], false); continue };
+                let Some((_, pic, title, sub, state)) = rows.get(j) else {
+                    self.show(cx, &[*row], false);
+                    continue;
+                };
                 self.show(cx, &[*row], true);
                 self.set_img(cx, &[*row, live_id!(bx_img)], *pic);
                 self.set_text(cx, &[*row, live_id!(bx_title)], title);
                 self.set_text(cx, &[*row, live_id!(bx_sub)], sub);
                 self.set_text(cx, &[*row, live_id!(bx_state)], state);
             }
-            self.apply_list_state(cx, ids!(bx_empty), if self.box_sent { "暂无送出礼物" } else { "暂无收到礼物" }, "", rows.len());
+            self.apply_list_state(
+                cx,
+                ids!(bx_empty),
+                if self.box_sent {
+                    "暂无送出礼物"
+                } else {
+                    "暂无收到礼物"
+                },
+                "",
+                rows.len(),
+            );
             let more = rows.len().saturating_sub(BOX_ROWS.len());
             self.show(cx, ids!(bx_more), more > 0);
             self.set_text(cx, ids!(bx_more), &format!("还有 {more} 份较早的没有显示"));
-            self.set_text(cx, ids!(ab1_b), &format!("服务器收到 {} 份\n服务器送出 {} 份", self.gift_client.inbox.len(), self.gift_client.outbox.len()));
+            self.set_text(
+                cx,
+                ids!(ab1_b),
+                &format!(
+                    "服务器收到 {} 份\n服务器送出 {} 份",
+                    self.gift_client.inbox.len(),
+                    self.gift_client.outbox.len()
+                ),
+            );
             return;
         }
         self.box_rows.clear();
-        for row in BOX_ROWS { self.show(cx, &[row], false); }
+        for row in BOX_ROWS {
+            self.show(cx, &[row], false);
+        }
         self.show(cx, ids!(bx_more), false);
-        self.apply_list_state(cx, ids!(bx_empty), "礼盒加载失败", "请检查服务器连接后重试", 0);
+        self.apply_list_state(
+            cx,
+            ids!(bx_empty),
+            "礼盒加载失败",
+            "请检查服务器连接后重试",
+            0,
+        );
     }
 
     fn open_online_gift(&mut self, cx: &mut Cx, id: i64, sent_role: bool) {
@@ -4572,7 +5179,9 @@ impl LiyuView {
         }
         self.online_gift_id = Some(id);
         self.online_gift_sent = sent_role;
-        self.view.check_box(cx, ids!(og_agree)).set_active(cx, false, Animate::No);
+        self.view
+            .check_box(cx, ids!(og_agree))
+            .set_active(cx, false, Animate::No);
         if let Some(address) = self.profile.addresses.first().cloned() {
             self.set_text(cx, ids!(og_ship_name), &address.recipient_name);
             self.set_text(cx, ids!(og_ship_phone), &address.phone);
@@ -4584,10 +5193,19 @@ impl LiyuView {
 
     fn refresh_online_gift(&mut self, cx: &mut Cx) {
         self.show(cx, ids!(og_err), self.online_gift_err.is_some());
-        if let Some(err) = self.online_gift_err { self.set_text(cx, ids!(og_err), err); }
+        if let Some(err) = self.online_gift_err {
+            self.set_text(cx, ids!(og_err), err);
+        }
         let sent = self.online_gift_sent;
-        self.set_text(cx, ids!(og_mode), if sent { "服务器送礼方视图 · 仅显示签收与确认结果" }
-            else { "服务器收礼方视图 · 物流仅你可见" });
+        self.set_text(
+            cx,
+            ids!(og_mode),
+            if sent {
+                "服务器送礼方视图 · 仅显示签收与确认结果"
+            } else {
+                "服务器收礼方视图 · 物流仅你可见"
+            },
+        );
         self.show(cx, ids!(og_open), false);
         self.show(cx, ids!(og_answer), false);
         self.show(cx, ids!(og_answer_btn), false);
@@ -4601,35 +5219,101 @@ impl LiyuView {
         if !self.gift_client.online {
             self.set_text(cx, ids!(og_mode), "连接中断 · 在线礼物已暂停");
             self.set_text(cx, ids!(og_title), "服务器暂时连不上");
-            self.set_text(cx, ids!(og_summary), "请返回礼盒查看本地演示数据。在线礼物的操作没有写入本地模拟状态。");
+            self.set_text(
+                cx,
+                ids!(og_summary),
+                "请返回礼盒查看本地演示数据。在线礼物的操作没有写入本地模拟状态。",
+            );
             return;
         }
         if sent {
-            let Some(g) = self.gift_client.sent_detail.clone() else { return };
-            let product = CATALOG.get(g.product_id as usize).map(|p| p.name).unwrap_or("商品");
-            self.set_text(cx, ids!(og_title), &format!("{} · 送给 {}", product, g.recipient_name));
-            self.set_text(cx, ids!(og_summary), &format!("原订单金额 {} · 礼物状态 {} · {}。收礼人的换购、折现和地址不会显示在这里。", yuan(g.price_cents), g.state, g.delivery_text()));
+            let Some(g) = self.gift_client.sent_detail.clone() else {
+                return;
+            };
+            let product = CATALOG
+                .get(g.product_id as usize)
+                .map(|p| p.name)
+                .unwrap_or("商品");
+            self.set_text(
+                cx,
+                ids!(og_title),
+                &format!("{} · 送给 {}", product, g.recipient_name),
+            );
+            self.set_text(
+                cx,
+                ids!(og_summary),
+                &format!(
+                    "原订单金额 {} · 礼物状态 {} · {}。收礼人的换购、折现和地址不会显示在这里。",
+                    yuan(g.price_cents),
+                    g.state,
+                    g.delivery_text()
+                ),
+            );
             self.show(cx, ids!(og_logistics), true);
             self.set_text(cx, ids!(og_logistics_head), "送达状态");
-            self.set_text(cx, ids!(og_logistics_text), &format!("物流是否签收：{}\n收礼人是否确认收货：{}",
-                if g.carrier_delivered { "是" } else { "否" }, if g.recipient_confirmed { "是" } else { "否" }));
+            self.set_text(
+                cx,
+                ids!(og_logistics_text),
+                &format!(
+                    "物流是否签收：{}\n收礼人是否确认收货：{}",
+                    if g.carrier_delivered { "是" } else { "否" },
+                    if g.recipient_confirmed { "是" } else { "否" }
+                ),
+            );
             self.show(cx, ids!(og_confirm), false);
             return;
         }
-        let Some(g) = self.gift_client.received_detail.clone() else { return };
+        let Some(g) = self.gift_client.received_detail.clone() else {
+            return;
+        };
         let revealed = g.product_id.is_some();
-        let title = g.product_id.and_then(|i| CATALOG.get(i as usize)).map(|p| p.name)
+        let title = g
+            .product_id
+            .and_then(|i| CATALOG.get(i as usize))
+            .map(|p| p.name)
             .unwrap_or("一份神秘礼物");
         self.set_text(cx, ids!(og_title), title);
         let summary = if revealed {
-            format!("状态：{} · {} · 来自 {}{}", g.state,
-                g.price_cents.map(yuan).unwrap_or_default(), g.sender_name.as_deref().unwrap_or("神秘的朋友"),
-                if g.message.is_empty() { String::new() } else { format!("\n寄语：{}", g.message) })
-        } else { format!("状态：{} · 解谜方式：{} · 剩余 {} 次机会", g.state, g.unlock_kind, g.attempts_left) };
+            format!(
+                "状态：{} · {} · 来自 {}{}",
+                g.state,
+                g.price_cents.map(yuan).unwrap_or_default(),
+                g.sender_name.as_deref().unwrap_or("神秘的朋友"),
+                if g.message.is_empty() {
+                    String::new()
+                } else {
+                    format!("\n寄语：{}", g.message)
+                }
+            )
+        } else {
+            format!(
+                "状态：{} · 解谜方式：{} · 剩余 {} 次机会",
+                g.state, g.unlock_kind, g.attempts_left
+            )
+        };
         self.set_text(cx, ids!(og_summary), &summary);
-        self.show(cx, ids!(og_clue), !g.clue.is_empty() || !g.contract_text.is_empty());
-        self.set_text(cx, ids!(og_clue), &format!("{}{}", if g.clue.is_empty() { String::new() } else { format!("线索：{}", g.clue) },
-            if g.contract_text.is_empty() { String::new() } else { format!("\n附加契约：{}", g.contract_text) }));
+        self.show(
+            cx,
+            ids!(og_clue),
+            !g.clue.is_empty() || !g.contract_text.is_empty(),
+        );
+        self.set_text(
+            cx,
+            ids!(og_clue),
+            &format!(
+                "{}{}",
+                if g.clue.is_empty() {
+                    String::new()
+                } else {
+                    format!("线索：{}", g.clue)
+                },
+                if g.contract_text.is_empty() {
+                    String::new()
+                } else {
+                    format!("\n附加契约：{}", g.contract_text)
+                }
+            ),
+        );
         self.show(cx, ids!(og_open), g.state == "sealed");
         self.show(cx, ids!(og_answer), g.state == "opened");
         self.show(cx, ids!(og_answer_btn), g.state == "opened");
@@ -4642,10 +5326,26 @@ impl LiyuView {
         if let Some(s) = self.gift_client.shipment.clone() {
             self.show(cx, ids!(og_logistics), true);
             self.set_text(cx, ids!(og_logistics_head), "我的物流详情");
-            self.set_text(cx, ids!(og_logistics_text), &format!("{} · 单号 {}\n收件人：{} · {}\n地址：{}\n物流签收：{} · 我已确认：{}\n{}",
-                s.carrier, s.tracking_number, s.recipient_name, s.recipient_phone, s.recipient_address,
-                if s.carrier_delivered { "是" } else { "否" }, if s.recipient_confirmed { "是" } else { "否" }, s.events.join("\n")));
-            self.show(cx, ids!(og_confirm), s.carrier_delivered && !s.recipient_confirmed);
+            self.set_text(
+                cx,
+                ids!(og_logistics_text),
+                &format!(
+                    "{} · 单号 {}\n收件人：{} · {}\n地址：{}\n物流签收：{} · 我已确认：{}\n{}",
+                    s.carrier,
+                    s.tracking_number,
+                    s.recipient_name,
+                    s.recipient_phone,
+                    s.recipient_address,
+                    if s.carrier_delivered { "是" } else { "否" },
+                    if s.recipient_confirmed { "是" } else { "否" },
+                    s.events.join("\n")
+                ),
+            );
+            self.show(
+                cx,
+                ids!(og_confirm),
+                s.carrier_delivered && !s.recipient_confirmed,
+            );
         } else if let Some(code) = g.voucher_code {
             self.show(cx, ids!(og_logistics), true);
             self.set_text(cx, ids!(og_logistics_head), "电子券");
@@ -4658,7 +5358,9 @@ impl LiyuView {
 
     /// 打开一份收到的礼物：第一次打开时「待拆」→「解谜中」（直接领取则直接揭晓）。
     fn open_received(&mut self, cx: &mut Cx, id: u64) {
-        let Some(st) = self.state.open(id, today_days()) else { return };
+        let Some(st) = self.state.open(id, today_days()) else {
+            return;
+        };
         self.open_gift = Some(id);
         self.open_preview = false;
         self.open_wrong = None;
@@ -4691,7 +5393,11 @@ impl LiyuView {
         self.scroll_top(cx, Overlay::Open);
         self.open_err = None;
         let s = &self.state.settings;
-        let ship = (s.ship_name.clone(), s.ship_phone.clone(), s.ship_addr.clone());
+        let ship = (
+            s.ship_name.clone(),
+            s.ship_phone.clone(),
+            s.ship_addr.clone(),
+        );
         match stage {
             Stage::Accept => {
                 self.accept_agree = false;
@@ -4722,7 +5428,9 @@ impl LiyuView {
             let st = g.state();
             let want = match st {
                 GiftState::Sealed | GiftState::Opened => Some(Stage::Decrypt),
-                GiftState::Revealed if self.stage == Stage::Decrypt || self.stage == Stage::Done => {
+                GiftState::Revealed
+                    if self.stage == Stage::Decrypt || self.stage == Stage::Done =>
+                {
                     Some(Stage::Reveal)
                 }
                 s if s.is_terminal() => Some(Stage::Done),
@@ -4752,7 +5460,11 @@ impl LiyuView {
         self.set_text(
             cx,
             ids!(od_head),
-            if preview { "TA 打开礼卡会看到这些" } else { "你收到一份神秘礼物" },
+            if preview {
+                "TA 打开礼卡会看到这些"
+            } else {
+                "你收到一份神秘礼物"
+            },
         );
         let badge = if u == Unlock::Free {
             u.label().to_string()
@@ -4767,7 +5479,11 @@ impl LiyuView {
 
         let guess = u == Unlock::GuessWho;
         self.show(cx, ids!(od_cands), guess);
-        self.cand_names = if guess { self.state.guess_candidates(g) } else { Vec::new() };
+        self.cand_names = if guess {
+            self.state.guess_candidates(g)
+        } else {
+            Vec::new()
+        };
         for (j, id) in CAND_BTNS.iter().enumerate() {
             let name = self.cand_names.get(j).cloned();
             self.show(cx, &[*id], name.is_some());
@@ -4782,8 +5498,12 @@ impl LiyuView {
             Unlock::Question => "输入答案",
             _ => "输入暗号",
         };
-        self.view.text_input(cx, ids!(od_input)).set_empty_text(cx, ph.to_string());
-        self.view.text_input(cx, ids!(od_input)).set_is_read_only(cx, preview);
+        self.view
+            .text_input(cx, ids!(od_input))
+            .set_empty_text(cx, ph.to_string());
+        self.view
+            .text_input(cx, ids!(od_input))
+            .set_is_read_only(cx, preview);
         self.show(cx, ids!(od_wrong), self.open_wrong.is_some());
         if let Some(w) = self.open_wrong.clone() {
             self.set_text(cx, ids!(od_wrong), &w);
@@ -4819,7 +5539,10 @@ impl LiyuView {
         self.set_text(
             cx,
             ids!(or_value),
-            &format!("礼物价值 {} · 不合心意可以换一份，或折成余额", yuan(g.price)),
+            &format!(
+                "礼物价值 {} · 不合心意可以换一份，或折成余额",
+                yuan(g.price)
+            ),
         );
         self.show(cx, ids!(or_pact), g.has_contract());
         self.set_text(cx, ids!(or_ptext), &format!("收下即答应：{}", g.contract));
@@ -4828,7 +5551,11 @@ impl LiyuView {
     fn fill_gift_card(&mut self, cx: &mut Cx, g: &Gift) {
         let it = g.final_item();
         self.set_img(cx, ids!(gc_img), Some(final_index(g)));
-        self.set_text(cx, ids!(gc_kind), &format!("{} · {}", kind_text(it), it.cat.label()));
+        self.set_text(
+            cx,
+            ids!(gc_kind),
+            &format!("{} · {}", kind_text(it), it.cat.label()),
+        );
         self.set_text(cx, ids!(gc_name), it.name);
         self.set_text(cx, ids!(gc_spec), it.spec);
         let from = if g.message.is_empty() {
@@ -4875,7 +5602,11 @@ impl LiyuView {
             self.set_text(cx, ids!(ow_l3), &format!("折成余额 {}", yuan(refund)));
             self.set_text(cx, ids!(ow_calc), "余额只在礼遇内使用，可以拿来回一份礼。");
             self.show(cx, ids!(ow_ship), false);
-            self.set_text(cx, ids!(ow_ok), &format!("确认折现（到账 {}）", yuan(refund)));
+            self.set_text(
+                cx,
+                ids!(ow_ok),
+                &format!("确认折现（到账 {}）", yuan(refund)),
+            );
         } else {
             let (f, credit) = exchange_credit(g.price);
             self.set_text(
@@ -4913,8 +5644,12 @@ impl LiyuView {
             let pick = self.swap_pick;
             self.show(cx, ids!(ow_ship), pick.map_or(false, |i| item(i).physical));
             let calc = match pick.and_then(|p| opts.iter().find(|(i, _)| *i == p).copied()) {
-                Some((i, d)) if d >= 0 => format!("换成「{}」，差价 {} 退回余额", item(i).name, yuan(d)),
-                Some((i, d)) => format!("换成「{}」，还需补 {}（余额优先）", item(i).name, yuan(-d)),
+                Some((i, d)) if d >= 0 => {
+                    format!("换成「{}」，差价 {} 退回余额", item(i).name, yuan(d))
+                }
+                Some((i, d)) => {
+                    format!("换成「{}」，还需补 {}（余额优先）", item(i).name, yuan(-d))
+                }
                 None => "选一件想要的".to_string(),
             };
             self.set_text(cx, ids!(ow_calc), &calc);
@@ -4940,14 +5675,24 @@ impl LiyuView {
                 if g.has_contract() {
                     t.push_str(&format!("\n契约已生效：{}。记得兑现哦。", g.contract));
                 }
-                ("收下啦".to_string(), t, "礼尚往来：也给 TA 回一份小惊喜？", true)
+                (
+                    "收下啦".to_string(),
+                    t,
+                    "礼尚往来：也给 TA 回一份小惊喜？",
+                    true,
+                )
             }
             GiftState::Exchanged => {
                 let mut t = deliver;
                 if g.refund > 0 {
                     t.push_str(&format!("\n差价 {} 已退回余额。", yuan(g.refund)));
                 }
-                (format!("换成了「{}」", it.name), t, "礼尚往来：也给 TA 回一份小惊喜？", true)
+                (
+                    format!("换成了「{}」", it.name),
+                    t,
+                    "礼尚往来：也给 TA 回一份小惊喜？",
+                    true,
+                )
             }
             GiftState::CashedOut => (
                 format!("已折成 {} 余额", yuan(g.refund)),
@@ -4967,7 +5712,11 @@ impl LiyuView {
         self.show(cx, ids!(odn_hint), !hint.is_empty());
         self.set_text(cx, ids!(odn_hint_t), hint);
         self.show(cx, ids!(odn_return), back);
-        let label = if g.state() == GiftState::CashedOut { "用余额回礼" } else { "给 TA 回一份礼" };
+        let label = if g.state() == GiftState::CashedOut {
+            "用余额回礼"
+        } else {
+            "给 TA 回一份礼"
+        };
         self.set_text(cx, ids!(odn_return), label);
     }
 
@@ -4977,7 +5726,11 @@ impl LiyuView {
         match self.state.submit_answer(id, &guess, today_days()) {
             AnswerOutcome::Empty => self.open_wrong = Some("先写下你的答案".into()),
             AnswerOutcome::Wrong { left } => {
-                self.open_wrong = Some(if left == 1 { "不对哦，最后一次机会了".into() } else { "不对哦，再想想".into() });
+                self.open_wrong = Some(if left == 1 {
+                    "不对哦，最后一次机会了".into()
+                } else {
+                    "不对哦，再想想".into()
+                });
                 self.set_text(cx, ids!(od_input), "");
             }
             AnswerOutcome::Right => {
@@ -5054,9 +5807,17 @@ impl LiyuView {
         let Some(g) = self.open_gift.and_then(|id| self.state.gift(id)).cloned() else {
             return;
         };
-        let peer = if g.identity_known { g.peer_name() } else { String::new() };
+        let peer = if g.identity_known {
+            g.peer_name()
+        } else {
+            String::new()
+        };
         let cashed = g.state() == GiftState::CashedOut;
-        let budget = if cashed { g.refund } else { self.state.balance() };
+        let budget = if cashed {
+            g.refund
+        } else {
+            self.state.balance()
+        };
         let pick = best_item_within(budget).unwrap_or_else(cheapest_item);
         let banner = if cashed {
             format!("回礼 · 刚变现的 {} 可用", yuan(g.refund))
@@ -5085,15 +5846,26 @@ impl LiyuView {
         };
         let today = today_days();
         self.set_img(cx, ids!(ss_img), Some(g.item));
-        self.set_text(cx, ids!(ss_title), &format!("{} · 送给{}", g.catalog().name, spaced(&g.shown_recipient())));
+        self.set_text(
+            cx,
+            ids!(ss_title),
+            &format!(
+                "{} · 送给{}",
+                g.catalog().name,
+                spaced(&g.shown_recipient())
+            ),
+        );
         self.set_text(cx, ids!(ss_price), &yuan(g.price));
         self.set_text(cx, ids!(ss_state), &g.status_text(today));
         let tc = self.tone_color(g.tone());
         self.tint_text(cx, ids!(ss_state), tc);
 
         // 时间线：已发生的实心，接下来的空心（不写日期）。
-        let mut steps: Vec<(Option<i64>, String)> =
-            g.timeline(today).into_iter().map(|(d, t)| (Some(d), t)).collect();
+        let mut steps: Vec<(Option<i64>, String)> = g
+            .timeline(today)
+            .into_iter()
+            .map(|(d, t)| (Some(d), t))
+            .collect();
         let mut future: Vec<String> = Vec::new();
         if g.is_scheduled(today) {
             future.push(format!("{} 礼卡送到 TA 手里", md_cn(g.sent_on)));
@@ -5116,9 +5888,17 @@ impl LiyuView {
             self.show(cx, &[*row], true);
             self.show(cx, &[*row, live_id!(tl_on)], day.is_some());
             self.show(cx, &[*row, live_id!(tl_off)], day.is_none());
-            self.set_text(cx, &[*row, live_id!(tl_date)], &day.map(fmt_md).unwrap_or_default());
+            self.set_text(
+                cx,
+                &[*row, live_id!(tl_date)],
+                &day.map(fmt_md).unwrap_or_default(),
+            );
             self.set_text(cx, &[*row, live_id!(tl_text)], &text);
-            let c = if day.is_some() { self.pal.ink } else { self.pal.ink_3 };
+            let c = if day.is_some() {
+                self.pal.ink
+            } else {
+                self.pal.ink_3
+            };
             self.tint_text(cx, &[*row, live_id!(tl_text)], c);
         }
 
@@ -5138,7 +5918,12 @@ impl LiyuView {
         self.set_text(cx, ids!(ss_msg), &format!("寄语：{}", g.message));
         // 认领的心愿：哪张单子上的哪一件。
         let wish = g.wish_id.and_then(|w| self.state.wishlist(w)).map(|l| {
-            let what = l.items.iter().find(|x| x.gift_id == g.id).map(|x| x.title()).unwrap_or_default();
+            let what = l
+                .items
+                .iter()
+                .find(|x| x.gift_id == g.id)
+                .map(|x| x.title())
+                .unwrap_or_default();
             if what.is_empty() {
                 format!("心愿单：{}", l.title)
             } else {
@@ -5176,8 +5961,16 @@ impl LiyuView {
                 continue;
             };
             self.show(cx, &[*row], true);
-            let who = if p.peer.is_empty() { "TA".to_string() } else { p.peer.clone() };
-            let who = if mine { format!("你答应{who}") } else { format!("{who}答应你") };
+            let who = if p.peer.is_empty() {
+                "TA".to_string()
+            } else {
+                p.peer.clone()
+            };
+            let who = if mine {
+                format!("你答应{who}")
+            } else {
+                format!("{who}答应你")
+            };
             self.set_text(cx, &[*row, live_id!(pc_text)], &p.text);
             self.set_text(
                 cx,
@@ -5189,14 +5982,22 @@ impl LiyuView {
             self.set_text(
                 cx,
                 &[*row, live_id!(pc_done)],
-                if mine { "标记已兑现" } else { "TA 兑现了" },
+                if mine {
+                    "标记已兑现"
+                } else {
+                    "TA 兑现了"
+                },
             );
             self.show(cx, &[*row, live_id!(pc_nudge)], !mine);
             self.show(cx, &[*row, live_id!(pc_waive)], !mine);
             self.set_text(
                 cx,
                 &[*row, live_id!(pc_nudge)],
-                if p.nudged_on == today { "今天提醒过了" } else { "提醒 TA" },
+                if p.nudged_on == today {
+                    "今天提醒过了"
+                } else {
+                    "提醒 TA"
+                },
             );
         }
         let (text, action) = if mine {
@@ -5254,7 +6055,12 @@ impl LiyuView {
                 .map(|ch| ch.to_string())
                 .unwrap_or_default();
             self.set_text(cx, &[*row, live_id!(cr_initial)], &initial);
-            self.show_contact_avatar(cx, &[*row, live_id!(cr_photo)], &[*row, live_id!(cr_initial)], c);
+            self.show_contact_avatar(
+                cx,
+                &[*row, live_id!(cr_photo)],
+                &[*row, live_id!(cr_initial)],
+                c,
+            );
             self.set_text(cx, &[*row, live_id!(cr_name)], &c.label);
             // 有进行中的心愿单就先说心愿单（比送过几份更值得一眼看到），按钮也换成「看心愿单」。
             let sub = if !contacts::choices(c).is_empty() {
@@ -5296,18 +6102,31 @@ impl LiyuView {
         let hash = account.bytes().fold(0xcbf29ce484222325_u64, |h, b| {
             (h ^ u64::from(b)).wrapping_mul(0x100000001b3)
         });
-        Some(LiyuState::data_dir()?.join("contact-avatars").join(format!("{hash:016x}")))
+        Some(
+            LiyuState::data_dir()?
+                .join("contact-avatars")
+                .join(format!("{hash:016x}")),
+        )
     }
 
     fn contact_avatar_path(file_name: &str) -> Option<std::path::PathBuf> {
-        if file_name.len() > 80 || !file_name.ends_with(".png")
-            || !file_name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'.')
+        if file_name.len() > 80
+            || !file_name.ends_with(".png")
+            || !file_name
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'.')
             || file_name.contains("..")
-        { return None; }
+        {
+            return None;
+        }
         Some(Self::contact_avatar_dir()?.join(file_name))
     }
 
-    fn contact_avatar_texture(&mut self, cx: &mut Cx, c: &ContactLocal) -> (Option<Texture>, &'static str) {
+    fn contact_avatar_texture(
+        &mut self,
+        cx: &mut Cx,
+        c: &ContactLocal,
+    ) -> (Option<Texture>, &'static str) {
         if let Some(file) = c.avatar_override.as_deref() {
             if let Some(path) = Self::contact_avatar_path(file) {
                 let key = format!("local:{file}");
@@ -5332,7 +6151,8 @@ impl LiyuView {
                 }
                 if let Ok(image) = ImageBuffer::from_png(bytes) {
                     let texture = image.into_new_mip_texture(cx);
-                    self.contact_avatar_textures.insert(texture_key, texture.clone());
+                    self.contact_avatar_textures
+                        .insert(texture_key, texture.clone());
                     return (Some(texture), "TA 设置的头像");
                 }
             }
@@ -5351,7 +6171,13 @@ impl LiyuView {
         (None, "默认头像")
     }
 
-    fn show_contact_avatar(&mut self, cx: &mut Cx, image: &[LiveId], initial: &[LiveId], c: &ContactLocal) -> &'static str {
+    fn show_contact_avatar(
+        &mut self,
+        cx: &mut Cx,
+        image: &[LiveId],
+        initial: &[LiveId],
+        c: &ContactLocal,
+    ) -> &'static str {
         let (texture, source) = self.contact_avatar_texture(cx, c);
         self.view.image(cx, image).set_texture(cx, texture.clone());
         self.show(cx, image, texture.is_some());
@@ -5360,30 +6186,42 @@ impl LiyuView {
     }
 
     fn queue_contact_avatar_lookup(&mut self, cx: &mut Cx, contacts: &[ContactLocal]) {
-        if self.contact_avatar_receiver.is_some() || !profile_client::is_online() { return; }
+        if self.contact_avatar_receiver.is_some() || !profile_client::is_online() {
+            return;
+        }
         let mut pending = Vec::new();
         for contact in contacts {
-            if contact.avatar_override.is_some() { continue; }
+            if contact.avatar_override.is_some() {
+                continue;
+            }
             for (kind, value) in contacts::choices(contact) {
                 let key = format!("{kind}:{value}");
-                if !self.contact_avatar_cache.contains_key(&key) && !pending.contains(&(kind.clone(), value.clone())) {
+                if !self.contact_avatar_cache.contains_key(&key)
+                    && !pending.contains(&(kind.clone(), value.clone()))
+                {
                     pending.push((kind, value));
                 }
             }
         }
-        if pending.is_empty() { return; }
+        if pending.is_empty() {
+            return;
+        }
         pending.truncate(32);
         let (tx, rx) = std::sync::mpsc::channel();
         self.contact_avatar_receiver = Some(rx);
         std::thread::spawn(move || {
             let result = profile_client::lookup_contact_avatars(&pending).map(|found| {
-                pending.into_iter().map(|(kind, value)| {
-                    let key = format!("{kind}:{value}");
-                    let bytes = found.get(&key)
-                        .and_then(|url| profile_client::fetch_avatar_bytes(url))
-                        .and_then(|bytes| contacts::circular_photo(&bytes).ok());
-                    (key, bytes)
-                }).collect()
+                pending
+                    .into_iter()
+                    .map(|(kind, value)| {
+                        let key = format!("{kind}:{value}");
+                        let bytes = found
+                            .get(&key)
+                            .and_then(|url| profile_client::fetch_avatar_bytes(url))
+                            .and_then(|bytes| contacts::circular_photo(&bytes).ok());
+                        (key, bytes)
+                    })
+                    .collect()
             });
             let _ = tx.send(result);
         });
@@ -5391,23 +6229,39 @@ impl LiyuView {
     }
 
     fn set_contact_avatar_file(&mut self, cx: &mut Cx, path: &std::path::Path) {
-        let Some(id) = self.contact_detail_id else { return; };
-        if self.state.contact(id).is_none() { return; }
+        let Some(id) = self.contact_detail_id else {
+            return;
+        };
+        if self.state.contact(id).is_none() {
+            return;
+        }
         let bytes = match std::fs::metadata(path) {
             Ok(meta) if meta.len() <= avatar::MAX_INPUT_BYTES => std::fs::read(path).ok(),
             _ => None,
         };
-        let Some(bytes) = bytes else { self.toast(cx, "无法读取头像图片或文件过大"); return; };
+        let Some(bytes) = bytes else {
+            self.toast(cx, "无法读取头像图片或文件过大");
+            return;
+        };
         let normalized = match contacts::circular_photo(&bytes) {
             Ok(bytes) => bytes,
-            Err(error) => { self.toast(cx, Self::avatar_err(&error)); return; }
+            Err(error) => {
+                self.toast(cx, Self::avatar_err(&error));
+                return;
+            }
         };
         let hash = normalized.iter().fold(0xcbf29ce484222325_u64, |h, b| {
             (h ^ u64::from(*b)).wrapping_mul(0x100000001b3)
         });
         let file_name = format!("contact-{id}-{hash:016x}.png");
-        let Some(dir) = Self::contact_avatar_dir() else { self.toast(cx, "头像目录不可用"); return; };
-        if std::fs::create_dir_all(&dir).is_err() { self.toast(cx, "无法保存头像"); return; }
+        let Some(dir) = Self::contact_avatar_dir() else {
+            self.toast(cx, "头像目录不可用");
+            return;
+        };
+        if std::fs::create_dir_all(&dir).is_err() {
+            self.toast(cx, "无法保存头像");
+            return;
+        }
         let target = dir.join(&file_name);
         let temp = dir.join(format!("{file_name}.tmp"));
         if std::fs::write(&temp, &normalized).is_err() || std::fs::rename(&temp, &target).is_err() {
@@ -5424,7 +6278,9 @@ impl LiyuView {
     }
 
     fn reset_contact_avatar(&mut self, cx: &mut Cx) {
-        let Some(id) = self.contact_detail_id else { return; };
+        let Some(id) = self.contact_detail_id else {
+            return;
+        };
         if let Some(c) = self.state.contacts.iter_mut().find(|c| c.id == id) {
             c.avatar_override = None;
             let contact = c.clone();
@@ -5439,12 +6295,15 @@ impl LiyuView {
         for (kind, value) in contacts::choices(contact) {
             let key = format!("{kind}:{value}");
             self.contact_avatar_cache.remove(&key);
-            self.contact_avatar_textures.remove(&format!("remote:{key}"));
+            self.contact_avatar_textures
+                .remove(&format!("remote:{key}"));
         }
     }
 
     fn open_contact_detail(&mut self, cx: &mut Cx, id: usize) {
-        let Some(contact) = self.state.contact(id).cloned() else { return; };
+        let Some(contact) = self.state.contact(id).cloned() else {
+            return;
+        };
         self.forget_remote_contact_avatar(&contact);
         self.contact_detail_id = Some(id);
         self.refresh_contact_detail(cx);
@@ -5452,8 +6311,19 @@ impl LiyuView {
     }
 
     fn refresh_contact_detail(&mut self, cx: &mut Cx) {
-        let Some(c) = self.contact_detail_id.and_then(|id| self.state.contact(id)).cloned() else { return; };
-        let initial = c.label.chars().next().map(|ch| ch.to_string()).unwrap_or_default();
+        let Some(c) = self
+            .contact_detail_id
+            .and_then(|id| self.state.contact(id))
+            .cloned()
+        else {
+            return;
+        };
+        let initial = c
+            .label
+            .chars()
+            .next()
+            .map(|ch| ch.to_string())
+            .unwrap_or_default();
         self.set_text(cx, ids!(fd_initial), &initial);
         self.show_contact_avatar(cx, ids!(fd_photo), ids!(fd_initial), &c);
         self.show(cx, ids!(fd_avatar_reset), c.avatar_override.is_some());
@@ -5465,15 +6335,35 @@ impl LiyuView {
         if let Some(email) = c.emails.as_ref().and_then(|values| values.first()) {
             contacts.push(format!("邮箱 {email}"));
         }
-        let summary = if contacts.is_empty() { "暂无联系方式".to_string() } else { contacts.join(" · ") };
+        let summary = if contacts.is_empty() {
+            "暂无联系方式".to_string()
+        } else {
+            contacts.join(" · ")
+        };
         self.set_text(cx, ids!(fd_sub), &summary);
 
-        let wishes: Vec<(u64, String, String)> = self.state.friend_wishlists(today_days())
+        let wishes: Vec<(u64, String, String)> = self
+            .state
+            .friend_wishlists(today_days())
             .into_iter()
             .filter(|wish| wish.owner == c.label)
-            .map(|wish| (wish.id, wish.title.clone(), format!("{} 件心愿 · {}", wish.items.len(), wish.countdown(today_days()))))
+            .map(|wish| {
+                (
+                    wish.id,
+                    wish.title.clone(),
+                    format!(
+                        "{} 件心愿 · {}",
+                        wish.items.len(),
+                        wish.countdown(today_days())
+                    ),
+                )
+            })
             .collect();
-        self.contact_wish_preview_ids = wishes.iter().take(CONTACT_WISH_PREVIEW_ROWS.len()).map(|wish| wish.0).collect();
+        self.contact_wish_preview_ids = wishes
+            .iter()
+            .take(CONTACT_WISH_PREVIEW_ROWS.len())
+            .map(|wish| wish.0)
+            .collect();
         self.show(cx, ids!(fd_wishes), !wishes.is_empty());
         for (index, row) in CONTACT_WISH_PREVIEW_ROWS.iter().enumerate() {
             self.show(cx, &[*row], index < wishes.len());
@@ -5481,7 +6371,11 @@ impl LiyuView {
                 self.set_row(cx, &[*row], title, subtitle, "");
             }
         }
-        self.show(cx, ids!(fd_wish_more), wishes.len() > CONTACT_WISH_PREVIEW_ROWS.len());
+        self.show(
+            cx,
+            ids!(fd_wish_more),
+            wishes.len() > CONTACT_WISH_PREVIEW_ROWS.len(),
+        );
         self.set_row(cx, ids!(fd_sent), "我送他的", "", "");
         self.set_row(cx, ids!(fd_received), "我收到的", "", "");
         self.set_row(cx, ids!(fd_all_wishes), "他的心愿单", "", "");
@@ -5491,58 +6385,103 @@ impl LiyuView {
     fn contact_section_rows(&self, label: &str, section: ContactSection) -> Vec<ContactSectionRow> {
         let today = today_days();
         match section {
-            ContactSection::Wishes => self.state.friend_wishlists(today).into_iter()
+            ContactSection::Wishes => self
+                .state
+                .friend_wishlists(today)
+                .into_iter()
                 .filter(|wish| wish.owner == label)
                 .map(|wish| ContactSectionRow {
                     item: ContactSectionItem::Wish(wish.id),
                     title: wish.title.clone(),
                     subtitle: format!("{} 件心愿 · {}", wish.items.len(), wish.countdown(today)),
                     value: String::new(),
-                }).collect(),
+                })
+                .collect(),
             ContactSection::Sent => {
                 let mut rows = Vec::new();
                 if self.gift_client.online {
-                    rows.extend(self.gift_client.outbox.iter().filter(|gift| gift.recipient_name == label).map(|gift| {
-                        let title = CATALOG.get(gift.product_id as usize).map(|item| item.name).unwrap_or("礼物");
-                        ContactSectionRow {
-                            item: ContactSectionItem::OnlineGift(gift.id),
-                            title: title.into(), subtitle: gift.state.clone(), value: String::new(),
-                        }
-                    }));
+                    rows.extend(
+                        self.gift_client
+                            .outbox
+                            .iter()
+                            .filter(|gift| gift.recipient_name == label)
+                            .map(|gift| {
+                                let title = CATALOG
+                                    .get(gift.product_id as usize)
+                                    .map(|item| item.name)
+                                    .unwrap_or("礼物");
+                                ContactSectionRow {
+                                    item: ContactSectionItem::OnlineGift(gift.id),
+                                    title: title.into(),
+                                    subtitle: gift.state.clone(),
+                                    value: String::new(),
+                                }
+                            }),
+                    );
                 }
-                rows.extend(self.state.sent().into_iter()
-                    .filter(|gift| gift.state() != GiftState::Withdrawn && split_aliases(&gift.peer).iter().any(|name| name == label))
-                    .map(|gift| ContactSectionRow {
-                        item: ContactSectionItem::LocalGift(gift.id),
-                        title: gift.title(), subtitle: gift.status_text(today), value: String::new(),
-                    }));
+                rows.extend(
+                    self.state
+                        .sent()
+                        .into_iter()
+                        .filter(|gift| {
+                            gift.state() != GiftState::Withdrawn
+                                && split_aliases(&gift.peer).iter().any(|name| name == label)
+                        })
+                        .map(|gift| ContactSectionRow {
+                            item: ContactSectionItem::LocalGift(gift.id),
+                            title: gift.title(),
+                            subtitle: gift.status_text(today),
+                            value: String::new(),
+                        }),
+                );
                 rows
             }
             ContactSection::Received => {
                 let mut rows = Vec::new();
                 if self.gift_client.online {
-                    rows.extend(self.gift_client.inbox.iter()
-                        .filter(|gift| gift.sender_name.as_deref() == Some(label))
-                        .map(|gift| ContactSectionRow {
-                            item: ContactSectionItem::OnlineGift(gift.id),
-                            title: gift.product_id.and_then(|index| CATALOG.get(index as usize))
-                                .map(|item| item.name).unwrap_or("一份神秘礼物").into(),
-                            subtitle: gift.state.clone(), value: String::new(),
-                        }));
+                    rows.extend(
+                        self.gift_client
+                            .inbox
+                            .iter()
+                            .filter(|gift| gift.sender_name.as_deref() == Some(label))
+                            .map(|gift| ContactSectionRow {
+                                item: ContactSectionItem::OnlineGift(gift.id),
+                                title: gift
+                                    .product_id
+                                    .and_then(|index| CATALOG.get(index as usize))
+                                    .map(|item| item.name)
+                                    .unwrap_or("一份神秘礼物")
+                                    .into(),
+                                subtitle: gift.state.clone(),
+                                value: String::new(),
+                            }),
+                    );
                 }
-                rows.extend(self.state.received(today).into_iter()
-                    .filter(|gift| gift.shown_sender() == label)
-                    .map(|gift| ContactSectionRow {
-                        item: ContactSectionItem::LocalGift(gift.id),
-                        title: gift.title(), subtitle: gift.status_text(today), value: String::new(),
-                    }));
+                rows.extend(
+                    self.state
+                        .received(today)
+                        .into_iter()
+                        .filter(|gift| gift.shown_sender() == label)
+                        .map(|gift| ContactSectionRow {
+                            item: ContactSectionItem::LocalGift(gift.id),
+                            title: gift.title(),
+                            subtitle: gift.status_text(today),
+                            value: String::new(),
+                        }),
+                );
                 rows
             }
         }
     }
 
     fn open_contact_section(&mut self, cx: &mut Cx, section: ContactSection) {
-        if self.contact_detail_id.and_then(|id| self.state.contact(id)).is_none() { return; }
+        if self
+            .contact_detail_id
+            .and_then(|id| self.state.contact(id))
+            .is_none()
+        {
+            return;
+        }
         self.contact_section = section;
         self.contact_section_page = 0;
         if section != ContactSection::Wishes {
@@ -5553,12 +6492,19 @@ impl LiyuView {
     }
 
     fn refresh_contact_section(&mut self, cx: &mut Cx) {
-        let Some(contact) = self.contact_detail_id.and_then(|id| self.state.contact(id)) else { return; };
+        let Some(contact) = self.contact_detail_id.and_then(|id| self.state.contact(id)) else {
+            return;
+        };
         let rows = self.contact_section_rows(&contact.label, self.contact_section);
         let total = rows.len();
-        self.contact_section_page = self.contact_section_page.min(total.saturating_sub(1) / CONTACT_SECTION_ROWS.len());
-        let visible: Vec<_> = rows.into_iter().skip(self.contact_section_page * CONTACT_SECTION_ROWS.len())
-            .take(CONTACT_SECTION_ROWS.len()).collect();
+        self.contact_section_page = self
+            .contact_section_page
+            .min(total.saturating_sub(1) / CONTACT_SECTION_ROWS.len());
+        let visible: Vec<_> = rows
+            .into_iter()
+            .skip(self.contact_section_page * CONTACT_SECTION_ROWS.len())
+            .take(CONTACT_SECTION_ROWS.len())
+            .collect();
         self.contact_section_items = visible.iter().map(|row| row.item).collect();
         for (index, id) in CONTACT_SECTION_ROWS.iter().enumerate() {
             self.show(cx, &[*id], index < visible.len());
@@ -5574,27 +6520,71 @@ impl LiyuView {
         self.apply_list_state(cx, ids!(cs_empty), empty, "", total);
         self.show(cx, ids!(cs_paging), total > CONTACT_SECTION_ROWS.len());
         self.show(cx, ids!(cs_prev), self.contact_section_page > 0);
-        self.show(cx, ids!(cs_next), (self.contact_section_page + 1) * CONTACT_SECTION_ROWS.len() < total);
+        self.show(
+            cx,
+            ids!(cs_next),
+            (self.contact_section_page + 1) * CONTACT_SECTION_ROWS.len() < total,
+        );
     }
 
     fn open_contact_form(&mut self, cx: &mut Cx, id: Option<usize>) {
         let contact = id.and_then(|id| self.state.contact(id)).cloned();
-        if id.is_some() && contact.is_none() { return; }
+        if id.is_some() && contact.is_none() {
+            return;
+        }
         self.editing_contact = id;
         self.add_error = None;
-        self.set_text(cx, ids!(ca_input), contact.as_ref().map_or("", |c| &c.label));
-        self.set_text(cx, ids!(ct_phone), &contact.as_ref().and_then(|c| c.phones.as_ref()).map(|v| v.join(";")).unwrap_or_default());
-        self.set_text(cx, ids!(ct_email), &contact.as_ref().and_then(|c| c.emails.as_ref()).map(|v| v.join(";")).unwrap_or_default());
+        self.set_text(
+            cx,
+            ids!(ca_input),
+            contact.as_ref().map_or("", |c| &c.label),
+        );
+        self.set_text(
+            cx,
+            ids!(ct_phone),
+            &contact
+                .as_ref()
+                .and_then(|c| c.phones.as_ref())
+                .map(|v| v.join(";"))
+                .unwrap_or_default(),
+        );
+        self.set_text(
+            cx,
+            ids!(ct_email),
+            &contact
+                .as_ref()
+                .and_then(|c| c.emails.as_ref())
+                .map(|v| v.join(";"))
+                .unwrap_or_default(),
+        );
         self.refresh_contact_form(cx);
         self.nav_to(cx, Overlay::ContactForm);
     }
 
     fn refresh_contact_form(&mut self, cx: &mut Cx) {
         let editing = self.editing_contact.is_some();
-        self.set_text(cx, ids!(cf_heading), if editing { "修改熟人" } else { "添加熟人" });
-        self.set_text(cx, ids!(ca_btn), if editing { "保存修改" } else { "添加熟人" });
+        self.set_text(
+            cx,
+            ids!(cf_heading),
+            if editing {
+                "修改熟人"
+            } else {
+                "添加熟人"
+            },
+        );
+        self.set_text(
+            cx,
+            ids!(ca_btn),
+            if editing {
+                "保存修改"
+            } else {
+                "添加熟人"
+            },
+        );
         self.show(cx, ids!(ca_err), self.add_error.is_some());
-        if let Some(e) = self.add_error { self.set_text(cx, ids!(ca_err), e); }
+        if let Some(e) = self.add_error {
+            self.set_text(cx, ids!(ca_err), e);
+        }
     }
 
     fn save_contact(&mut self, cx: &mut Cx) {
@@ -5707,30 +6697,67 @@ impl LiyuView {
         self.set_text(cx, ids!(ag2_v), &bal);
         let sent = self.state.sent().len();
         let recv = self.state.received(today_days()).len();
-        let done = self.state.pacts.iter().filter(|p| p.state() == PactState::Done).count();
+        let done = self
+            .state
+            .pacts
+            .iter()
+            .filter(|p| p.state() == PactState::Done)
+            .count();
         self.set_text(cx, ids!(ms_sent_v), &sent.to_string());
         self.set_text(cx, ids!(ms_recv_v), &recv.to_string());
         self.set_text(cx, ids!(ms_pact_v), &done.to_string());
         self.my_wish_row(cx, ids!(row_wish));
         let n = self.state.ledger.len();
-        self.set_row(cx, ids!(row_wallet), "钱包与流水", "折现、退差、退款都记在这里", &format!("{n} 笔"));
+        self.set_row(
+            cx,
+            ids!(row_wallet),
+            "钱包与流水",
+            "折现、退差、退款都记在这里",
+            &format!("{n} 笔"),
+        );
         let nick = self.state.settings.nickname.clone();
-        let display = if self.profile.display_name.is_empty() { nick.clone() } else { self.profile.display_name.clone() };
-        self.set_row(cx, ids!(row_profile), "账户资料", "名字、手机号、邮箱、头像和收货地址", &display);
-        self.set_row(cx, ids!(row_settings), "设置", "深浅、称呼、通知、数据", &nick);
+        let display = if self.profile.display_name.is_empty() {
+            nick.clone()
+        } else {
+            self.profile.display_name.clone()
+        };
+        self.set_row(
+            cx,
+            ids!(row_profile),
+            "账户资料",
+            "名字、手机号、邮箱、头像和收货地址",
+            &display,
+        );
+        self.set_row(
+            cx,
+            ids!(row_settings),
+            "设置",
+            "深浅、称呼、通知、数据",
+            &nick,
+        );
         self.set_row(cx, ids!(row_about), "关于礼遇", "重看开场三屏", "");
         // ---- #7 账号/设置分层导航:desktop 左分类+右详情 / mobile 列表分屏 ----
         self.refresh_avatar(cx);
         self.refresh_account_nav(cx);
         // AI 草稿闸:有待本人确认的草稿就显示确认条(商品/寄语/确认/取消)。
         let draft = self.draft_pending.clone();
-        let show_draft = draft.as_ref().is_some_and(|d| d.status == ai_draft::DraftStatus::AwaitingConfirm);
+        let show_draft = draft
+            .as_ref()
+            .is_some_and(|d| d.status == ai_draft::DraftStatus::AwaitingConfirm);
         self.show(cx, ids!(me_draft), show_draft);
         if show_draft {
             let d = draft.unwrap();
             let it = crate::data::item(d.item_index);
-            self.set_text(cx, ids!(me_draft_t), &format!("{} · {}", it.name, crate::data::yuan(it.price)));
-            let note = if d.note.is_empty() { "（无寄语）".to_string() } else { format!("寄语:{}", d.note) };
+            self.set_text(
+                cx,
+                ids!(me_draft_t),
+                &format!("{} · {}", it.name, crate::data::yuan(it.price)),
+            );
+            let note = if d.note.is_empty() {
+                "（无寄语）".to_string()
+            } else {
+                format!("寄语:{}", d.note)
+            };
             self.set_text(cx, ids!(me_draft_note), &note);
         }
     }
@@ -6070,8 +7097,16 @@ impl LiyuView {
             },
         );
         self.set_text(cx, ids!(pf_name_value), &self.profile.display_name.clone());
-        self.set_text(cx, ids!(pf_phone_summary.air_body.air_col.air_label), "手机号");
-        self.set_text(cx, ids!(pf_email_summary.air_body.air_col.air_label), "邮箱地址");
+        self.set_text(
+            cx,
+            ids!(pf_phone_summary.air_body.air_col.air_label),
+            "手机号",
+        );
+        self.set_text(
+            cx,
+            ids!(pf_email_summary.air_body.air_col.air_label),
+            "邮箱地址",
+        );
         self.set_text(
             cx,
             ids!(pf_phone_summary.air_body.air_value),
@@ -6082,7 +7117,11 @@ impl LiyuView {
                 } else {
                     &self.profile.phone
                 },
-                if !self.profile.phone.is_empty() && !self.profile.phone_verified { "（未验证）" } else { "" }
+                if !self.profile.phone.is_empty() && !self.profile.phone_verified {
+                    "（未验证）"
+                } else {
+                    ""
+                }
             ),
         );
         self.set_text(
@@ -6095,7 +7134,11 @@ impl LiyuView {
                 } else {
                     &self.profile.email
                 },
-                if !self.profile.email.is_empty() && !self.profile.email_verified { "（未验证）" } else { "" }
+                if !self.profile.email.is_empty() && !self.profile.email_verified {
+                    "（未验证）"
+                } else {
+                    ""
+                }
             ),
         );
         self.set_text(
@@ -6193,7 +7236,16 @@ impl LiyuView {
     }
 
     fn open_settings(&mut self, cx: &mut Cx) {
-        if self.account_nav.as_ref().and_then(|n| n.selected()).is_none() { self.account_nav.get_or_insert_with(account_nav::AccountNavModel::new).select(account_nav::AccountCategory::General); }
+        if self
+            .account_nav
+            .as_ref()
+            .and_then(|n| n.selected())
+            .is_none()
+        {
+            self.account_nav
+                .get_or_insert_with(account_nav::AccountNavModel::new)
+                .select(account_nav::AccountCategory::General);
+        }
         self.reset_armed = false;
         self.export_note = None;
         self.nick_err = None;
@@ -6204,7 +7256,11 @@ impl LiyuView {
     }
 
     fn refresh_settings(&mut self, cx: &mut Cx) {
-        let ti = if theme::mode() == ThemeMode::Dark { 0 } else { 1 };
+        let ti = if theme::mode() == ThemeMode::Dark {
+            0
+        } else {
+            1
+        };
         self.set_chip_group(cx, &THEME_SEGS, ti);
         self.show(cx, ids!(nk_err), self.nick_err.is_some());
         if let Some(e) = self.nick_err {
@@ -6232,9 +7288,18 @@ impl LiyuView {
             "熟人的日子前 3 天、心愿单上还有没人送的，提醒一次",
             s.notify_wish,
         );
-        let note = self.export_note.clone().unwrap_or_else(|| "把本机记录导出成一个 JSON 文件".into());
+        let note = self
+            .export_note
+            .clone()
+            .unwrap_or_else(|| "把本机记录导出成一个 JSON 文件".into());
         self.set_row(cx, ids!(row_export), "导出数据", &note, "");
-        self.set_row(cx, ids!(row_reset), "恢复演示数据", "清空本机记录，换回一套演示数据", "");
+        self.set_row(
+            cx,
+            ids!(row_reset),
+            "恢复演示数据",
+            "清空本机记录，换回一套演示数据",
+            "",
+        );
         self.show(cx, ids!(reset_confirm), self.reset_armed);
     }
 
@@ -6265,7 +7330,11 @@ impl LiyuView {
         self.set_text(
             cx,
             ids!(au_switch),
-            if reg { "已有账号？去登录" } else { "没有账号？去注册" },
+            if reg {
+                "已有账号？去登录"
+            } else {
+                "没有账号？去注册"
+            },
         );
         // 固定密码 / 验证码说明只在测试服务器上出现。
         self.show(cx, ids!(au_test_note), profile_client::is_test_server());
@@ -6282,7 +7351,8 @@ impl LiyuView {
 
     /// 登录 / 注册之后：重置按账号隔离的客户端缓存，关闸进应用。
     fn after_account_switch(&mut self, cx: &mut Cx) {
-        self.state = LiyuState::load_for_account(today_days(), &profile_client::active_identifier());
+        self.state =
+            LiyuState::load_for_account(today_days(), &profile_client::active_identifier());
         self.state.save();
         self.account_nav = Some(account_nav::AccountNavModel::new());
         self.account_edit = None;
@@ -6324,6 +7394,7 @@ impl LiyuView {
         self.notice_sent.clear();
         self.close_notice(cx);
         self.profile = profile_client::load(&self.state.settings.nickname);
+        self.pact_presets = profile_client::contract_templates();
         self.refresh_all(cx);
         self.set_tab(cx, 0);
         if !self.state.settings.onboarded {
@@ -6355,6 +7426,7 @@ impl LiyuView {
         self.gift_client = GiftClient::default();
         self.state = LiyuState::demo(today_days());
         self.profile = Profile::default();
+        self.pact_presets.clear();
         self.account_nav = Some(account_nav::AccountNavModel::new());
         self.account_edit = None;
         self.account_section = None;
@@ -6499,7 +7571,9 @@ impl LiyuView {
         let Some(session) = self.avatar_session.take() else {
             // 没有编辑会话 = 重试待上传（读回本地字节）。
             if profile_client::avatar_pending(&self.profile) {
-                let Some(path) = profile_client::avatar_pending_path() else { return };
+                let Some(path) = profile_client::avatar_pending_path() else {
+                    return;
+                };
                 let Ok(bytes) = std::fs::read(&path) else {
                     self.profile_err = Some("待上传头像本机缓存已丢失，请重新选图");
                     self.refresh_avatar(cx);
@@ -6580,7 +7654,16 @@ impl LiyuView {
     }
 
     fn open_profile(&mut self, cx: &mut Cx) {
-        if self.account_nav.as_ref().and_then(|n| n.selected()).is_none() { self.account_nav.get_or_insert_with(account_nav::AccountNavModel::new).select(account_nav::AccountCategory::Profile); }
+        if self
+            .account_nav
+            .as_ref()
+            .and_then(|n| n.selected())
+            .is_none()
+        {
+            self.account_nav
+                .get_or_insert_with(account_nav::AccountNavModel::new)
+                .select(account_nav::AccountCategory::Profile);
+        }
         self.profile = profile_client::load(&self.state.settings.nickname);
         self.profile_err = None;
         self.profile_edit_address = None;
@@ -6619,25 +7702,58 @@ impl LiyuView {
         let summary = if self.profile.addresses.is_empty() {
             "还没有保存地址".to_string()
         } else {
-            format!("共 {} 条地址{}", self.profile.addresses.len(),
-                if self.profile.addresses.len() > PROFILE_ADDRESS_ROWS.len() { " · 仅显示前 6 条" } else { "" })
+            format!(
+                "共 {} 条地址{}",
+                self.profile.addresses.len(),
+                if self.profile.addresses.len() > PROFILE_ADDRESS_ROWS.len() {
+                    " · 仅显示前 6 条"
+                } else {
+                    ""
+                }
+            )
         };
         self.set_text(cx, ids!(pf_address_list), &summary);
-        let rows = self.profile.addresses.iter().take(PROFILE_ADDRESS_ROWS.len())
-            .map(|a| format!("{}{} · {} · {}", if a.is_default { "默认 · " } else { "" },
-                a.recipient_name, a.phone, a.address)).collect::<Vec<_>>();
+        let rows = self
+            .profile
+            .addresses
+            .iter()
+            .take(PROFILE_ADDRESS_ROWS.len())
+            .map(|a| {
+                format!(
+                    "{}{} · {} · {}",
+                    if a.is_default { "默认 · " } else { "" },
+                    a.recipient_name,
+                    a.phone,
+                    a.address
+                )
+            })
+            .collect::<Vec<_>>();
         for (i, row_id) in PROFILE_ADDRESS_ROWS.iter().enumerate() {
             self.show(cx, &[*row_id], i < rows.len());
             if let Some(text) = rows.get(i) {
                 self.set_text(cx, &[*row_id, PROFILE_ADDRESS_TEXT[i]], text);
             }
         }
-        self.set_text(cx, ids!(pf_addr_add), if self.profile_edit_address.is_some() { "保存地址修改" } else { "添加地址" });
-        self.show(cx, ids!(pf_addr_cancel), self.profile_edit_address.is_some());
+        self.set_text(
+            cx,
+            ids!(pf_addr_add),
+            if self.profile_edit_address.is_some() {
+                "保存地址修改"
+            } else {
+                "添加地址"
+            },
+        );
+        self.show(
+            cx,
+            ids!(pf_addr_cancel),
+            self.profile_edit_address.is_some(),
+        );
         self.refresh_avatar(cx);
         self.refresh_account_nav(cx);
         self.show(cx, ids!(pf_err), false);
-        if let Some(err) = self.profile_err { self.set_text(cx, ids!(pf_err), err); }
+        if let Some(err) = self.profile_err {
+            self.set_text(cx, ids!(pf_err), err);
+        }
     }
 
     fn contact_delivery_choices(&self) -> Vec<(String, String, String)> {
@@ -6653,7 +7769,12 @@ impl LiyuView {
     }
 
     fn open_direct_order(&mut self, cx: &mut Cx, product: Option<u16>) {
-        if self.commerce.order.as_ref().is_some_and(|o| o.status == "pending") {
+        if self
+            .commerce
+            .order
+            .as_ref()
+            .is_some_and(|o| o.status == "pending")
+        {
             self.toast(cx, "请先完成当前待支付订单");
         } else {
             self.commerce.order = None;
@@ -6668,15 +7789,22 @@ impl LiyuView {
         self.set_text(cx, ids!(ca_status), "单件礼物 · 以服务器价格生成订单");
         self.show(cx, ids!(ca_pick), self.direct_product.is_some());
         if let Some(product) = self.direct_product {
-            self.set_text(cx, ids!(ca_pick_title),
-                &format!("{} · 按服务器报价结算", item(product).name));
+            self.set_text(
+                cx,
+                ids!(ca_pick_title),
+                &format!("{} · 按服务器报价结算", item(product).name),
+            );
         }
         let all_choices = self.contact_delivery_choices();
-        self.direct_contact_page = self.direct_contact_page
+        self.direct_contact_page = self
+            .direct_contact_page
             .min(all_choices.len().saturating_sub(1) / CART_FRIEND_CHIPS.len());
         self.show(cx, ids!(ca_choice_prev), self.direct_contact_page > 0);
-        self.show(cx, ids!(ca_choice_next),
-            (self.direct_contact_page + 1) * CART_FRIEND_CHIPS.len() < all_choices.len());
+        self.show(
+            cx,
+            ids!(ca_choice_next),
+            (self.direct_contact_page + 1) * CART_FRIEND_CHIPS.len() < all_choices.len(),
+        );
         for (i, chip) in CART_FRIEND_CHIPS.iter().enumerate() {
             let choice = all_choices.get(self.direct_contact_page * CART_FRIEND_CHIPS.len() + i);
             self.show(cx, &[*chip], choice.is_some());
@@ -6684,10 +7812,21 @@ impl LiyuView {
                 self.set_text(cx, &[*chip], &format!("{label} · {value}"));
             }
         }
-        self.set_text(cx, ids!(ca_friends_note),
-            "选联系人或手填手机号/邮箱；无需先注册或加好友。单次只送一件礼物。");
-        self.show(cx, ids!(ca_checkout), self.direct_product.is_some()
-            && !self.commerce.order.as_ref().is_some_and(|o| o.status == "pending"));
+        self.set_text(
+            cx,
+            ids!(ca_friends_note),
+            "选联系人或手填手机号/邮箱；无需先注册或加好友。单次只送一件礼物。",
+        );
+        self.show(
+            cx,
+            ids!(ca_checkout),
+            self.direct_product.is_some()
+                && !self
+                    .commerce
+                    .order
+                    .as_ref()
+                    .is_some_and(|o| o.status == "pending"),
+        );
         self.show(cx, ids!(ca_order), self.commerce.order.is_some());
         if let Some(order) = self.commerce.order.clone() {
             let state = match order.status.as_str() {
@@ -6695,22 +7834,44 @@ impl LiyuView {
                 "paid_test" => "已完成测试支付",
                 _ => "状态待刷新",
             };
-            self.set_text(cx, ids!(ca_order_text),
-                &format!("服务器订单 #{} · {} · {}", order.id.abs(), yuan(order.total_cents), state));
+            self.set_text(
+                cx,
+                ids!(ca_order_text),
+                &format!(
+                    "服务器订单 #{} · {} · {}",
+                    order.id.abs(),
+                    yuan(order.total_cents),
+                    state
+                ),
+            );
             self.show(cx, ids!(ca_pay), order.status == "pending");
         }
         self.show(cx, ids!(ca_error), self.direct_error.is_some());
-        if let Some(e) = self.direct_error { self.set_text(cx, ids!(ca_error), e); }
+        if let Some(e) = self.direct_error {
+            self.set_text(cx, ids!(ca_error), e);
+        }
     }
 
     // ---- 事件 ----
 
     fn handle_actions(&mut self, cx: &mut Cx, actions: &Actions) {
         let today = today_days();
-        if self.clicked(cx,ids!(ct_prev),actions){self.contact_page=self.contact_page.saturating_sub(1);self.refresh_contacts(cx);}
-        if self.clicked(cx,ids!(ct_next),actions){self.contact_page+=1;self.refresh_contacts(cx);}
-        if self.clicked(cx,ids!(ca_choice_prev),actions){self.direct_contact_page=self.direct_contact_page.saturating_sub(1);self.refresh_direct_order(cx);}
-        if self.clicked(cx,ids!(ca_choice_next),actions){self.direct_contact_page+=1;self.refresh_direct_order(cx);}
+        if self.clicked(cx, ids!(ct_prev), actions) {
+            self.contact_page = self.contact_page.saturating_sub(1);
+            self.refresh_contacts(cx);
+        }
+        if self.clicked(cx, ids!(ct_next), actions) {
+            self.contact_page += 1;
+            self.refresh_contacts(cx);
+        }
+        if self.clicked(cx, ids!(ca_choice_prev), actions) {
+            self.direct_contact_page = self.direct_contact_page.saturating_sub(1);
+            self.refresh_direct_order(cx);
+        }
+        if self.clicked(cx, ids!(ca_choice_next), actions) {
+            self.direct_contact_page += 1;
+            self.refresh_direct_order(cx);
+        }
 
         for action in actions {
             if let Some(fda) = action.downcast_ref::<FileDialogAction>() {
@@ -6722,14 +7883,40 @@ impl LiyuView {
                         }
                     }
                 } else if fda.id() == live_id!(contact_avatar_pick) {
-                    if let Some(path) = fda.path() { self.set_contact_avatar_file(cx, path); }
+                    if let Some(path) = fda.path() {
+                        self.set_contact_avatar_file(cx, path);
+                    }
                 }
             }
         }
-        if self.clicked(cx,ids!(ct_import_cancel),actions){self.pending_contacts=None;self.show(cx,ids!(ct_preview),false);}
-        if self.clicked(cx,ids!(ct_import_confirm),actions){if let Some(import)=self.pending_contacts.take(){let added=contacts::merge(&mut self.state.contacts,import.contacts);self.state.save();self.show(cx,ids!(ct_preview),false);self.refresh_contacts(cx);self.toast(cx,&format!("已导入：新增 {added} 位，其余相同联系方式已合并"));}}
-        for (button,field,kind) in [(live_id!(pf_phone_request),live_id!(pf_phone),"phone"),(live_id!(pf_email_request),live_id!(pf_email),"email")] {
-            if self.clicked(cx,&[button],actions){let value=self.input_text(cx,&[field]);match profile_client::request_contact_code("bind",kind,&value){Ok(Some(code))=>self.toast(cx,&format!("测试通道验证码：{code}")),Ok(None)=>self.toast(cx,"验证码已加入投递队列，请查收"),Err(e)=>self.toast(cx,e)}}
+        if self.clicked(cx, ids!(ct_import_cancel), actions) {
+            self.pending_contacts = None;
+            self.show(cx, ids!(ct_preview), false);
+        }
+        if self.clicked(cx, ids!(ct_import_confirm), actions) {
+            if let Some(import) = self.pending_contacts.take() {
+                let added = contacts::merge(&mut self.state.contacts, import.contacts);
+                self.state.save();
+                self.show(cx, ids!(ct_preview), false);
+                self.refresh_contacts(cx);
+                self.toast(
+                    cx,
+                    &format!("已导入：新增 {added} 位，其余相同联系方式已合并"),
+                );
+            }
+        }
+        for (button, field, kind) in [
+            (live_id!(pf_phone_request), live_id!(pf_phone), "phone"),
+            (live_id!(pf_email_request), live_id!(pf_email), "email"),
+        ] {
+            if self.clicked(cx, &[button], actions) {
+                let value = self.input_text(cx, &[field]);
+                match profile_client::request_contact_code("bind", kind, &value) {
+                    Ok(Some(code)) => self.toast(cx, &format!("测试通道验证码：{code}")),
+                    Ok(None) => self.toast(cx, "验证码已加入投递队列，请查收"),
+                    Err(e) => self.toast(cx, e),
+                }
+            }
         }
         // ---- 头像文件选择对话框结果：选中 → 载入编辑会话；取消 → 不动状态、不上传 ----
         for action in actions {
@@ -6780,11 +7967,43 @@ impl LiyuView {
                 self.auth_register = !self.auth_register;
                 self.refresh_auth(cx);
             }
-            if self.clicked(cx,ids!(au_request_code),actions){let value=self.input_text(cx,ids!(au_identifier));let kind=if value.contains('@'){"email"}else{"phone"};match profile_client::request_contact_code("register",kind,&value){Ok(Some(code))=>{self.set_text(cx,ids!(au_code),&code);self.set_text(cx,ids!(au_err),&format!("测试通道验证码：{code}"));self.show(cx,ids!(au_err),true);},Ok(None)=>{self.set_text(cx,ids!(au_err),"验证码已加入投递队列，请查收");self.show(cx,ids!(au_err),true);},Err(e)=>self.show_auth_error(cx,e)}}
+            if self.clicked(cx, ids!(au_request_code), actions) {
+                let value = self.input_text(cx, ids!(au_identifier));
+                let kind = if value.contains('@') {
+                    "email"
+                } else {
+                    "phone"
+                };
+                match profile_client::request_contact_code("register", kind, &value) {
+                    Ok(Some(code)) => {
+                        self.set_text(cx, ids!(au_code), &code);
+                        self.set_text(cx, ids!(au_err), &format!("测试通道验证码：{code}"));
+                        self.show(cx, ids!(au_err), true);
+                    }
+                    Ok(None) => {
+                        self.set_text(cx, ids!(au_err), "验证码已加入投递队列，请查收");
+                        self.show(cx, ids!(au_err), true);
+                    }
+                    Err(e) => self.show_auth_error(cx, e),
+                }
+            }
             let submit = self.clicked(cx, ids!(au_submit), actions)
-                || self.view.text_input(cx, ids!(au_identifier)).returned(actions).is_some()
-                || self.view.text_input(cx, ids!(au_password)).returned(actions).is_some()
-                || (self.auth_register && self.view.text_input(cx, ids!(au_code)).returned(actions).is_some());
+                || self
+                    .view
+                    .text_input(cx, ids!(au_identifier))
+                    .returned(actions)
+                    .is_some()
+                || self
+                    .view
+                    .text_input(cx, ids!(au_password))
+                    .returned(actions)
+                    .is_some()
+                || (self.auth_register
+                    && self
+                        .view
+                        .text_input(cx, ids!(au_code))
+                        .returned(actions)
+                        .is_some());
             if submit {
                 let identifier = self.input_text(cx, ids!(au_identifier));
                 let password = self.input_text(cx, ids!(au_password));
@@ -6870,11 +8089,21 @@ impl LiyuView {
 
         // 通知 / toast
         if self.clicked(cx, ids!(nt_close), actions) {
-            if let Some(n)=&self.online_notice {let _=commerce_client::read_notification(n.id);}
+            if let Some(n) = &self.online_notice {
+                let _ = commerce_client::read_notification(n.id);
+            }
             self.close_notice(cx);
         }
         if self.clicked(cx, ids!(nt_go), actions) {
-            if let Some(n)=self.online_notice.clone(){let _=commerce_client::read_notification(n.id);self.close_notice(cx);if let Some(id)=n.gift_id{self.open_received(cx,id);}else{self.toast(cx,&n.body);}}
+            if let Some(n) = self.online_notice.clone() {
+                let _ = commerce_client::read_notification(n.id);
+                self.close_notice(cx);
+                if let Some(id) = n.gift_id {
+                    self.open_received(cx, id);
+                } else {
+                    self.toast(cx, &n.body);
+                }
+            }
             if let Some(n) = self.notice.clone() {
                 self.close_notice(cx);
                 match n.kind {
@@ -6903,7 +8132,9 @@ impl LiyuView {
                 self.gift_wish_seg = j == 1;
                 self.refresh_gift(cx);
                 self.refresh_topbar(cx);
-                self.view.view(cx, ids!(page_gift)).set_scroll_pos(cx, Vec2d::default());
+                self.view
+                    .view(cx, ids!(page_gift))
+                    .set_scroll_pos(cx, Vec2d::default());
             }
         }
         for (j, card) in GRID_CARDS.iter().enumerate() {
@@ -6922,7 +8153,9 @@ impl LiyuView {
             }
             for (j, row) in PICK_ROWS.iter().enumerate() {
                 if self.clicked(cx, &[*row, live_id!(gr_hit)], actions) {
-                    let Some(i) = self.pick_rows.get(j).copied() else { continue };
+                    let Some(i) = self.pick_rows.get(j).copied() else {
+                        continue;
+                    };
                     self.draft.item = i;
                     self.pick_open = false;
                     self.send_error = None;
@@ -6931,7 +8164,12 @@ impl LiyuView {
             }
             for (j, id) in PEER_CHIPS.iter().enumerate() {
                 if self.toggled(cx, &[*id], actions) {
-                    self.draft.peer = self.send_peers.get(j).cloned().filter(|_| j < PEER_SLOTS).unwrap_or_default();
+                    self.draft.peer = self
+                        .send_peers
+                        .get(j)
+                        .cloned()
+                        .filter(|_| j < PEER_SLOTS)
+                        .unwrap_or_default();
                     self.refresh_send(cx);
                 }
             }
@@ -6948,17 +8186,32 @@ impl LiyuView {
             }
             for (j, id) in PRESET_CHIPS.iter().enumerate() {
                 if self.toggled(cx, &[*id], actions) {
-                    self.set_text(cx, ids!(sd_pact_in), PACT_PRESETS[j].1);
+                    if let Some((_, body)) = self.pact_presets.get(j).cloned() {
+                        self.set_text(cx, ids!(sd_pact_in), &body);
+                    }
                     self.refresh_presets(cx);
                 }
             }
-            if self.view.text_input(cx, ids!(sd_pact_in)).changed(actions).is_some() {
+            if self
+                .view
+                .text_input(cx, ids!(sd_pact_in))
+                .changed(actions)
+                .is_some()
+            {
                 self.refresh_presets(cx);
             }
             for (j, id) in DELIVER_SEGS.iter().enumerate() {
                 if self.toggled(cx, &[*id], actions) {
-                    let day = self.draft.wish.and_then(|(w, _)| self.state.wishlist(w)).map(|l| l.event_on);
-                    self.draft.deliver_on = if j == 0 { day.filter(|&e| e > today) } else { None };
+                    let day = self
+                        .draft
+                        .wish
+                        .and_then(|(w, _)| self.state.wishlist(w))
+                        .map(|l| l.event_on);
+                    self.draft.deliver_on = if j == 0 {
+                        day.filter(|&e| e > today)
+                    } else {
+                        None
+                    };
                     self.send_error = None;
                     self.refresh_send(cx);
                 }
@@ -6972,7 +8225,11 @@ impl LiyuView {
         if self.overlay == Some(Overlay::Card) {
             for (j, id) in STYLE_SEGS.iter().enumerate() {
                 if self.toggled(cx, &[*id], actions) {
-                    self.card_style = if j == 0 { ShareStyle::Warm } else { ShareStyle::Night };
+                    self.card_style = if j == 0 {
+                        ShareStyle::Warm
+                    } else {
+                        ShareStyle::Night
+                    };
                     self.refresh_card(cx);
                 }
             }
@@ -6996,23 +8253,46 @@ impl LiyuView {
                 self.open_preview(cx);
             }
             if self.clicked(cx, ids!(cd_done), actions) {
-                if self.tab == 4 && self.account_section.is_some() { self.go_back(cx); }
-                else { self.box_sent = true; self.set_tab(cx, 1); }
+                if self.tab == 4 && self.account_section.is_some() {
+                    self.go_back(cx);
+                } else {
+                    self.box_sent = true;
+                    self.set_tab(cx, 1);
+                }
             }
         }
 
         for (sent, retry, empty, row_ids) in [
-            (false, live_id!(received_gift_retry), live_id!(received_gift_empty), &RECEIVED_GIFT_ROWS),
-            (true, live_id!(sent_gift_retry), live_id!(sent_gift_empty), &SENT_GIFT_ROWS),
+            (
+                false,
+                live_id!(received_gift_retry),
+                live_id!(received_gift_empty),
+                &RECEIVED_GIFT_ROWS,
+            ),
+            (
+                true,
+                live_id!(sent_gift_retry),
+                live_id!(sent_gift_empty),
+                &SENT_GIFT_ROWS,
+            ),
         ] {
-            if self.clicked(cx, &[retry], actions) || self.clicked(cx, &[empty, live_id!(em_action)], actions) {
+            if self.clicked(cx, &[retry], actions)
+                || self.clicked(cx, &[empty, live_id!(em_action)], actions)
+            {
                 let _ = self.gift_client.refresh();
                 self.refresh_account_gifts(cx, sent);
             }
             for (j, row) in row_ids.iter().enumerate() {
                 if self.clicked(cx, &[*row, live_id!(bx_hit)], actions) {
-                    let id = if sent { self.sent_gift_rows.get(j) } else { self.received_gift_rows.get(j) }.copied();
-                    if let Some(id) = id { self.open_online_gift(cx, id, sent); }
+                    let id = if sent {
+                        self.sent_gift_rows.get(j)
+                    } else {
+                        self.received_gift_rows.get(j)
+                    }
+                    .copied();
+                    if let Some(id) = id {
+                        self.open_online_gift(cx, id, sent);
+                    }
                 }
             }
         }
@@ -7047,11 +8327,17 @@ impl LiyuView {
                     self.online_gift_err = self.gift_client.open(id).err();
                     self.refresh_online_gift(cx);
                 }
-                let answer_enter = self.view.text_input(cx, ids!(og_answer)).returned(actions).is_some();
+                let answer_enter = self
+                    .view
+                    .text_input(cx, ids!(og_answer))
+                    .returned(actions)
+                    .is_some();
                 if self.clicked(cx, ids!(og_answer_btn), actions) || answer_enter {
                     let answer = self.input_text(cx, ids!(og_answer));
                     self.online_gift_err = self.gift_client.answer(id, &answer).err();
-                    if self.online_gift_err.is_none() { self.set_text(cx, ids!(og_answer), ""); }
+                    if self.online_gift_err.is_none() {
+                        self.set_text(cx, ids!(og_answer), "");
+                    }
                     self.refresh_online_gift(cx);
                 }
                 if self.clicked(cx, ids!(og_accept), actions) {
@@ -7059,7 +8345,10 @@ impl LiyuView {
                     let name = self.input_text(cx, ids!(og_ship_name));
                     let phone = self.input_text(cx, ids!(og_ship_phone));
                     let address = self.input_text(cx, ids!(og_ship_address));
-                    self.online_gift_err = self.gift_client.accept(id, agree, &name, &phone, &address).err();
+                    self.online_gift_err = self
+                        .gift_client
+                        .accept(id, agree, &name, &phone, &address)
+                        .err();
                     self.refresh_online_gift(cx);
                 }
                 if self.clicked(cx, ids!(og_confirm), actions) {
@@ -7078,7 +8367,11 @@ impl LiyuView {
                     }
                 }
             }
-            let enter = self.view.text_input(cx, ids!(od_input)).returned(actions).is_some();
+            let enter = self
+                .view
+                .text_input(cx, ids!(od_input))
+                .returned(actions)
+                .is_some();
             if self.clicked(cx, ids!(od_submit), actions) || enter {
                 self.submit_answer(cx);
             }
@@ -7094,7 +8387,8 @@ impl LiyuView {
                 self.open_err = None;
                 self.refresh_open(cx);
             }
-            if self.clicked(cx, ids!(oa_back), actions) || self.clicked(cx, ids!(ow_back), actions) {
+            if self.clicked(cx, ids!(oa_back), actions) || self.clicked(cx, ids!(ow_back), actions)
+            {
                 self.enter_stage(cx, Stage::Reveal);
             }
             if self.clicked(cx, ids!(oa_ok), actions) {
@@ -7122,8 +8416,12 @@ impl LiyuView {
                 self.start_return(cx);
             }
             if self.clicked(cx, ids!(odn_home), actions) {
-                if self.tab == 4 && self.account_section.is_some() { self.go_back(cx); }
-                else { self.box_sent = false; self.set_tab(cx, 1); }
+                if self.tab == 4 && self.account_section.is_some() {
+                    self.go_back(cx);
+                } else {
+                    self.box_sent = false;
+                    self.set_tab(cx, 1);
+                }
             }
         }
 
@@ -7175,7 +8473,9 @@ impl LiyuView {
             }
         }
         for (j, row) in PACT_ROWS.iter().enumerate() {
-            let Some(pid) = self.pact_rows.get(j).copied() else { continue };
+            let Some(pid) = self.pact_rows.get(j).copied() else {
+                continue;
+            };
             if self.clicked(cx, &[*row, live_id!(pc_done)], actions) {
                 match self.state.fulfil_pact(pid) {
                     Ok(()) => self.toast(cx, "契约已兑现"),
@@ -7204,15 +8504,23 @@ impl LiyuView {
 
         // ---- 熟人 ----
         let add_enter = self.overlay == Some(Overlay::ContactForm)
-            && self.view.text_input(cx, ids!(ca_input)).returned(actions).is_some();
-        if self.overlay == Some(Overlay::ContactForm) && (self.clicked(cx, ids!(ca_btn), actions) || add_enter) {
+            && self
+                .view
+                .text_input(cx, ids!(ca_input))
+                .returned(actions)
+                .is_some();
+        if self.overlay == Some(Overlay::ContactForm)
+            && (self.clicked(cx, ids!(ca_btn), actions) || add_enter)
+        {
             self.save_contact(cx);
         }
         if self.clicked(cx, ids!(ct_empty.em_action), actions) {
             self.import_local(cx);
         }
         for (j, row) in CONTACT_ROWS.iter().enumerate() {
-            let Some(cid) = self.contact_rows.get(j).copied() else { continue };
+            let Some(cid) = self.contact_rows.get(j).copied() else {
+                continue;
+            };
             if self.clicked(cx, &[*row, live_id!(cr_hit)], actions) {
                 self.open_contact_detail(cx, cid);
                 break;
@@ -7224,14 +8532,28 @@ impl LiyuView {
                     FileDialog::new()
                         .set_id(live_id!(contact_avatar_pick))
                         .set_title("选择熟人头像".into())
-                        .add_filter("图片".into(), vec!["png".into(), "jpg".into(), "jpeg".into(), "webp".into()]),
+                        .add_filter(
+                            "图片".into(),
+                            vec!["png".into(), "jpg".into(), "jpeg".into(), "webp".into()],
+                        ),
                 );
             } else if self.clicked(cx, ids!(fd_avatar_reset), actions) {
                 self.reset_contact_avatar(cx);
             } else if self.clicked(cx, ids!(fd_send), actions) {
-                if let Some(c) = self.contact_detail_id.and_then(|id| self.state.contact(id)).cloned() {
+                if let Some(c) = self
+                    .contact_detail_id
+                    .and_then(|id| self.state.contact(id))
+                    .cloned()
+                {
                     self.set_text(cx, ids!(ca_recipient_label), &c.label);
-                    self.set_text(cx, ids!(ca_recipient_value), contacts::choices(&c).first().map(|(_, v)| v.as_str()).unwrap_or(""));
+                    self.set_text(
+                        cx,
+                        ids!(ca_recipient_value),
+                        contacts::choices(&c)
+                            .first()
+                            .map(|(_, v)| v.as_str())
+                            .unwrap_or(""),
+                    );
                     self.direct_product = None;
                     self.gift_wish_seg = false;
                     self.set_tab(cx, 0);
@@ -7259,7 +8581,8 @@ impl LiyuView {
                 }
             }
             if self.clicked(cx, ids!(fd_wish_more), actions)
-                || self.clicked(cx, ids!(fd_all_wishes.st_hit), actions) {
+                || self.clicked(cx, ids!(fd_all_wishes.st_hit), actions)
+            {
                 self.open_contact_section(cx, ContactSection::Wishes);
                 return;
             }
@@ -7282,7 +8605,9 @@ impl LiyuView {
                 self.refresh_contact_section(cx);
             }
             for (index, row) in CONTACT_SECTION_ROWS.iter().enumerate() {
-                if !self.clicked(cx, &[*row, live_id!(st_hit)], actions) { continue; }
+                if !self.clicked(cx, &[*row, live_id!(st_hit)], actions) {
+                    continue;
+                }
                 match self.contact_section_items.get(index).copied() {
                     Some(ContactSectionItem::Wish(id)) => self.open_wish(cx, id),
                     Some(ContactSectionItem::OnlineGift(id)) => {
@@ -7307,13 +8632,19 @@ impl LiyuView {
                 self.open_account_section(cx, section);
             }
         }
-        if self.clicked(cx, ids!(account_intro), actions) { self.open_intro(cx,0); }
+        if self.clicked(cx, ids!(account_intro), actions) {
+            self.open_intro(cx, 0);
+        }
         // ---- 我 ----
         if self.clicked(cx, &[live_id!(row_wallet), live_id!(st_hit)], actions)
             || self.clicked(cx, ids!(me_wallet), actions)
         {
-            if self.tab == 4 { self.open_account_section(cx, AccountSection::Wallet); }
-            else { self.refresh_wallet(cx); self.open_overlay(cx, Overlay::Wallet); }
+            if self.tab == 4 {
+                self.open_account_section(cx, AccountSection::Wallet);
+            } else {
+                self.refresh_wallet(cx);
+                self.open_overlay(cx, Overlay::Wallet);
+            }
         }
         if self.clicked(cx, &[live_id!(row_settings), live_id!(st_hit)], actions) {
             self.open_settings(cx);
@@ -7328,8 +8659,11 @@ impl LiyuView {
             || self.clicked(cx, &[live_id!(row_mywish), live_id!(st_hit)], actions)
             || self.clicked(cx, ids!(ag3_go), actions)
         {
-            if self.tab == 4 { self.open_account_section(cx, AccountSection::Wishes); }
-            else { self.open_wishes(cx); }
+            if self.tab == 4 {
+                self.open_account_section(cx, AccountSection::Wishes);
+            } else {
+                self.open_wishes(cx);
+            }
         }
         if self.clicked(cx, &[live_id!(row_about), live_id!(st_hit)], actions) {
             self.open_intro(cx, 0);
@@ -7345,15 +8679,25 @@ impl LiyuView {
         if self.overlay == Some(Overlay::Settings) {
             for (j, id) in THEME_SEGS.iter().enumerate() {
                 if self.toggled(cx, &[*id], actions) {
-                    let m = if j == 0 { ThemeMode::Dark } else { ThemeMode::Light };
+                    let m = if j == 0 {
+                        ThemeMode::Dark
+                    } else {
+                        ThemeMode::Light
+                    };
                     self.state.settings.set_theme_mode(m);
                     self.state.save();
                     self.pending_theme = Some(m);
                     self.set_chip_group(cx, &THEME_SEGS, j);
                 }
             }
-            let nick_enter = self.view.text_input(cx, ids!(nk_input)).returned(actions).is_some();
-            if (self.clicked(cx, ids!(nk_save), actions) || nick_enter) && self.account_edit != Some(4) {
+            let nick_enter = self
+                .view
+                .text_input(cx, ids!(nk_input))
+                .returned(actions)
+                .is_some();
+            if (self.clicked(cx, ids!(nk_save), actions) || nick_enter)
+                && self.account_edit != Some(4)
+            {
                 let name = self.input_text(cx, ids!(nk_input));
                 match self.state.set_nickname(&name) {
                     Ok(()) => {
@@ -7426,8 +8770,14 @@ impl LiyuView {
         }
         if self.overlay == Some(Overlay::Profile) {
             for (i, row_id) in PROFILE_ADDRESS_ROWS.iter().enumerate() {
-                let Some(address) = self.profile.addresses.get(i).cloned() else { continue };
-                if self.clicked(cx, &[*row_id, PROFILE_ADDRESS_ACTIONS[i], PROFILE_ADDRESS_EDIT[i]], actions) {
+                let Some(address) = self.profile.addresses.get(i).cloned() else {
+                    continue;
+                };
+                if self.clicked(
+                    cx,
+                    &[*row_id, PROFILE_ADDRESS_ACTIONS[i], PROFILE_ADDRESS_EDIT[i]],
+                    actions,
+                ) {
                     self.profile_edit_address = Some(address.id);
                     self.account_edit = Some(3);
                     self.set_text(cx, ids!(pf_addr_name), &address.recipient_name);
@@ -7436,10 +8786,23 @@ impl LiyuView {
                     self.profile_err = None;
                     self.refresh_profile(cx);
                 }
-                if self.clicked(cx, &[*row_id, PROFILE_ADDRESS_ACTIONS[i], PROFILE_ADDRESS_DELETE[i]], actions) {
-                    self.profile_err = profile_client::delete_address(&mut self.profile, address.id).err();
-                    if self.profile_edit_address == Some(address.id) { self.profile_edit_address = None; }
-                    if self.profile_err.is_none() { self.toast(cx, "地址已删除"); }
+                if self.clicked(
+                    cx,
+                    &[
+                        *row_id,
+                        PROFILE_ADDRESS_ACTIONS[i],
+                        PROFILE_ADDRESS_DELETE[i],
+                    ],
+                    actions,
+                ) {
+                    self.profile_err =
+                        profile_client::delete_address(&mut self.profile, address.id).err();
+                    if self.profile_edit_address == Some(address.id) {
+                        self.profile_edit_address = None;
+                    }
+                    if self.profile_err.is_none() {
+                        self.toast(cx, "地址已删除");
+                    }
                     self.refresh_profile(cx);
                 }
             }
@@ -7465,7 +8828,9 @@ impl LiyuView {
                 // 不破坏 avatar_session(未裁原图保留);预览/编码按锚点从原图即时裁切。
                 self.avatar_crop_anchor = (self.avatar_crop_anchor + 1) % 9;
                 if self.avatar_session.is_some() {
-                    let name = ["左上","上中","右上","左中","居中","右中","左下","下中","右下"][self.avatar_crop_anchor as usize];
+                    let name = [
+                        "左上", "上中", "右上", "左中", "居中", "右中", "左下", "下中", "右下",
+                    ][self.avatar_crop_anchor as usize];
                     self.set_text(cx, ids!(pf_avatar_anchor), &format!("裁切位置:{name}"));
                     self.profile_err = None;
                     self.refresh_avatar(cx);
@@ -7497,22 +8862,32 @@ impl LiyuView {
                 // 头像不再走 URL 输入框：保存时带上当前 avatar_url（服务端标识
                 // 或 pending: 占位），由 save_profile 按长度校验后写回。
                 let avatar = self.profile.avatar_url.clone();
-                self.profile_err = profile_client::save_profile(&mut self.profile, &name, &avatar).err();
-                if self.profile_err.is_none() { self.toast(cx, "资料已保存"); self.refresh_me(cx); }
+                self.profile_err =
+                    profile_client::save_profile(&mut self.profile, &name, &avatar).err();
+                if self.profile_err.is_none() {
+                    self.toast(cx, "资料已保存");
+                    self.refresh_me(cx);
+                }
                 self.refresh_profile(cx);
             }
             if self.clicked(cx, ids!(pf_phone_save), actions) {
                 let value = self.input_text(cx, ids!(pf_phone));
                 let code = self.input_text(cx, ids!(pf_phone_code));
-                self.profile_err = profile_client::bind_contact(&mut self.profile, true, &value, &code).err();
-                if self.profile_err.is_none() { self.toast(cx, "手机号已保存"); }
+                self.profile_err =
+                    profile_client::bind_contact(&mut self.profile, true, &value, &code).err();
+                if self.profile_err.is_none() {
+                    self.toast(cx, "手机号已保存");
+                }
                 self.refresh_profile(cx);
             }
             if self.clicked(cx, ids!(pf_email_save), actions) {
                 let value = self.input_text(cx, ids!(pf_email));
                 let code = self.input_text(cx, ids!(pf_email_code));
-                self.profile_err = profile_client::bind_contact(&mut self.profile, false, &value, &code).err();
-                if self.profile_err.is_none() { self.toast(cx, "邮箱已保存"); }
+                self.profile_err =
+                    profile_client::bind_contact(&mut self.profile, false, &value, &code).err();
+                if self.profile_err.is_none() {
+                    self.toast(cx, "邮箱已保存");
+                }
                 self.refresh_profile(cx);
             }
             if self.clicked(cx, ids!(pf_addr_add), actions) {
@@ -7520,7 +8895,8 @@ impl LiyuView {
                 let phone = self.input_text(cx, ids!(pf_addr_phone));
                 let address = self.input_text(cx, ids!(pf_addr_text));
                 self.profile_err = if let Some(id) = self.profile_edit_address {
-                    profile_client::update_address(&mut self.profile, id, &name, &phone, &address).err()
+                    profile_client::update_address(&mut self.profile, id, &name, &phone, &address)
+                        .err()
                 } else {
                     profile_client::add_address(&mut self.profile, &name, &phone, &address).err()
                 };
@@ -7545,23 +8921,43 @@ impl LiyuView {
         // AI 草稿闸:本人确认(仅本机记录为已确认,不发送/不扣款)或取消。
         if self.clicked(cx, ids!(me_draft_confirm), actions) {
             let account = profile_client::active_identifier();
-            let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0);
             // 先算 outcome 并取回草稿(结束 draft_gate 不可变借用),再 mutate self。
-            let (confirmed, updated) = if let (Some(g), Some(d)) = (self.draft_gate.as_ref(), self.draft_pending.clone()) {
-                (g.confirm(&account, &d.draft_id, now_ms).is_confirmed(), g.draft(&d.draft_id))
+            let (confirmed, updated) = if let (Some(g), Some(d)) =
+                (self.draft_gate.as_ref(), self.draft_pending.clone())
+            {
+                (
+                    g.confirm(&account, &d.draft_id, now_ms).is_confirmed(),
+                    g.draft(&d.draft_id),
+                )
             } else {
                 (false, None)
             };
             if self.draft_pending.is_some() {
-                self.toast(cx, if confirmed { "草稿已确认(本机记录,未发送)" } else { "草稿已不可确认(超时/已取消)" });
+                self.toast(
+                    cx,
+                    if confirmed {
+                        "草稿已确认(本机记录,未发送)"
+                    } else {
+                        "草稿已不可确认(超时/已取消)"
+                    },
+                );
                 self.draft_pending = updated;
                 self.refresh_me(cx);
             }
         }
         if self.clicked(cx, ids!(me_draft_cancel), actions) {
             let account = profile_client::active_identifier();
-            let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
-            let cancelled = if let (Some(g), Some(d)) = (self.draft_gate.as_ref(), self.draft_pending.clone()) {
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0);
+            let cancelled = if let (Some(g), Some(d)) =
+                (self.draft_gate.as_ref(), self.draft_pending.clone())
+            {
                 g.cancel(&account, &d.draft_id, now_ms);
                 true
             } else {
@@ -7581,20 +8977,33 @@ impl LiyuView {
                     self.refresh_account_nav(cx);
                     continue;
                 }
-                if self.account_edit.is_some() { self.cancel_account_edit(cx); }
+                if self.account_edit.is_some() {
+                    self.cancel_account_edit(cx);
+                }
                 self.account_section = None;
                 self.back_stack.clear();
-                self.account_nav.get_or_insert_with(account_nav::AccountNavModel::new).select(*cat);
+                self.account_nav
+                    .get_or_insert_with(account_nav::AccountNavModel::new)
+                    .select(*cat);
                 match i {
                     0..=2 if self.overlay != Some(Overlay::Profile) => self.open_profile(cx),
                     3..=5 if self.overlay != Some(Overlay::Settings) => self.open_settings(cx),
-                    0..=5 => {},
-                    _ => { self.overlay = None; self.update_page_visibility(cx); }
+                    0..=5 => {}
+                    _ => {
+                        self.overlay = None;
+                        self.update_page_visibility(cx);
+                    }
                 }
                 self.refresh_account_nav(cx);
             }
         }
-        for (id, field) in [(live_id!(pf_name_edit),0),(live_id!(pf_phone_summary),1),(live_id!(pf_email_summary),2),(live_id!(pf_addr_new),3),(live_id!(nk_edit),4)] {
+        for (id, field) in [
+            (live_id!(pf_name_edit), 0),
+            (live_id!(pf_phone_summary), 1),
+            (live_id!(pf_email_summary), 2),
+            (live_id!(pf_addr_new), 3),
+            (live_id!(nk_edit), 4),
+        ] {
             let row_clicked = if field == 1 || field == 2 {
                 self.clicked(cx, &[id, live_id!(air_hit)], actions)
             } else {
@@ -7602,8 +9011,17 @@ impl LiyuView {
             };
             if row_clicked {
                 self.account_edit = Some(field);
-                let initial = match field {0=>self.profile.display_name.clone(),1=>self.profile.phone.clone(),2=>self.profile.email.clone(),4=>self.state.settings.nickname.clone(),_=>String::new()};
-                self.account_nav.as_mut().unwrap().begin_edit(field.to_string(), initial);
+                let initial = match field {
+                    0 => self.profile.display_name.clone(),
+                    1 => self.profile.phone.clone(),
+                    2 => self.profile.email.clone(),
+                    4 => self.state.settings.nickname.clone(),
+                    _ => String::new(),
+                };
+                self.account_nav
+                    .as_mut()
+                    .unwrap()
+                    .begin_edit(field.to_string(), initial);
                 self.profile_err = None;
                 if field == 3 {
                     self.profile_edit_address = None;
@@ -7615,62 +9033,154 @@ impl LiyuView {
                 self.view.widget(cx, ids!(page_me)).redraw(cx);
             }
         }
-        if self.clicked(cx, ids!(account_cancel), actions) { self.cancel_account_edit(cx); }
+        if self.clicked(cx, ids!(account_cancel), actions) {
+            self.cancel_account_edit(cx);
+        }
         let account_enter = match self.account_edit {
-            Some(0)=>self.view.text_input(cx,ids!(pf_name)).returned(actions).is_some(),
-            Some(1)=>self.view.text_input(cx,ids!(pf_phone_code)).returned(actions).is_some(),
-            Some(2)=>self.view.text_input(cx,ids!(pf_email_code)).returned(actions).is_some(),
-            Some(3)=>self.view.text_input(cx,ids!(pf_addr_text)).returned(actions).is_some(),
-            Some(4)=>self.view.text_input(cx,ids!(nk_input)).returned(actions).is_some(),
-            _=>false,
+            Some(0) => self
+                .view
+                .text_input(cx, ids!(pf_name))
+                .returned(actions)
+                .is_some(),
+            Some(1) => self
+                .view
+                .text_input(cx, ids!(pf_phone_code))
+                .returned(actions)
+                .is_some(),
+            Some(2) => self
+                .view
+                .text_input(cx, ids!(pf_email_code))
+                .returned(actions)
+                .is_some(),
+            Some(3) => self
+                .view
+                .text_input(cx, ids!(pf_addr_text))
+                .returned(actions)
+                .is_some(),
+            Some(4) => self
+                .view
+                .text_input(cx, ids!(nk_input))
+                .returned(actions)
+                .is_some(),
+            _ => false,
         };
         if self.clicked(cx, ids!(account_save), actions) || account_enter {
             let err = match self.account_edit {
-                Some(0) => { let value=self.input_text(cx,ids!(pf_name)); let avatar=self.profile.avatar_url.clone(); profile_client::save_profile(&mut self.profile,&value,&avatar).err() },
-                Some(field @ (1|2)) => { let value=self.input_text(cx, if field==1 {ids!(pf_phone)} else {ids!(pf_email)}); let code=self.input_text(cx, if field==1 {ids!(pf_phone_code)} else {ids!(pf_email_code)}); profile_client::bind_contact(&mut self.profile,field==1,&value,&code).err() },
-                Some(4) => { let value=self.input_text(cx,ids!(nk_input)); let e=self.state.set_nickname(&value).err(); if e.is_none() {self.state.save();} e },
-                Some(3) => { let name=self.input_text(cx,ids!(pf_addr_name)); let phone=self.input_text(cx,ids!(pf_addr_phone)); let address=self.input_text(cx,ids!(pf_addr_text)); if let Some(id)=self.profile_edit_address {profile_client::update_address(&mut self.profile,id,&name,&phone,&address).err()} else {profile_client::add_address(&mut self.profile,&name,&phone,&address).err()} },
+                Some(0) => {
+                    let value = self.input_text(cx, ids!(pf_name));
+                    let avatar = self.profile.avatar_url.clone();
+                    profile_client::save_profile(&mut self.profile, &value, &avatar).err()
+                }
+                Some(field @ (1 | 2)) => {
+                    let value = self.input_text(
+                        cx,
+                        if field == 1 {
+                            ids!(pf_phone)
+                        } else {
+                            ids!(pf_email)
+                        },
+                    );
+                    let code = self.input_text(
+                        cx,
+                        if field == 1 {
+                            ids!(pf_phone_code)
+                        } else {
+                            ids!(pf_email_code)
+                        },
+                    );
+                    profile_client::bind_contact(&mut self.profile, field == 1, &value, &code).err()
+                }
+                Some(4) => {
+                    let value = self.input_text(cx, ids!(nk_input));
+                    let e = self.state.set_nickname(&value).err();
+                    if e.is_none() {
+                        self.state.save();
+                    }
+                    e
+                }
+                Some(3) => {
+                    let name = self.input_text(cx, ids!(pf_addr_name));
+                    let phone = self.input_text(cx, ids!(pf_addr_phone));
+                    let address = self.input_text(cx, ids!(pf_addr_text));
+                    if let Some(id) = self.profile_edit_address {
+                        profile_client::update_address(
+                            &mut self.profile,
+                            id,
+                            &name,
+                            &phone,
+                            &address,
+                        )
+                        .err()
+                    } else {
+                        profile_client::add_address(&mut self.profile, &name, &phone, &address)
+                            .err()
+                    }
+                }
                 _ => None,
             };
             self.profile_err = err;
             if err.is_none() {
-                let value=match self.account_edit {Some(0)=>self.profile.display_name.clone(),Some(1)=>self.profile.phone.clone(),Some(2)=>self.profile.email.clone(),Some(4)=>self.state.settings.nickname.clone(),_=>String::new()};
-                self.account_edit=None;
-                if let Some(nav)=self.account_nav.as_mut() {nav.update_draft(value);nav.commit_edit();}
-                self.profile_edit_address=None;
-                self.toast(cx,"已保存");
+                let value = match self.account_edit {
+                    Some(0) => self.profile.display_name.clone(),
+                    Some(1) => self.profile.phone.clone(),
+                    Some(2) => self.profile.email.clone(),
+                    Some(4) => self.state.settings.nickname.clone(),
+                    _ => String::new(),
+                };
+                self.account_edit = None;
+                if let Some(nav) = self.account_nav.as_mut() {
+                    nav.update_draft(value);
+                    nav.commit_edit();
+                }
+                self.profile_edit_address = None;
+                self.toast(cx, "已保存");
             }
             self.refresh_profile(cx);
             self.view.widget(cx, ids!(page_me)).redraw(cx);
         }
 
         if self.overlay == Some(Overlay::DirectOrder) {
-            let choices=self.contact_delivery_choices().into_iter()
-                .skip(self.direct_contact_page*CART_FRIEND_CHIPS.len())
-                .take(CART_FRIEND_CHIPS.len()).collect::<Vec<_>>();
-            for (i,chip) in CART_FRIEND_CHIPS.iter().enumerate(){
-                if self.toggled(cx,&[*chip],actions){
-                    if let Some((label,_,value))=choices.get(i){
-                        self.direct_contact_idx=i;
-                        self.set_text(cx,ids!(ca_recipient_label),label);
-                        self.set_text(cx,ids!(ca_recipient_value),value);
-                        self.set_chip_group(cx,&CART_FRIEND_CHIPS,i);
+            let choices = self
+                .contact_delivery_choices()
+                .into_iter()
+                .skip(self.direct_contact_page * CART_FRIEND_CHIPS.len())
+                .take(CART_FRIEND_CHIPS.len())
+                .collect::<Vec<_>>();
+            for (i, chip) in CART_FRIEND_CHIPS.iter().enumerate() {
+                if self.toggled(cx, &[*chip], actions) {
+                    if let Some((label, _, value)) = choices.get(i) {
+                        self.direct_contact_idx = i;
+                        self.set_text(cx, ids!(ca_recipient_label), label);
+                        self.set_text(cx, ids!(ca_recipient_value), value);
+                        self.set_chip_group(cx, &CART_FRIEND_CHIPS, i);
                     }
                 }
             }
             if self.clicked(cx, ids!(ca_checkout), actions) {
-                let value=self.input_text(cx,ids!(ca_recipient_value));
-                let label=self.input_text(cx,ids!(ca_recipient_label));
-                let kind=if value.contains('@'){"email"}else{"phone"};
-                self.direct_error=if let Some(product)=self.direct_product{
-                    self.commerce.create_order(product,kind,&value,&label).err()
-                }else{Some("请先选择商品")};
-                if self.direct_error.is_none(){self.toast(cx,"订单已生成，可测试支付");}
+                let value = self.input_text(cx, ids!(ca_recipient_value));
+                let label = self.input_text(cx, ids!(ca_recipient_label));
+                let kind = if value.contains('@') {
+                    "email"
+                } else {
+                    "phone"
+                };
+                self.direct_error = if let Some(product) = self.direct_product {
+                    self.commerce
+                        .create_order(product, kind, &value, &label)
+                        .err()
+                } else {
+                    Some("请先选择商品")
+                };
+                if self.direct_error.is_none() {
+                    self.toast(cx, "订单已生成，可测试支付");
+                }
                 self.refresh_direct_order(cx);
             }
             if self.clicked(cx, ids!(ca_pay), actions) {
-                self.direct_error=self.commerce.pay_test().err();
-                if self.direct_error.is_none(){self.toast(cx,"测试支付完成，礼物已送出");}
+                self.direct_error = self.commerce.pay_test().err();
+                if self.direct_error.is_none() {
+                    self.toast(cx, "测试支付完成，礼物已送出");
+                }
                 self.refresh_direct_order(cx);
             }
         }
@@ -7720,6 +9230,9 @@ impl Widget for LiyuView {
             self.auth_gate = self.server_error.is_some() || !profile_client::has_choice();
             if self.server_error.is_none() {
                 self.profile = profile_client::load(&self.state.settings.nickname);
+                if !self.auth_gate {
+                    self.pact_presets = profile_client::contract_templates();
+                }
             }
             self.refresh_all(cx);
             self.set_tab(cx, 0);
@@ -7740,27 +9253,48 @@ impl Widget for LiyuView {
         // 窗口关闭:未确认的 AI 草稿作废(旧确认不可复用)。
         if let Event::WindowCloseRequested(_) = event {
             let account = profile_client::active_identifier();
-            let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0);
             if let (Some(g), Some(d)) = (self.draft_gate.as_ref(), self.draft_pending.clone()) {
                 g.window_closed(&account, &d.draft_id, now_ms);
                 self.draft_pending = None;
             }
         }
-        if self.contact_import_poll.is_event(event).is_some(){
-            let result=self.contact_import_receiver.as_ref().and_then(|rx|rx.try_recv().ok());
-            if let Some(result)=result{self.contact_import_receiver=None;cx.stop_timer(self.contact_import_poll);self.contact_import_poll=Timer::empty();match result{Ok(import)=>self.stage_contacts(cx,import),Err(e)=>self.toast(cx,e)}}
+        if self.contact_import_poll.is_event(event).is_some() {
+            let result = self
+                .contact_import_receiver
+                .as_ref()
+                .and_then(|rx| rx.try_recv().ok());
+            if let Some(result) = result {
+                self.contact_import_receiver = None;
+                cx.stop_timer(self.contact_import_poll);
+                self.contact_import_poll = Timer::empty();
+                match result {
+                    Ok(import) => self.stage_contacts(cx, import),
+                    Err(e) => self.toast(cx, e),
+                }
+            }
         }
         if self.contact_avatar_poll.is_event(event).is_some() {
-            let result = self.contact_avatar_receiver.as_ref().and_then(|rx| rx.try_recv().ok());
+            let result = self
+                .contact_avatar_receiver
+                .as_ref()
+                .and_then(|rx| rx.try_recv().ok());
             if let Some(result) = result {
                 self.contact_avatar_receiver = None;
                 cx.stop_timer(self.contact_avatar_poll);
                 self.contact_avatar_poll = Timer::empty();
                 if let Ok(avatars) = result {
-                    for (key, bytes) in avatars { self.contact_avatar_cache.insert(key, bytes); }
+                    for (key, bytes) in avatars {
+                        self.contact_avatar_cache.insert(key, bytes);
+                    }
                     if self.tab == 3 {
                         self.refresh_contacts(cx);
-                        if self.overlay == Some(Overlay::ContactDetail) { self.refresh_contact_detail(cx); }
+                        if self.overlay == Some(Overlay::ContactDetail) {
+                            self.refresh_contact_detail(cx);
+                        }
                     }
                 }
             }
@@ -7805,7 +9339,11 @@ fn join(base: &[LiveId], id: LiveId) -> Vec<LiveId> {
 
 /// 动态姓名以拉丁字母开头时，在前面的汉字后留一格；固定按钮文案「送给TA」不调用这里。
 fn spaced(name: &str) -> String {
-    if name.chars().next().is_some_and(|c| c.is_ascii_alphanumeric()) {
+    if name
+        .chars()
+        .next()
+        .is_some_and(|c| c.is_ascii_alphanumeric())
+    {
         format!(" {name}")
     } else {
         name.to_string()
@@ -7836,7 +9374,9 @@ fn item_sub(it: &CatalogItem) -> String {
 
 /// 目录里最便宜的一件（回礼预算连最便宜的都不够时的兜底）。
 fn cheapest_item() -> u16 {
-    (0..CATALOG.len() as u16).min_by_key(|&i| item(i).price).unwrap_or(0)
+    (0..CATALOG.len() as u16)
+        .min_by_key(|&i| item(i).price)
+        .unwrap_or(0)
 }
 
 // ---------------------------------------------------------------------------
@@ -7866,7 +9406,12 @@ impl AppModule for LiyuModule {
     fn capabilities(&self) -> &'static [&'static str] {
         &[]
     }
-    fn create(&self, vm: &mut ScriptVm, _open: ValidatedOpen, _handles: InstanceHandles) -> InstanceParts {
+    fn create(
+        &self,
+        vm: &mut ScriptVm,
+        _open: ValidatedOpen,
+        _handles: InstanceHandles,
+    ) -> InstanceParts {
         let value = script_eval!(vm, {
             use mod.widgets.*
             LiyuView {}
@@ -8295,8 +9840,14 @@ mod layout_tests {
                 assert!(view.view.widget(&cx, ids!(account_edit_bar)).visible());
                 assert!(view.view.widget(&cx, ids!(tb_back)).visible());
                 if field == 1 || field == 2 {
-                    assert_eq!(view.input_text(&mut cx, ids!(tb_title)),
-                        if field == 1 { "修改手机号" } else { "修改邮箱" });
+                    assert_eq!(
+                        view.input_text(&mut cx, ids!(tb_title)),
+                        if field == 1 {
+                            "修改手机号"
+                        } else {
+                            "修改邮箱"
+                        }
+                    );
                     assert!(!view.view.widget(&cx, ids!(pf_phone_summary)).visible());
                     assert!(!view.view.widget(&cx, ids!(pf_email_summary)).visible());
                 }
@@ -8359,7 +9910,10 @@ mod layout_tests {
             view.tab = 4;
             view.auth_gate = false;
             view.account_nav = Some(account_nav::AccountNavModel::new());
-            view.account_nav.as_mut().unwrap().select(account_nav::AccountCategory::AccountContact);
+            view.account_nav
+                .as_mut()
+                .unwrap()
+                .select(account_nav::AccountCategory::AccountContact);
             view.set_text(&mut cx, ids!(au_identifier), "old@example.test");
             view.set_text(&mut cx, ids!(au_password), "old password");
             view.update_page_visibility(&mut cx);
@@ -8448,8 +10002,14 @@ mod layout_tests {
             view.auth_gate = false;
             view.overlay = Some(Overlay::Send);
             view.update_page_visibility(&mut cx);
-            assert_eq!(view.view.widget(&cx, ids!(sidebar)).visible(), width >= PHONE_MAX);
-            assert_eq!(view.view.widget(&cx, ids!(tabbar)).visible(), width < PHONE_MAX);
+            assert_eq!(
+                view.view.widget(&cx, ids!(sidebar)).visible(),
+                width >= PHONE_MAX
+            );
+            assert_eq!(
+                view.view.widget(&cx, ids!(tabbar)).visible(),
+                width < PHONE_MAX
+            );
             assert!(view.view.widget(&cx, ids!(topbar)).visible());
         }
     }
@@ -8475,7 +10035,10 @@ mod layout_tests {
         let draft = m.tool("prepare_gift_draft").expect("草稿工具在合并清单里");
         assert_eq!(draft.risk, Risk::Act);
         // brief 不再声称「只有五个只读工具」。
-        assert!(m.brief.contains("prepare_gift_draft"), "brief 应提及可准备草稿");
+        assert!(
+            m.brief.contains("prepare_gift_draft"),
+            "brief 应提及可准备草稿"
+        );
         assert!(m.brief.contains("本机"), "brief 应说明草稿只在本机");
     }
 
@@ -8505,7 +10068,7 @@ mod layout_tests {
         }
         assert_eq!(SWAP_ROWS.len(), EXCHANGE_CHOICES);
         assert_eq!(CAND_BTNS.len(), CANDIDATE_COUNT);
-        assert_eq!(PRESET_CHIPS.len(), PACT_PRESETS.len());
+        assert_eq!(PRESET_CHIPS.len(), 4);
         assert!(cheapest_item() < CATALOG.len() as u16);
     }
 
@@ -8519,7 +10082,10 @@ mod layout_tests {
         assert_eq!(PAY_CHIPS.len(), PAY_METHODS.len());
         // 含糊心愿的每个品类在目录里都至少有一件，送礼的人才有得挑。
         for k in WISH_KINDS {
-            assert!(!wish_candidates(&WishItem::vague(k, 0, "")).is_empty(), "{k}");
+            assert!(
+                !wish_candidates(&WishItem::vague(k, 0, "")).is_empty(),
+                "{k}"
+            );
         }
     }
 
@@ -8576,14 +10142,17 @@ mod layout_tests {
                 contacts::choices(&view.state.contacts[0])[0].1,
                 "+8613800138000"
             );
-            view.contact_avatar_cache.insert("phone:+8613800138000".into(), None);
+            view.contact_avatar_cache
+                .insert("phone:+8613800138000".into(), None);
             let uid = view.view.widget(&cx, ids!(c0.cr_hit)).widget_uid();
             let actions = cx.capture_actions(|cx| {
                 cx.widget_action(uid, ButtonAction::Clicked(KeyModifiers::default()))
             });
             view.handle_actions(&mut cx, &actions);
             assert_eq!(view.overlay, Some(Overlay::ContactDetail));
-            assert!(!view.contact_avatar_cache.contains_key("phone:+8613800138000"));
+            assert!(!view
+                .contact_avatar_cache
+                .contains_key("phone:+8613800138000"));
             assert!(view.view.widget(&cx, ids!(page_contact_detail)).visible());
             let uid = view.view.widget(&cx, ids!(fd_edit)).widget_uid();
             let actions = cx.capture_actions(|cx| {
@@ -8703,8 +10272,13 @@ mod layout_tests {
             view.last_size = size(width, 800.0);
             view.shaping = Some(shaping_for(view.last_size));
             view.state = LiyuState::demo(today_days());
-            let base = view.state.friend_wishlists(today_days()).into_iter()
-                .find(|wish| wish.owner == "林舟").unwrap().clone();
+            let base = view
+                .state
+                .friend_wishlists(today_days())
+                .into_iter()
+                .find(|wish| wish.owner == "林舟")
+                .unwrap()
+                .clone();
             for index in 0..11 {
                 let mut wish = base.clone();
                 wish.id = 10_000 + index;
@@ -8745,7 +10319,10 @@ mod layout_tests {
             view.go_back(&mut cx);
             click(&mut view, &mut cx, ids!(fd_received.st_hit));
             assert_eq!(view.contact_section, ContactSection::Received);
-            assert!(view.contact_section_items.is_empty(), "未揭晓的林舟礼物不能泄露送礼人");
+            assert!(
+                view.contact_section_items.is_empty(),
+                "未揭晓的林舟礼物不能泄露送礼人"
+            );
             view.go_back(&mut cx);
 
             view.open_contact_detail(&mut cx, 1);
@@ -8762,19 +10339,49 @@ mod layout_tests {
 
             view.gift_client.online = true;
             view.gift_client.outbox = vec![
-                gift_client::SentGift { id: 81, recipient_name: "林舟".into(), product_id: 0, state: "paid".into(), ..Default::default() },
-                gift_client::SentGift { id: 82, recipient_name: "陈晓".into(), product_id: 0, state: "paid".into(), ..Default::default() },
+                gift_client::SentGift {
+                    id: 81,
+                    recipient_name: "林舟".into(),
+                    product_id: 0,
+                    state: "paid".into(),
+                    ..Default::default()
+                },
+                gift_client::SentGift {
+                    id: 82,
+                    recipient_name: "陈晓".into(),
+                    product_id: 0,
+                    state: "paid".into(),
+                    ..Default::default()
+                },
             ];
             view.gift_client.inbox = vec![
-                gift_client::ReceivedGift { id: 83, sender_name: Some("林舟".into()), state: "revealed".into(), ..Default::default() },
-                gift_client::ReceivedGift { id: 84, sender_name: None, state: "sealed".into(), ..Default::default() },
+                gift_client::ReceivedGift {
+                    id: 83,
+                    sender_name: Some("林舟".into()),
+                    state: "revealed".into(),
+                    ..Default::default()
+                },
+                gift_client::ReceivedGift {
+                    id: 84,
+                    sender_name: None,
+                    state: "sealed".into(),
+                    ..Default::default()
+                },
             ];
             let sent = view.contact_section_rows("林舟", ContactSection::Sent);
-            assert!(sent.iter().any(|row| row.item == ContactSectionItem::OnlineGift(81)));
-            assert!(!sent.iter().any(|row| row.item == ContactSectionItem::OnlineGift(82)));
+            assert!(sent
+                .iter()
+                .any(|row| row.item == ContactSectionItem::OnlineGift(81)));
+            assert!(!sent
+                .iter()
+                .any(|row| row.item == ContactSectionItem::OnlineGift(82)));
             let received = view.contact_section_rows("林舟", ContactSection::Received);
-            assert!(received.iter().any(|row| row.item == ContactSectionItem::OnlineGift(83)));
-            assert!(!received.iter().any(|row| row.item == ContactSectionItem::OnlineGift(84)));
+            assert!(received
+                .iter()
+                .any(|row| row.item == ContactSectionItem::OnlineGift(83)));
+            assert!(!received
+                .iter()
+                .any(|row| row.item == ContactSectionItem::OnlineGift(84)));
         }
     }
 
