@@ -453,6 +453,14 @@ impl AppRegistry {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "app-liyu")]
+    #[test]
+    fn liyu_uses_the_native_host_for_file_dialogs() {
+        let registry = AppRegistry::default();
+        assert_eq!(registry.module("liyu").map(|module| module.id()), Some("liyu"));
+        assert_eq!(registry.hosting("liyu"), Hosting::Module);
+    }
+
     /// The system apps this build's system-apps.json selects, in its order:
     /// the desktop and the phone pack different sets (no Camera on the
     /// desktop), chosen by `OCTOSENSE_SYSTEM_APPS` in `.cargo/config.toml`.
